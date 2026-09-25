@@ -1,39 +1,47 @@
-# FreQ 🎵
+# FreQ
 
-A dark, glassy Android music player streaming YouTube Music — artwork atmospheres, slowed + reverb flavors, vibe-aware autoplay, lyrics flip, and on-device search.
+Unlock the full potential of music: stream effortlessly with one app!
 
-![Home](screenshot.png) ![Player](screenshot2.png)
+[![Stars](https://img.shields.io/github/stars/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/stargazers) [![Forks](https://img.shields.io/github/forks/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/forks) [![GitHub release](https://img.shields.io/github/v/release/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/releases) [![License](https://img.shields.io/github/license/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/blob/main/LICENSE)
+
+---
 
 ## Features
 
-- **Now Playing** — artwork atmosphere, thumbless seek, transport bar, tap-to-flip lyrics card (LRCLIB, on-device)
-- **Audio flavors** — Normal (1.0x) · SnR (0.8x pitched down + reverb) · Nightcore (1.2x pitched up)
-- **Vibe autoplay** — same artist / language-script / trending-aware Up Next with seed-artist rescue
-- **Search** — on-device InnerTube songs + artists, genre tiles, trending rail, voice input
-- **Library** — likes, playlists, follows, recents (all local, DataStore)
-- **Output chip** — live speaker / headphones / Bluetooth indicator
+Online song, artist & lyrics search with voice input
+On-device InnerTube reads with backend fallback — no accounts, no tracking
+Vibe-aware autoplay (same artist, language, trending) with seed-artist rescue
+Audio flavors: Normal, SnR (0.8x slowed + reverb), Nightcore (1.2x)
+Tap-to-flip lyrics card (LRCLIB, on-device)
+Browse categories + trending rails
+Local library: likes, playlists, follows, recents (on-device DataStore)
+Live speaker / headphones / Bluetooth output chip
+Time-of-day backgrounds with liquid-glass UI
+No ads
+No subscriptions
 
-## Project layout
+---
 
-| Path | What |
-|---|---|
-| `app/` | Android app (Kotlin, Compose Material3, Media3/ExoPlayer, Haze + Prismal glass) |
-| `app/src/main/res/font/` | Bundled Inter typeface (closest open match to SF) |
-| `backend/` | Node/Express YTMusic API (reference deployment, not required by the app) |
-| `backend-python/` | FastAPI/ytmusicapi backend alternative |
+## Screenshots
 
-The app works standalone: catalog/search reads YouTube Music InnerTube straight from the device first, with the `freq-api` backend as fallback.
+| [![Now Playing](screenshot.png)](screenshot.png) | [![Home](screenshot2.png)](screenshot2.png) |
+| --- | --- |
 
-## Build
+---
 
-Requirements: Android Studio (or JDK 17 + Android SDK 37), internet for first Gradle sync.
+## Download
+
+Get the latest universal APK (all ABIs, signed, installs immediately) from
+[GitHub Releases](https://github.com/soumalyajoardar/FreQ/releases/latest).
+
+Or build it yourself:
 
 ```powershell
-# Debug APK (signed with your debug key, installs immediately)
+# Debug APK
 ./gradlew :app:assembleDebug
 # → app/build/outputs/apk/debug/app-debug.apk
 
-# Release APK (universal, all ABIs)
+# Release APK
 ./gradlew :app:assembleRelease
 # → app/build/outputs/apk/release/app-release.apk
 ```
@@ -49,12 +57,72 @@ wave.keyPassword=...
 
 Run unit tests with `./gradlew :app:testDebugUnitTest`.
 
-## Privacy / security notes for contributors
+---
 
-- No accounts, no analytics, no API keys in the repo — library and prefs stay in on-device DataStore.
-- Never commit `local.properties`, keystores (`*.jks`, `*.keystore`), `backend/node_modules/`, or `backend-python/.venv/` — `.gitignore` already excludes them.
-- Background photos are Wikimedia Commons images (see in-code credits where applicable).
+## Project layout
+
+| Path | What |
+|---|---|
+| `app/` | Android app (Kotlin, Compose Material3, Media3/ExoPlayer, Haze + Prismal glass) |
+| `app/src/main/res/font/` | Bundled Inter typeface |
+| `backend/` | Node/Express YTMusic API (reference deployment, not required by the app) |
+| `backend-python/` | FastAPI/ytmusicapi backend alternative |
+
+---
+
+## Contributors
+
+Special thanks to all contributors for their time and effort.
+
+[![Contributors](https://contrib.rocks/image?repo=soumalyajoardar/FreQ)](https://github.com/soumalyajoardar/FreQ/graphs/contributors)
+
+---
+
+## Contribute
+
+Contributions are always welcome. Open an issue first for big changes so we can agree on direction.
+
+---
+
+## F.A.Q
+
+**Does FreQ need an account?**
+No. Everything (likes, playlists, history, settings) lives in on-device storage.
+
+**Where does the music come from?**
+YouTube Music, read straight from the device via InnerTube with a backend fallback. No audio is hosted in this repo.
+
+**Why is my queue off-vibe?**
+If the backend serves a generic list, the app discards it and builds locally — check `adb logcat | Select-String "Autoplay"` to see which path fired.
+
+---
+
+## Credits
+
+[Musify](https://github.com/gokadzev/Musify) — original inspiration for the concept and name. FreQ is independently implemented (native Android/Kotlin) with its own design and branding.
+
+---
+
+## License
+
+```
+Copyright © 2026 Soumalya Joardar
+
+FreQ is free software licensed under GPL v3.0. You may use, modify, and distribute
+this software freely, but must keep the source code open and publicly available, retain
+all copyright notices, disclose all changes made, and use the same GPL v3.0 license.
+```
+
+See the [GNU General Public License](https://github.com/soumalyajoardar/FreQ/blob/main/LICENSE) for full details.
+
+---
 
 ## Disclaimer
 
-Personal, non-commercial project for learning. YouTube Music data comes from public InnerTube endpoints and the community `ytmusic-api` / NewPipe extractors; respect their terms and your local law.
+```
+FreQ and its contributors do not host, own, or distribute any copyrighted audio content.
+The app provides access to content through on-device extractors and external sources.
+All trademarks, songs, audio files, and related content remain the property of their
+respective owners. Users are solely responsible for ensuring their use complies with
+local laws and content-provider terms. The developers assume no liability for misuse.
+```
