@@ -1,0 +1,20 @@
+{
+  "name": "freq-ytmusic-backend",
+  "version": "1.0.0",
+  "description": "FreQ YouTube Music local REST API proxy backend",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ytmusic-api": "^5.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

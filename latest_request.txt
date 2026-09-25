@@ -1,0 +1,914 @@
+<USER_REQUEST>
+M27.4 — Playback Stability, Search History, Queue/Playlist Correctness, Single Home Load & True Floating Transparency
+
+IMPORTANT:
+This is a focused stability/fix milestone.
+
+DO NOT START M28.
+
+We have several regressions/bugs that appeared after M27.3.
+
+The previous M27.3 autoplay implementation worked during testing, but SINGLE-TRACK SEARCH PLAYBACK is now broken again.
+
+Do NOT assume the previous implementation is correct just because tests pass.
+
+You are REQUIRED to:
+- inspect the existing implementation
+- build
+- install
+- launch
+- use ADB
+- interact with the emulator/device
+- inspect logcat
+- inspect UI dumps when useful
+- perform real YTMusic playback
+- test the actual UI
+- add regression tests
+- report exact runtime evidence
+
+Do NOT claim PASS from code inspection alone.
+
+==================================================
+BUG 1 — SEARCH SINGLE-TRACK AUTOPLAY IS BROKEN AGAIN
+==================================================
+
+CURRENT BEHAVIOR:
+
+1. Search for a real song.
+2. Tap the song.
+3. The song plays.
+4. Up Next / Queue is blank.
+5. Autoplay continuation does NOT appear.
+6. The queue only appears after manually adding another song using Play Next.
+
+IMPORTANT:
+This worked approximately 2 minutes ago during the previous milestone and is now broken.
+
+This strongly suggests a race/state synchronization regression.
+
+Playlist playback currently works.
+
+DO NOT "fix" this by simply calling the continuation API again from the UI.
+
+TRACE THE COMPLETE FLOW:
+
+Search result
+→ Track tap
+→ playTrack(...)
+→ current playback state
+→ single-track queue creation
+→ YTMusic continuation request
+→ ContinuationQueueLogic
+→ source resolution
+→ PlaybackManager queue
+→ Media3 playlist
+→ Up Next UI
+
+Determine EXACTLY where the search single-track path differs from the working playlist path.
+
+==================================================
+IMPORTANT — SEARCH PLAYBACK MUST CREATE A QUEUE
+==================================================
+
+When the user taps exactly ONE search result:
+
+Example:
+
+Search:
+"Espresso"
+
+User taps:
+Espresso
+
+Expected immediately after playback begins:
+
+Queue:
+
+Espresso
+↓
+real YTMusic continuation track
+real YTMusic continuation track
+real YTMusic continuation track
+...
+
+Up Next must NOT remain empty while waiting for the user to manually add something.
+
+The continuation request may be asynchronous, but the queue must populate reliably.
+
+Do not require:
+- Play Next
+- Add to Queue
+- opening another screen
+- navigating away and back
+
+==================================================
+INVESTIGATE RACE CONDITIONS
+==================================================
+
+Inspect all of the following:
+
+- activePlaybackToken
+- playTrack()
+- playQueue()
+- scheduleAutoplayFor()
+- continuation request
+- queue state updates
+- Media3 playlist mutation
+- MediaController playlist
+- currentTrack
+- currentQueue
+- currentQueueIndex
+- isExplicitQueue
+- onMediaItemTransition
+- PLAYLIST_CHANGED
+- source resolution
+- queue synchronization
+- stale coroutine cancellation
+- collectLatest
+- IO/Main transitions
+
+Look specifically for:
+
+A. continuation request starting before current track state is established
+
+B. continuation request being cancelled when playTrack changes state
+
+C. activePlaybackToken being invalidated by the initial Media3 playlist event
+
+D. queue being appended to state but not Media3
+
+E. Media3 playlist being updated and then overwritten by another state synchronization
+
+F. a single-track queue being incorrectly treated as an explicit queue
+
+G. `isExplicitQueue` becoming true for search track taps
+
+H. continuation request returning after another queue synchronization has already replaced the queue
+
+I. current queue state being empty at the moment the continuation result is applied
+
+J. source-resolution failures causing all continuation items to disappear
+
+K. queue state and Media3 playlist having different IDs/order
+
+Do NOT add arbitrary delays such as:
+delay(500)
+delay(1000)
+
+Do NOT "fix" races with sleeps.
+
+Fix the state/ownership/order of operations.
+
+==================================================
+SINGLE AUTHORITATIVE QUEUE
+==================================================
+
+There must be one authoritative playback sequence.
+
+For a single-track search tap:
+
+PlaybackManager queue
+=
+Media3 playlist
+=
+QueueScreen Up Next
+
+except for tracks that are genuinely unplayable and therefore intentionally skipped.
+
+The UI must never show an empty queue when Media3 already contains valid continuation tracks.
+
+The UI must never show continuation tracks that are not actually in the playable queue.
+
+==================================================
+BUG 1B — CONTINUATION THUMBNAILS DISAPPEAR
+==================================================
+
+When the continuation queue previously worked, the queue track thumbnails disappeared.
+
+Fix this at the data/model boundary.
+
+Inspect:
+
+- YtMusic DTO mapping
+- NormalizedTrack
+- MediaTrack
+- artworkUrl
+- continuation response mapping
+- QueueScreen artwork
+- MediaMetadata artworkUri
+- MediaItem metadata
+
+Every continuation track must preserve its artwork URL.
+
+For each imported continuation track verify:
+
+track.id
+track.title
+track.artist
+track.album
+track.duration
+track.artworkUrl
+
+are populated where available.
+
+IMPORTANT:
+
+Do NOT generate placeholder artwork if real artwork exists.
+
+Do NOT download a separate thumbnail source unnecessarily.
+
+Use the same high-resolution artwork URL upgrade logic already used by normal YTMusic catalog tracks.
+
+Verify:
+
+Search single track
+→ continuation queue
+→ Queue screen
+
+and confirm every continuation item has real artwork.
+
+Also verify artwork remains present after:
+- navigating Home
+- opening Queue
+- entering Now Playing
+- advancing to the next continuation track
+
+==================================================
+AUTOMATED TESTS FOR BUG 1
+==================================================
+
+Add regression tests proving:
+
+1. Search single-track playback is NOT an explicit queue.
+2. Search single-track playback schedules continuation.
+3. Continuation result survives token/state synchronization.
+4. Continuation queue is appended to Media3.
+5. Queue state and Media3 IDs match.
+6. Continuation artworkUrl is preserved.
+7. Current track is excluded.
+8. Duplicate tracks are excluded.
+9. Explicit album/playlist playback does NOT fetch continuation.
+
+==================================================
+RUNTIME TEST FOR BUG 1
+==================================================
+
+Do this on the actual running app.
+
+1. Fresh launch.
+2. Search for a real song.
+3. Tap exactly ONE search result.
+4. Do NOT tap Play Next.
+5. Do NOT manually add anything to Queue.
+6. Open Queue.
+7. Verify Up Next contains many real continuation tracks.
+8. Verify every visible continuation track has artwork.
+9. Return to Now Playing.
+10. Let the current song advance naturally.
+11. Verify the next continuation song automatically starts.
+12. Open Queue again.
+13. Verify remaining continuation tracks still exist.
+
+Repeat with at least TWO different search tracks.
+
+The second test is important because the bug is intermittent.
+
+==================================================
+BUG 2 — ADD SEARCH HISTORY
+==================================================
+
+Add a proper Search History feature.
+
+DESIRED BEHAVIOR:
+
+When the user searches:
+
+"espresso"
+
+that query should be saved.
+
+Next time Search opens:
+
+Recent Searches
+- espresso
+
+When another query is searched:
+
+"midnight"
+
+Recent Searches
+- midnight
+- espresso
+
+REQUIREMENTS:
+
+A. Store actual user-entered search queries.
+
+B. Normalize whitespace.
+
+C. Do not store blank queries.
+
+D. Deduplicate identical queries.
+
+E. Most recent query moves to the front.
+
+F. Keep a sensible maximum history, e.g. 10–20 queries.
+
+G. Persist history using the existing DataStore/preferences architecture.
+
+H. Do NOT create another persistence system.
+
+I. Search history should survive:
+- navigation
+- Activity recreation
+- force-stop
+- relaunch
+
+J. Tapping a recent search should populate/search that query.
+
+K. Provide a way to remove:
+- one search entry
+- optionally clear all search history
+
+L. Do not require an account.
+
+M. Do not upload search history to the backend.
+
+N. Do not expose it anywhere outside the Search screen.
+
+==================================================
+SEARCH HISTORY UI
+==================================================
+
+When the search field is empty:
+
+Show:
+
+Recent Searches
+
+[ search icon ] Espresso        [ X ]
+[ search icon ] Midnight        [ X ]
+[ search icon ] Birds of a Feather [ X ]
+
+Use the existing FreQ glass language.
+
+Do NOT create giant cards.
+
+Keep it compact and premium.
+
+When there is no search history:
+show the existing honest empty/idle Search state.
+
+Do NOT show fake history.
+
+When the user begins typing:
+Recent Searches may disappear and normal search behavior takes over.
+
+==================================================
+AUTOMATED SEARCH HISTORY TESTS
+==================================================
+
+Test:
+
+- save query
+- deduplicate
+- reorder
+- max size
+- persistence
+- blank rejection
+- delete one
+- clear all
+- tapping history restores query
+
+==================================================
+BUG 3 — PLAYLIST TAP DOES NOT START THE SELECTED MUSIC
+==================================================
+
+CURRENT BUG:
+
+A song is already playing.
+
+Then:
+
+User opens a playlist.
+
+User taps a different song in that playlist.
+
+EXPECTED:
+
+The selected song immediately becomes the current track.
+
+CURRENT:
+
+The previously playing song continues.
+
+The timeline continues from the previous song.
+
+This means the UI selection and PlaybackManager/Media3 current item are getting out of sync.
+
+This is a CORE PLAYBACK BUG.
+
+==================================================
+TRACE PLAYLIST PLAYBACK
+==================================================
+
+Inspect:
+
+PlaylistDetailScreen
+→ playQueue(...)
+→ PlaybackManager
+→ queue/index
+→ Media3 playlist
+→ currentMediaItemIndex
+→ currentTrack
+→ timeline/progress state
+
+Determine whether:
+
+A. playQueue() receives the wrong index
+
+B. queue IDs are correct but current index is stale
+
+C. Media3 playlist is rebuilt but playWhenReady/current index isn't updated
+
+D. old playback queue survives the new playQueue call
+
+E. activePlaybackToken rejects the new operation
+
+F. `PLAYLIST_CHANGED` synchronization overwrites the newly selected index
+
+G. currentTrack state is updated before Media3 and then overwritten by the old Media3 state
+
+H. queue source resolution causes the selected index to be lost
+
+I. repeat/shuffle mapping changes the requested index incorrectly
+
+J. the selected track is inserted but playback starts from the old index
+
+Do not patch only PlaylistDetailScreen.
+
+Fix PlaybackManager/Media3 synchronization at the authoritative layer.
+
+==================================================
+EXPECTED PLAYQUEUE SEMANTICS
+==================================================
+
+If playlist is:
+
+A
+B
+C
+D
+E
+
+and user taps C:
+
+PlaybackManager:
+
+queue = [A,B,C,D,E]
+queueIndex = 2
+currentTrack = C
+
+Media3:
+
+playlist = [A,B,C,D,E]
+currentMediaItemIndex = 2
+currentMediaItem = C
+playWhenReady = true
+
+Timeline starts from C.
+
+No stale A/B playback.
+
+==================================================
+RUNTIME TEST
+==================================================
+
+1. Start playing song A.
+2. Open a real YTMusic playlist.
+3. Tap song C.
+4. Immediately verify:
+   - title = C
+   - artwork = C
+   - artist = C
+   - progress starts at C
+   - Mini Player = C
+   - Now Playing = C
+5. Wait several seconds.
+6. Confirm timeline belongs to C.
+7. Tap another playlist song.
+8. Verify it changes again.
+
+Repeat at least 3 times.
+
+Also test:
+- album
+- user playlist if available
+
+==================================================
+BUG 4 — HOME LOADS TWICE
+==================================================
+
+CURRENT:
+
+User goes:
+
+Home
+→ Library
+→ Home
+
+and Home appears to load twice.
+
+The desired behavior:
+
+Home should load once when the app opens.
+
+Switching tabs should NOT unnecessarily re-fetch/re-run the entire Home loading pipeline.
+
+==================================================
+IMPORTANT DISTINCTION
+==================================================
+
+Home data may still update when:
+
+- recently played changes
+- playback state changes
+- saved library state changes
+- theme changes
+
+But that should be reactive StateFlow/state updates.
+
+Do NOT perform the full catalog Home fetch every time the Home composable recomposes or every time the Home tab becomes visible.
+
+==================================================
+TRACE
+==================================================
+
+Inspect:
+
+- HomeScreen
+- MainActivity
+- WaveNavigation
+- repository StateFlows
+- LaunchedEffect
+- remember
+- key(...)
+- navigation back stack
+- tab switching
+- lifecycle observers
+
+Find duplicate triggers such as:
+
+LaunchedEffect(Unit)
+
+combined with:
+
+LaunchedEffect(navBackStackEntry)
+
+combined with:
+
+MainActivity collecting/re-requesting data
+
+or:
+
+HomeScreen recreated when returning to Home.
+
+==================================================
+DESIRED ARCHITECTURE
+==================================================
+
+Home catalog data should have an appropriate lifecycle owner.
+
+Prefer:
+
+MainActivity/ViewModel-level state
+
+or an existing repository StateFlow/cache
+
+rather than fetching everything from scratch inside HomeScreen every time.
+
+The Home screen should subscribe to state.
+
+When Home is revisited:
+
+render existing state immediately.
+
+Only fetch/revalidate if the existing architecture explicitly determines the data is stale/missing.
+
+Do NOT blindly introduce a long arbitrary cache timeout.
+
+Do NOT break refresh/retry behavior.
+
+==================================================
+RUNTIME TEST
+==================================================
+
+Add temporary diagnostic logging if necessary:
+
+[HomeLoad] START
+[HomeLoad] COMPLETE
+
+Then test:
+
+1. Fresh app launch.
+2. Record number of Home loads.
+3. Home → Search → Home.
+4. Home → Library → Home.
+5. Home → Queue → Home.
+6. Home → Settings → Home.
+
+Expected:
+
+Initial app opening:
+ONE Home load.
+
+Returning to Home:
+NO duplicate full Home load.
+
+Recently Played/playback changes should update the existing Home state without triggering duplicate catalog fetches.
+
+Remove unnecessary verbose diagnostics after fixing, or demote them appropriately.
+
+==================================================
+BUG 5 — MINI PLAYER + BOTTOM NAV BACKGROUND MUST ACTUALLY BE TRANSPARENT
+==================================================
+
+The user has confirmed the previous changes still do not visually achieve the desired result.
+
+We are changing the visual requirement.
+
+The user wants the BACKGROUND of these floating elements to be substantially more transparent.
+
+The desired result:
+
+Actual Home background
+        ↓
+   [ Mini Player ]
+        ↓
+   actual background visible
+        ↓
+[ Bottom Navigation ]
+        ↓
+actual background
+        ↓
+system gesture area
+
+The Mini Player and Bottom Navigation should NOT look like solid dark cards floating over the app.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do NOT make the entire app transparent.
+
+Do NOT remove the glass objects themselves.
+
+Instead:
+
+Make the GLASS SURFACE itself much more translucent.
+
+The background/artwork/content behind the surface should visibly show through.
+
+The user should immediately be able to see that these are transparent glass objects.
+
+==================================================
+TARGET
+==================================================
+
+Use a visibly transparent glass treatment.
+
+For dark theme:
+
+- substantially lower surface alpha than current ~0.90
+- start testing around 0.55–0.70
+- tune for readability
+- preserve border/highlight
+- preserve subtle shadow
+
+For light theme:
+
+- start around 0.55–0.70
+- tune against bright/dark content
+- preserve text contrast
+
+Do NOT automatically preserve the old 0.90–0.91 alpha merely because an existing readability test expects it.
+
+If the old test blocks the intended visual result:
+UPDATE THE TEST to validate the new intended transparency/readability range.
+
+Do not weaken accessibility.
+
+==================================================
+IMPORTANT VISUAL RULE
+==================================================
+
+Transparency does NOT mean:
+- invisible
+- no border
+- no shadow
+- no glass
+- unreadable text
+
+It means:
+
+background visibly passes through the surface.
+
+Use:
+- translucent fill
+- subtle blur/glass approximation if already supported
+- thin border
+- subtle highlight
+- restrained shadow
+
+No:
+- opaque black
+- opaque blue
+- cyan gradient
+- giant dark rectangle
+
+==================================================
+MINI PLAYER
+==================================================
+
+Make Mini Player clearly transparent.
+
+The artwork/background behind it should be visibly detectable through the glass surface.
+
+Do not reduce the artwork thumbnail itself.
+
+Keep:
+- Previous
+- Play/Pause
+- Next
+- title
+- artist
+- progress
+
+==================================================
+BOTTOM NAVIGATION
+==================================================
+
+Make the Bottom Navigation capsule clearly transparent.
+
+The Home background should visibly show through it.
+
+Keep:
+- Home
+- Search
+- Library
+- selected indicator
+- accessibility
+- 44dp+ touch targets
+
+==================================================
+RUNTIME VISUAL ACCEPTANCE
+==================================================
+
+Take screenshots with:
+
+1. Home + Mini Player + Bottom Nav
+2. Home + no Mini Player + Bottom Nav
+3. Search + Mini Player + Bottom Nav
+4. Library + Mini Player + Bottom Nav
+
+Dark and light.
+
+The screenshot must visibly demonstrate:
+
+BACKGROUND → GLASS → BACKGROUND
+
+not:
+
+BACKGROUND → DARK CARD → BACKGROUND
+
+==================================================
+REGRESSION SAFETY
+==================================================
+
+Do NOT regress:
+
+- M27.3 autoplay
+- explicit playlist queue
+- Recently Played
+- Mini Player Next/Previous
+- Now Playing
+- MediaSession
+- background playback
+- YTMusic continuation API
+- artwork
+- dark/light themes
+
+==================================================
+TESTING REQUIREMENTS
+==================================================
+
+Run:
+
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
+./gradlew installDebug
+
+Then perform runtime tests.
+
+Minimum runtime matrix:
+
+A. Search single-track autoplay
+B. Search continuation artwork
+C. Playlist selected-track playback
+D. Search history
+E. Home navigation load count
+F. Mini Player transparency
+G. Bottom Nav transparency
+H. Dark theme
+I. Light theme
+J. Background/return playback
+
+==================================================
+FINAL REPORT
+==================================================
+
+Report EXACTLY:
+
+1. Starting test count
+2. Final test count
+3. Test failures/errors
+4. Build/install result
+
+5. Search single-track autoplay:
+   - root cause
+   - exact fix
+   - runtime evidence
+   - two separate search-song tests
+
+6. Continuation artwork:
+   - root cause
+   - exact fix
+   - screenshot/runtime evidence
+
+7. Search history:
+   - persistence implementation
+   - UI behavior
+   - runtime evidence
+
+8. Playlist selected-track bug:
+   - root cause
+   - exact fix
+   - 3 runtime track-selection tests
+
+9. Home duplicate loading:
+   - root cause
+   - load count on initial launch
+   - load count after tab switching
+   - exact fix
+
+10. Mini Player transparency:
+    - old alpha
+    - new alpha
+    - dark runtime evidence
+    - light runtime evidence
+
+11. Bottom Navigation transparency:
+    - old alpha
+    - new alpha
+    - dark runtime evidence
+    - light runtime evidence
+
+12. Explicit queue preservation
+
+13. Recently Played
+
+14. Production mock/fake audit
+
+15. Automated tests
+
+16. Build
+
+17. Remaining bugs/limitations
+
+CRITICAL:
+
+Do not claim search autoplay PASS because Up Next eventually appears.
+
+The selected search track must produce a continuation queue without manually adding anything.
+
+Do not claim playlist playback PASS because the title changes.
+
+Verify that the selected track's actual Media3 current index, timeline, artwork, title and playback position all correspond to the selected track.
+
+Do not claim Home load-once PASS from code inspection.
+
+Measure actual load behavior.
+
+Do not claim transparency PASS because a modifier says Color.Transparent.
+
+The rendered surface must visibly show the background through the Mini Player and Bottom Navigation.
+
+Do not start M28.
+STOP AFTER M27.4.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-22T17:26:03+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Gemini 3.7 Flash (Medium) to Gemini 3.8 Flash (Low). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

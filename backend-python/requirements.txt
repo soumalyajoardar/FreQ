@@ -1,0 +1,6 @@
+fastapi>=0.110.0
+uvicorn>=0.28.0
+ytmusicapi>=1.8.0
+yt-dlp>=2024.8.6
+requests>=2.28.0
+pydantic>=2.0.0

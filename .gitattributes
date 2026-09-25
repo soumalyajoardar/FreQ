@@ -1,0 +1,12 @@
+* text=auto
+*.kt text eol=lf
+*.kts text eol=lf
+*.java text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.jpg binary
+*.png binary
+*.ttf binary

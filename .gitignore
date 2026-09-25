@@ -1,0 +1,46 @@
+# Gradle / Android build outputs
+.gradle
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Local SDK + signing overrides (machine-specific, may carry secrets)
+local.properties
+
+# Release keystores must NEVER be committed — the build falls back to the
+# local debug keystore; production keys live only in local.properties paths.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# APKs (build artifacts, incl. 20MB+ universals)
+/*.apk
+*.apk
+*.aab
+*.ap_
+
+# Android Studio / IntelliJ (workspace carries local paths)
+.idea/
+*.iml
+
+# Node backend deps + deploys
+backend/node_modules/
+**/.vercel/
+
+# Python backend env + caches + deploys
+backend-python/.venv/
+backend-python/__pycache__/
+backend-python/.vercel/
+__pycache__/
+*.py[cod]
+.venv/
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
