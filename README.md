@@ -4,28 +4,23 @@ Unlock the full potential of music: stream effortlessly with one app!
 
 [![Stars](https://img.shields.io/github/stars/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/stargazers) [![Forks](https://img.shields.io/github/forks/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/forks) [![GitHub release](https://img.shields.io/github/v/release/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/releases) [![License](https://img.shields.io/github/license/soumalyajoardar/FreQ?style=flat-square&color=D3B5FD)](https://github.com/soumalyajoardar/FreQ/blob/main/LICENSE)
 
+A great music app that simply respects you: no ads, no subscriptions, no accounts, no tracking. Open it and listen — your library never leaves your phone.
+
 ---
 
 ## Features
 
-Online song, artist & lyrics search with voice input
-On-device InnerTube reads with backend fallback — no accounts, no tracking
-Vibe-aware autoplay (same artist, language, trending) with seed-artist rescue
-Audio flavors: Normal, SnR (0.8x slowed + reverb), Nightcore (1.2x)
-Tap-to-flip lyrics card (LRCLIB, on-device)
-Browse categories + trending rails
-Local library: likes, playlists, follows, recents (on-device DataStore)
+Vibe-aware autoplay that matches your language, artist and mood
+Audio flavors — Normal, SnR (slowed + reverb), Nightcore (sped up)
+Online song, artist and lyrics search with voice input
+Tap-to-flip lyrics card, fetched on-device
+Browse categories and trending rails
+Local library — likes, playlists, follows, recents, all on-device
 Live speaker / headphones / Bluetooth output chip
 Time-of-day backgrounds with liquid-glass UI
 No ads
 No subscriptions
-
----
-
-## Screenshots
-
-| [![Now Playing](screenshot.png)](screenshot.png) | [![Home](screenshot2.png)](screenshot2.png) |
-| --- | --- |
+No accounts
 
 ---
 
@@ -94,12 +89,6 @@ YouTube Music, read straight from the device via InnerTube with a backend fallba
 
 **Why is my queue off-vibe?**
 If the backend serves a generic list, the app discards it and builds locally — check `adb logcat | Select-String "Autoplay"` to see which path fired.
-
----
-
-## Credits
-
-[Musify](https://github.com/gokadzev/Musify) — original inspiration for the concept and name. FreQ is independently implemented (native Android/Kotlin) with its own design and branding.
 
 ---
 
