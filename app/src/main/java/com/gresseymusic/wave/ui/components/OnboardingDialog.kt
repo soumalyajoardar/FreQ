@@ -66,6 +66,7 @@ fun OnboardingDialog(
             usePlatformDefaultWidth = false,
         ),
     ) {
+        ApplyDialogBackgroundBlur()
         Box(
             modifier = modifier
                 .fillMaxWidth(0.92f)

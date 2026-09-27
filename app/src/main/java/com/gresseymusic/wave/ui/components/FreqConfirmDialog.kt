@@ -56,6 +56,7 @@ fun FreqConfirmDialog(
             )
         },
         text = {
+            ApplyDialogBackgroundBlur()
             Text(
                 text = message,
                 style = Typography.bodyMedium,

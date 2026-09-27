@@ -112,6 +112,7 @@ fun AddToPlaylistDialog(
             }
         },
         text = {
+            ApplyDialogBackgroundBlur()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

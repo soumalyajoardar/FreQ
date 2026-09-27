@@ -425,6 +425,69 @@ object FreqIcons {
         }
     }.build()
 
+    val Album: ImageVector = ImageVector.Builder(
+        name = "FreqAlbum",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        // Vinyl disc: outer ring cut by an even-odd inner hole.
+        path(
+            fill = SolidColor(Color.White),
+            pathFillType = PathFillType.EvenOdd,
+        ) {
+            disc(12f, 12f, 9f)
+            disc(12f, 12f, 3.2f)
+        }
+    }.build()
+
+    val MusicNote: ImageVector = ImageVector.Builder(
+        name = "FreqMusicNote",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        // Quaver: round head, stem, flag.
+        path(fill = SolidColor(Color.White)) {
+            disc(8.2f, 17.6f, 2.7f)
+        }
+        path(fill = SolidColor(Color.White)) {
+            moveTo(10.4f, 17.4f)
+            lineTo(10.4f, 5.8f)
+            lineTo(16.5f, 7.6f)
+            lineTo(16.5f, 9.4f)
+            lineTo(11.6f, 7.8f)
+            lineTo(11.6f, 17.4f)
+            close()
+        }
+    }.build()
+
+    val Download: ImageVector = ImageVector.Builder(
+        name = "FreqDownload",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        // Arrow down into a tray, one stroked path.
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 1.8f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        ) {
+            moveTo(12f, 4f)
+            lineTo(12f, 15f)
+            moveTo(7f, 10.5f)
+            lineTo(12f, 15f)
+            lineTo(17f, 10.5f)
+            moveTo(5f, 19.5f)
+            lineTo(19f, 19.5f)
+        }
+    }.build()
+
     val Shuffle: ImageVector = ImageVector.Builder(
         name = "FreqShuffle",
         defaultWidth = 24.dp,

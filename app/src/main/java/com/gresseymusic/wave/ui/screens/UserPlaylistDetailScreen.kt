@@ -226,7 +226,7 @@ fun UserPlaylistDetailScreen(
                     text = if (playlist.tracks.isEmpty()) "Play" else "Play Playlist",
                     onClick = {
                         if (playlist.tracks.isNotEmpty()) {
-                            playbackManager.playQueue(playlist.tracks)
+                            if (!playbackManager.playQueue(playlist.tracks)) onOpenNowPlaying()
                         }
                     },
                     enabled = playlist.tracks.isNotEmpty(),
@@ -251,7 +251,7 @@ fun UserPlaylistDetailScreen(
                                 leadingLabel = (index + 1).toString(),
                                 onPlay = {
                                     // Playlist ordering becomes the queue context.
-                                    playbackManager.playQueue(playlist.tracks, index)
+                                    if (!playbackManager.playQueue(playlist.tracks, index)) onOpenNowPlaying()
                                 },
                                 onPlayNext = { playbackManager.playNext(track) },
                                 onAddToQueue = { playbackManager.addToQueue(track) },
@@ -310,7 +310,9 @@ private fun UserPlaylistTopBar(
 ) {
     val colors = FreqTheme.colors
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = FreqSpacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

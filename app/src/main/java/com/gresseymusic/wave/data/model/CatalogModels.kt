@@ -37,6 +37,22 @@ data class FoundArtist(
     val artworkUrl: String? = null,
 )
 
+/** One synced lyric line: millisecond cue + text. */
+data class SyncedLyricLine(
+    val timeMs: Long,
+    val text: String,
+)
+
+/**
+ * Full lyric payload: plain lines (always when lyrics exist) plus
+ * timestamped lines for karaoke highlighting when the source carries
+ * them (LRCLIB synced lyrics). Empty [synced] means static display.
+ */
+data class TrackLyrics(
+    val lines: List<String>,
+    val synced: List<SyncedLyricLine> = emptyList(),
+)
+
 data class AlbumItem(
     val id: String,
     val title: String,

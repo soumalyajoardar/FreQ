@@ -39,8 +39,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -304,6 +306,8 @@ fun WaveMiniPlayer(
 
             // Previous / Play-Pause / Next: 44dp+ targets, all visible glass
             // circles. Symbols sit inside tangible buttons — no bare icons.
+            // Every tap ticks haptically (system setting respected).
+            val haptics = LocalHapticFeedback.current
             FreqGlassSurface(
                 modifier = Modifier
                     .size(FreqSpacing.touchTargetDense)
@@ -313,7 +317,10 @@ fun WaveMiniPlayer(
                         indication = ripple(),
                         interactionSource = remember { MutableInteractionSource() },
                         onClickLabel = "Previous track",
-                        onClick = onPreviousClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                            onPreviousClick()
+                        },
                     ),
                 tone = FreqGlassTone.Floating,
                 shape = FreqShapes.circle,
@@ -338,7 +345,10 @@ fun WaveMiniPlayer(
                         indication = ripple(),
                         interactionSource = remember { MutableInteractionSource() },
                         onClickLabel = if (isPlaying) "Pause" else "Play",
-                        onClick = onPlayPauseClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayPauseClick()
+                        },
                     ),
                 tone = FreqGlassTone.Floating,
                 shape = FreqShapes.circle,
@@ -371,7 +381,10 @@ fun WaveMiniPlayer(
                         indication = ripple(),
                         interactionSource = remember { MutableInteractionSource() },
                         onClickLabel = "Next track",
-                        onClick = onNextClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                            onNextClick()
+                        },
                     ),
                 tone = FreqGlassTone.Floating,
                 shape = FreqShapes.circle,

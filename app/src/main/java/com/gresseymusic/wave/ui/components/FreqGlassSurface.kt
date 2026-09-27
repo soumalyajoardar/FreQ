@@ -121,7 +121,7 @@ fun FreqGlassSurface(
                         Modifier
                     }
                 )
-                .background(style.fill)
+                .background(style.fill, shape)
                 .background(
                     brush = diffusion,
                     shape = shape,

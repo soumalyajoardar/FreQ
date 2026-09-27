@@ -1,6 +1,9 @@
 package com.gresseymusic.wave
 
+import android.app.DownloadManager
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,10 +23,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -33,6 +40,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gresseymusic.wave.data.library.LocalLibraryRepositoryImpl
 import com.gresseymusic.wave.data.library.LocalLibraryRepositoryProvider
+import com.gresseymusic.wave.data.library.DownloadedTracksRepository
+import com.gresseymusic.wave.data.library.LocalDownloadedTracks
 import com.gresseymusic.wave.data.remote.YtMusicApiClient
 import com.gresseymusic.wave.data.remote.YtMusicDirectClient
 import com.gresseymusic.wave.data.remote.YtMusicPlaybackProvider
@@ -42,12 +51,15 @@ import com.gresseymusic.wave.data.settings.LocalSearchHistory
 import com.gresseymusic.wave.data.settings.LocalUserPreferences
 import com.gresseymusic.wave.data.settings.SearchHistory
 import com.gresseymusic.wave.data.settings.UserPreferences
+import com.gresseymusic.wave.data.update.GithubRelease
+import com.gresseymusic.wave.data.update.UpdateChecker
 import com.gresseymusic.wave.ui.screens.LocalHomeCatalogState
 import com.gresseymusic.wave.ui.screens.ProvideHomeCatalogState
 import com.gresseymusic.wave.navigation.WaveNavGraph
 import com.gresseymusic.wave.player.LocalPlaybackManager
 import com.gresseymusic.wave.player.PlaybackManager
 import com.gresseymusic.wave.ui.components.FreqBackground
+import com.gresseymusic.wave.ui.components.FreqConfirmDialog
 import com.gresseymusic.wave.ui.components.WaveBottomBar
 import com.gresseymusic.wave.ui.components.WaveMiniPlayer
 import com.gresseymusic.wave.ui.theme.FreqTheme
@@ -60,6 +72,7 @@ import dev.chrisbanes.haze.haze
 import com.gresseymusic.wave.ui.theme.LocalHazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 
 
@@ -104,6 +117,12 @@ class MainActivity : ComponentActivity() {
             }
             val userPreferences = remember { UserPreferences(appContext) }
             val searchHistory = remember { SearchHistory(appContext) }
+            val downloadsRepository = remember { DownloadedTracksRepository(appContext) }
+            LaunchedEffect(playbackManager, downloadsRepository) {
+                playbackManager.downloadRecorder = { downloadId, track ->
+                    downloadsRepository.recordDownload(downloadId, track)
+                }
+            }
 
             CompositionLocalProvider(
                 LocalMusicRepository provides musicRepository,
@@ -111,6 +130,7 @@ class MainActivity : ComponentActivity() {
                 LocalPlaybackManager provides playbackManager,
                 LocalUserPreferences provides userPreferences,
                 LocalSearchHistory provides searchHistory,
+                LocalDownloadedTracks provides downloadsRepository,
             ) {
                 // FreQ is dark-only: no theme selection, no system follow.
                 FreqTheme {
@@ -174,6 +194,100 @@ fun WaveAppShell() {
         }
     }
 
+    // Auto-update from GitHub (M28r): first launch prompts once; the
+    // Settings toggle re-arms checks. Newer tags download via
+    // DownloadManager (system notification, user taps to install).
+    val context = LocalContext.current
+    val userPreferences = LocalUserPreferences.current
+    val updateScope = rememberCoroutineScope()
+    val promptShown by userPreferences.updatePromptShownFlow.collectAsState(initial = true)
+    val autoUpdateEnabled by userPreferences.autoUpdateEnabledFlow.collectAsState(initial = false)
+    var showUpdatePrompt by remember { mutableStateOf(false) }
+    var pendingRelease by remember { mutableStateOf<GithubRelease?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+
+    fun checkForUpdate() {
+        updateScope.launch {
+            val release = try {
+                UpdateChecker().fetchLatestRelease()
+            } catch (_: Exception) {
+                null
+            }
+            if (release == null) return@launch
+            val current = UpdateChecker.installedVersionName(context)
+            if (UpdateChecker.isNewerVersion(current, release.tag)) {
+                pendingRelease = release
+                showUpdateDialog = true
+            }
+        }
+    }
+
+    fun downloadRelease(release: GithubRelease) {
+        val url = release.apkUrl ?: return
+        try {
+            val manager = context.getSystemService(DownloadManager::class.java) ?: return
+            val fileName = "FreQ-${release.tag}.apk"
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle(fileName)
+                .setDescription("FreQ update")
+                .setNotificationVisibility(
+                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
+                )
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                .setMimeType("application/vnd.android.package-archive")
+            manager.enqueue(request)
+        } catch (_: Exception) {
+        }
+    }
+
+    LaunchedEffect(promptShown) {
+        if (!promptShown) showUpdatePrompt = true
+    }
+    LaunchedEffect(autoUpdateEnabled) {
+        if (autoUpdateEnabled) checkForUpdate()
+    }
+
+    if (showUpdatePrompt && !promptShown) {
+        FreqConfirmDialog(
+            title = "Auto-update FreQ?",
+            message = "Check GitHub for new versions when the app opens. You can change this anytime in Settings.",
+            confirmText = "Turn on",
+            dismissText = "Not now",
+            onConfirm = {
+                showUpdatePrompt = false
+                updateScope.launch {
+                    userPreferences.setUpdatePromptShown()
+                    userPreferences.setAutoUpdateEnabled(true)
+                    checkForUpdate()
+                }
+            },
+            onDismiss = {
+                showUpdatePrompt = false
+                updateScope.launch {
+                    userPreferences.setUpdatePromptShown()
+                }
+            },
+        )
+    }
+    val releaseToOffer = pendingRelease
+    if (showUpdateDialog && releaseToOffer != null) {
+        FreqConfirmDialog(
+            title = "Update available",
+            message = "FreQ ${releaseToOffer.tag} is ready to download.",
+            confirmText = "Download",
+            dismissText = "Later",
+            onConfirm = {
+                showUpdateDialog = false
+                pendingRelease = null
+                downloadRelease(releaseToOffer)
+            },
+            onDismiss = {
+                showUpdateDialog = false
+                pendingRelease = null
+            },
+        )
+    }
+
     // First-open name prompt removed (M28): the app opens straight into
     // music. Display Name stays editable in Settings for anyone who
     // wants personalized greetings; Home degrades to the generic
@@ -228,6 +342,9 @@ fun WaveAppShell() {
                         .imePadding(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // No fake placeholder track: the mini player only
+                    // renders once real playback state exists (M14).
+                    // Instant appear/disappear — no entrance travel.
                     // No fake placeholder track: the mini player only
                     // renders once real playback state exists (M14).
                     // Instant appear/disappear — no entrance travel.

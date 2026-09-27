@@ -1,14 +1,22 @@
 package com.gresseymusic.wave.ui.screens
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -59,9 +67,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -73,6 +83,8 @@ import com.gresseymusic.wave.player.AudioMode
 import com.gresseymusic.wave.player.LocalPlaybackManager
 import com.gresseymusic.wave.player.MediaTrack
 import com.gresseymusic.wave.player.audioLabel
+import com.gresseymusic.wave.data.model.SyncedLyricLine
+import com.gresseymusic.wave.data.model.TrackLyrics
 import com.gresseymusic.wave.data.repository.LocalMusicRepository
 import com.gresseymusic.wave.ui.components.AddToPlaylistDialog
 import com.gresseymusic.wave.ui.components.FreqArtwork
@@ -337,9 +349,22 @@ fun NowPlayingScreen(
                 .background(scrimBrush),
         )
         // Extra legibility veil over the blurred art (translucent bg tint).
+        // Ambient glow pulse (M28n): the veil breathes slowly on the GPU
+        // layer — draw invalidation only, never recomposition.
+        val pulse = rememberInfiniteTransition(label = "ambientPulse")
+        val veilBreath by pulse.animateFloat(
+            initialValue = 0.9f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = AMBIENT_PULSE_MS),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "veil",
+        )
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = veilBreath }
                 .background(colors.background.copy(alpha = 0.32f)),
         )
         Box(
@@ -367,7 +392,7 @@ fun NowPlayingScreen(
         // keyed by track id so track changes reset everything.
         val musicRepository = LocalMusicRepository.current
         var showLyrics by remember(track.id) { mutableStateOf(false) }
-        var lyricsLines by remember(track.id) { mutableStateOf<List<String>?>(null) }
+        var lyrics by remember(track.id) { mutableStateOf<TrackLyrics?>(null) }
         var lyricsLoading by remember(track.id) { mutableStateOf(false) }
         var lyricsFetched by remember(track.id) { mutableStateOf(false) }
         LaunchedEffect(track.id, showLyrics) {
@@ -375,7 +400,7 @@ fun NowPlayingScreen(
             lyricsFetched = true
             lyricsLoading = true
             try {
-                lyricsLines = musicRepository.getLyrics(track)
+                lyrics = musicRepository.getLyrics(track)
             } finally {
                 lyricsLoading = false
             }
@@ -403,6 +428,7 @@ fun NowPlayingScreen(
                 isFavorite = playbackState.isFavorite,
                 onPlayNextClick = { track.let { playbackManager.playNext(it) } },
                 onAddToQueueClick = { track.let { playbackManager.addToQueue(it) } },
+                onDownloadClick = { playbackManager.downloadCurrentTrack() },
                 onAddToPlaylistClick = { showAddToPlaylist = true },
                 onToggleFavoriteClick = { playbackManager.toggleFavorite() },
             )
@@ -452,8 +478,9 @@ fun NowPlayingScreen(
                 } else {
                     ArtworkLyricsBack(
                         title = track.title,
-                        lines = lyricsLines,
+                        lyrics = lyrics,
                         loading = lyricsLoading,
+                        positionSeconds = playbackState.progressSeconds,
                         modifier = flipModifier.graphicsLayer {
                             rotationY = 180f
                         },
@@ -557,19 +584,38 @@ fun nowPlayingBottomClearanceDp(shortScreen: Boolean): Dp {
 const val ARTWORK_FLIP_MS = 450
 
 /**
+ * Index of the lyric line active at [positionSeconds]: the last synced
+ * cue at or before the position, or -1 before the first cue / without
+ * synced lines. Pure and unit-tested.
+ */
+fun currentLyricIndex(synced: List<SyncedLyricLine>, positionSeconds: Float): Int {
+    if (synced.isEmpty() || positionSeconds.isNaN()) return -1
+    val positionMs = (positionSeconds * 1000).toLong().coerceAtLeast(0L)
+    var active = -1
+    for (i in synced.indices) {
+        if (synced[i].timeMs <= positionMs) active = i else break
+    }
+    return active
+}
+
+/**
  * Lyrics back of the artwork hero (M28): same footprint as the artwork,
- * glass card with the track title, a scrollable lyric sheet, and honest
- * states for loading / unavailable. Tapping anywhere flips back (the
- * parent stage owns the toggle).
+ * glass card with the track title, a lyric sheet, and honest states for
+ * loading / unavailable. Timestamped lines karaoke-highlight at the
+ * playback position and auto-scroll; plain lines scroll statically.
+ * Tapping anywhere flips back (the parent stage owns the toggle).
  */
 @Composable
 private fun ArtworkLyricsBack(
     title: String,
-    lines: List<String>?,
+    lyrics: TrackLyrics?,
     loading: Boolean,
+    positionSeconds: Float,
     modifier: Modifier = Modifier,
 ) {
     val colors = FreqTheme.colors
+    val lines = lyrics?.lines
+    val synced = lyrics?.synced ?: emptyList()
     FreqGlassSurface(
         tone = FreqGlassTone.Strong,
         shape = FreqShapes.artwork,
@@ -621,6 +667,12 @@ private fun ArtworkLyricsBack(
                         color = colors.textSecondary,
                     )
                 }
+                synced.isNotEmpty() -> {
+                    SyncedLyricsSheet(
+                        synced = synced,
+                        positionSeconds = positionSeconds,
+                    )
+                }
                 else -> {
                     Column(
                         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -640,6 +692,49 @@ private fun ArtworkLyricsBack(
     }
 }
 
+/**
+ * Karaoke sheet: the active line renders bright + bold while the rest
+ * stays muted, and the list follows playback with a smooth scroll that
+ * fires only when the active line changes. GPU-driven, no per-tick
+ * recomposition beyond the highlight swap.
+ */
+@Composable
+private fun SyncedLyricsSheet(
+    synced: List<SyncedLyricLine>,
+    positionSeconds: Float,
+    modifier: Modifier = Modifier,
+) {
+    val colors = FreqTheme.colors
+    val activeIndex = currentLyricIndex(synced, positionSeconds)
+    val listState = remember(synced) { LazyListState() }
+    LaunchedEffect(activeIndex) {
+        if (activeIndex >= 0) {
+            listState.animateScrollToItem((activeIndex - 1).coerceAtLeast(0))
+        }
+    }
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(FreqSpacing.xs),
+    ) {
+        itemsIndexed(
+            items = synced,
+            key = { index, line -> "${line.timeMs}_$index" },
+        ) { index, line ->
+            val active = index == activeIndex
+            Text(
+                text = line.text,
+                style = if (active) Typography.titleMedium else Typography.bodyMedium,
+                color = if (active) colors.textPrimary else colors.textSecondary,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier.semantics {
+                    if (active) contentDescription = "Current lyric: ${line.text}"
+                },
+            )
+        }
+    }
+}
+
 @Composable
 private fun NowPlayingTopBar(
     onDismiss: () -> Unit,
@@ -648,6 +743,7 @@ private fun NowPlayingTopBar(
     isFavorite: Boolean = false,
     onPlayNextClick: () -> Unit = {},
     onAddToQueueClick: () -> Unit = {},
+    onDownloadClick: () -> Unit = {},
     onAddToPlaylistClick: () -> Unit = {},
     onToggleFavoriteClick: () -> Unit = {},
 ) {
@@ -734,6 +830,13 @@ private fun NowPlayingTopBar(
                     onClick = {
                         showMenu = false
                         onAddToQueueClick()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Download", color = colors.textPrimary) },
+                    onClick = {
+                        showMenu = false
+                        onDownloadClick()
                     },
                 )
                 DropdownMenuItem(
@@ -1024,6 +1127,8 @@ private fun TransportUtilityButton(
     isActive: Boolean = false,
 ) {
     val colors = FreqTheme.colors
+    // Haptic tick on every tap (system touch-haptics setting respected).
+    val haptics = LocalHapticFeedback.current
     // No background in either state — the icon alone carries on/off.
     Box(
         modifier = Modifier
@@ -1034,7 +1139,10 @@ private fun TransportUtilityButton(
                 indication = ripple(),
                 interactionSource = remember { MutableInteractionSource() },
                 onClickLabel = contentDescription,
-                onClick = onClick,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                    onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -1059,6 +1167,7 @@ private fun TransportSkipButton(
     buttonSize: Dp = 60.dp,
     iconSize: Dp = 32.dp,
 ) {
+    val haptics = LocalHapticFeedback.current
     Box(
         modifier = Modifier
             .size(buttonSize)
@@ -1068,7 +1177,10 @@ private fun TransportSkipButton(
                 indication = ripple(),
                 interactionSource = remember { MutableInteractionSource() },
                 onClickLabel = contentDescription,
-                onClick = onClick,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                    onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -1082,8 +1194,8 @@ private fun TransportSkipButton(
 }
 
 /**
- * Primary play disc: prismal liquid-glass circle with a crisp symbol —
- * the single high-contrast action in the bar. Swaps instantly, no morph.
+ * Primary play disc: one opaque white circle with a dark symbol — the
+ * single high-contrast action in the bar. Swaps instantly, no morph.
  */
 @Composable
 private fun TransportPlayDisc(
@@ -1094,6 +1206,7 @@ private fun TransportPlayDisc(
     iconSize: Dp = 36.dp,
 ) {
     val playPauseDescription = if (isPlaying) "Pause" else "Play"
+    val haptics = LocalHapticFeedback.current
 
     // Solid high-contrast disc: one opaque white circle with a dark
     // symbol. Frosted glass washed out over bright artwork (barely
@@ -1110,7 +1223,10 @@ private fun TransportPlayDisc(
                 indication = ripple(),
                 interactionSource = remember { MutableInteractionSource() },
                 onClickLabel = playPauseDescription,
-                onClick = onClick,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -1360,6 +1476,9 @@ private fun NowPlayingPhotoUpNext(
         }
     }
 }
+
+/** Ambient glow pulse cycle (ms): slow breathing, never rave-y. */
+const val AMBIENT_PULSE_MS = 4000
 
 /**
  * Next track strictly after [currentIndex] (no wrap-around, unlike

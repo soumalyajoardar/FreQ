@@ -60,6 +60,7 @@ fun DeletePlaylistDialog(
             )
         },
         text = {
+            ApplyDialogBackgroundBlur()
             Text(
                 text = "Are you sure you want to delete '$playlistTitle'? This will remove the playlist from your local library. Tracks will remain in your Liked Songs and listening history.",
                 style = Typography.bodyMedium,

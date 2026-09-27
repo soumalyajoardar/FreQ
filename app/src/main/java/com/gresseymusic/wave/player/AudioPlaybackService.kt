@@ -137,7 +137,6 @@ class AudioPlaybackService : MediaSessionService() {
 
     companion object {
         private const val TAG = "AudioPlaybackService"
-
         /**
          * Latest audio flavor. Written by PlaybackManager (UI process side
          * of the same app); read by the service when applying DSP. Volatile

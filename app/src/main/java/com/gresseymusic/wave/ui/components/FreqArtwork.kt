@@ -1,4 +1,4 @@
-package com.gresseymusic.wave.ui.components
+﻿package com.gresseymusic.wave.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -43,8 +43,9 @@ import com.gresseymusic.wave.ui.theme.FreqTheme
 
 
 
+
 /**
- * Time-of-day background photo (M28j): morning scene for "Good morning",
+ * Time-of-day background photo: morning scene for "Good morning",
  * bright day for afternoon, sunset for evening, night sky for night —
  * matching the greeting ranges. Pure and unit-tested.
  */
@@ -57,7 +58,7 @@ fun backgroundResForHour(hour: Int): Int {
     }
 }
 
-/** Background photo tint (20% dark veil for legibility). */
+/** Background photo tint (dark veil for legibility, tune 0..1). */
 const val BACKGROUND_TINT_ALPHA = 0.6f
 
 /**
@@ -120,7 +121,7 @@ fun FreqArtwork(
  *
  * When [showPhoto] is true (everywhere except the player screen, which
  * owns its artwork atmosphere): the time-of-day scene
- * ([backgroundResForHour]) fills the screen under a flat 20% dark tint.
+ * ([backgroundResForHour]) fills the screen under a dark tint veil.
  * When false: the legacy deep theme gradient + accent wash. Glass content
  * layers above it either way. Cheap by design: one static image decoded
  * once from resources — no per-frame work.
@@ -136,8 +137,8 @@ fun FreqBackground(
         modifier = modifier.background(colors.background),
     ) {
         if (showPhoto) {
-            // Time-of-day scene (M28j) under a flat 20% dark tint: the
-            // photo carries the mood, the veil keeps text legible.
+            // Time-of-day scene under a dark tint veil: the photo carries
+            // the mood, the veil keeps text legible.
             Image(
                 painter = painterResource(id = backgroundResForHour(java.time.LocalTime.now().hour)),
                 contentDescription = null,

@@ -61,6 +61,59 @@ class HomeContentTest {
     }
 
     @Test
+    fun `hero prefers public mixes with mixes eyebrow`() {
+        val sections = listOf(
+            HomeCatalogSection(
+                title = "Trending",
+                items = listOf(
+                    HomeCatalogItem(type = "song", id = "v1", title = "Hit"),
+                    HomeCatalogItem(type = "playlist", id = "mix1", title = "Mix One"),
+                ),
+            ),
+            HomeCatalogSection(
+                title = "Charts",
+                items = listOf(
+                    HomeCatalogItem(type = "playlist", id = "mix2", title = "Mix Two"),
+                ),
+            ),
+        )
+        val (items, eyebrow) = selectHeroItems(sections, 5)
+        assertEquals(listOf("mix1", "mix2"), items.map { it.id })
+        assertEquals("Popular Mixes", eyebrow)
+    }
+
+    @Test
+    fun `hero falls back to first section without mixes`() {
+        val sections = listOf(
+            HomeCatalogSection(
+                title = "Trending",
+                items = listOf(
+                    HomeCatalogItem(type = "song", id = "v1", title = "Hit"),
+                ),
+            ),
+        )
+        val (items, eyebrow) = selectHeroItems(sections, 5)
+        assertEquals(listOf("v1"), items.map { it.id })
+        assertEquals("Trending", eyebrow)
+    }
+
+    @Test
+    fun `hero mixes dedupe and cap`() {
+        val sections = listOf(
+            HomeCatalogSection(
+                title = "A",
+                items = listOf(
+                    HomeCatalogItem(type = "playlist", id = "mix1", title = "One"),
+                    HomeCatalogItem(type = "playlist", id = "mix1", title = "One Dupe"),
+                    HomeCatalogItem(type = "playlist", id = "", title = "Blank"),
+                ),
+            ),
+        )
+        val (items, _) = selectHeroItems(sections, 1)
+        assertEquals(listOf("mix1"), items.map { it.id })
+    }
+
+    @Test
     fun `greeting follows time of day`() {
         assertEquals("Good night", greetingForHour(0))
         assertEquals("Good night", greetingForHour(4))

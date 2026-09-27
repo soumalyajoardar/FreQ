@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -23,6 +24,8 @@ class UserPreferences(private val context: Context) {
 
     private val usernameKey = stringPreferencesKey("freq_username")
     private val appOpenCountKey = intPreferencesKey("freq_app_open_count")
+    private val autoUpdateKey = booleanPreferencesKey("freq_auto_update")
+    private val updatePromptKey = booleanPreferencesKey("freq_update_prompt_shown")
 
     val usernameFlow: Flow<String?> = context.userDataStore.data.map { preferences ->
         preferences[usernameKey]?.takeIf { it.isNotBlank() }
@@ -45,6 +48,28 @@ class UserPreferences(private val context: Context) {
     }
 
     val hasCompletedOnboardingFlow: Flow<Boolean> = usernameFlow.map { it != null }
+
+    /** Whether GitHub auto-update checks run on launch. Defaults off. */
+    val autoUpdateEnabledFlow: Flow<Boolean> = context.userDataStore.data.map { preferences ->
+        preferences[autoUpdateKey] ?: false
+    }
+
+    /** Whether the first-launch auto-update prompt already showed. */
+    val updatePromptShownFlow: Flow<Boolean> = context.userDataStore.data.map { preferences ->
+        preferences[updatePromptKey] ?: false
+    }
+
+    suspend fun setAutoUpdateEnabled(enabled: Boolean) {
+        context.userDataStore.edit { preferences ->
+            preferences[autoUpdateKey] = enabled
+        }
+    }
+
+    suspend fun setUpdatePromptShown() {
+        context.userDataStore.edit { preferences ->
+            preferences[updatePromptKey] = true
+        }
+    }
 
     /**
      * Validates and persists [name].

@@ -1,5 +1,7 @@
 ﻿package com.gresseymusic.wave.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,11 +27,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,11 +44,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.gresseymusic.wave.data.library.LocalDownloadedTracks
 import com.gresseymusic.wave.data.library.LocalLibraryRepositoryProvider
 import com.gresseymusic.wave.player.LocalPlaybackManager
 import com.gresseymusic.wave.player.MediaTrack
@@ -50,6 +60,8 @@ import com.gresseymusic.wave.ui.components.CreatePlaylistDialog
 import com.gresseymusic.wave.ui.components.FreqArtwork
 import com.gresseymusic.wave.ui.components.FreqEmptyState
 import com.gresseymusic.wave.ui.components.FreqGlassSurface
+import com.gresseymusic.wave.ui.components.FreqIconButton
+import com.gresseymusic.wave.ui.components.FreqIcons
 import com.gresseymusic.wave.ui.components.FreqMediaCard
 import com.gresseymusic.wave.ui.components.FreqSectionHeader
 import com.gresseymusic.wave.ui.theme.FreqElevation
@@ -62,12 +74,13 @@ import com.gresseymusic.wave.ui.theme.Typography
 import com.gresseymusic.wave.ui.components.rememberMiniPlayerBottomClearance
 
 /**
- * FreQ Library (M19). A personal collection, not a social profile:
+ * FreQ Library (M19, browse rows M28p). A personal collection, not a
+ * social profile:
  *
- * YOUR PLAYLISTS (user-owned, create first)
- * → LIKED SONGS (prominent collection card, play-all)
- * → RECENTLY PLAYED (real history, honest hint when empty)
- * → SAVED ALBUMS / ARTISTS / PLAYLISTS rails (real artwork, real counts)
+ * HEADER (title + search shortcut)
+ * → CATEGORY ROWS (Playlists / Artists / Albums / Songs expand inline;
+ *   Genres and Downloads have no backing data or engine, so no dead rows)
+ * → RECENTLY ADDED rail (real history, honest hint when empty)
  *
  * Every section renders from genuine local-library state. Non-empty
  * sections show rails; a fully empty library shows one consolidated empty
@@ -80,6 +93,7 @@ fun LibraryScreen(
     onPlaylistClick: (String) -> Unit = {},
     onUserPlaylistClick: (String) -> Unit = {},
     onArtistClick: (String) -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onOpenNowPlaying: () -> Unit = {},
 ) {
     val playbackManager = LocalPlaybackManager.current
@@ -93,6 +107,16 @@ fun LibraryScreen(
     val userPlaylists by libraryRepository.userPlaylists.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var expandedPlaylists by remember { mutableStateOf(false) }
+    var expandedArtists by remember { mutableStateOf(false) }
+    var expandedAlbums by remember { mutableStateOf(false) }
+    var expandedSongs by remember { mutableStateOf(false) }
+    var expandedDownloads by remember { mutableStateOf(false) }
+    val downloadsRepository = LocalDownloadedTracks.current
+    val downloadedTracks by downloadsRepository.downloaded.collectAsState()
+    LaunchedEffect(downloadsRepository) {
+        downloadsRepository.refresh()
+    }
     val colors = FreqTheme.colors
     val railArtSize = FreqResponsive.railCardWidthFor(LocalConfiguration.current.screenWidthDp)
 
@@ -130,30 +154,41 @@ fun LibraryScreen(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = FreqSpacing.md)
-            .padding(bottom = rememberMiniPlayerBottomClearance()),
+            .padding(top = FreqSpacing.sm, bottom = rememberMiniPlayerBottomClearance()),
         verticalArrangement = Arrangement.spacedBy(FreqSpacing.lg),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.xs)) {
-            Text(
-                text = "Library",
-                style = Typography.displaySmall,
-                color = colors.textPrimary,
-                fontWeight = FontWeight.Bold,
-            )
-            if (!visibility.showConsolidatedEmpty) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.xs)) {
                 Text(
-                    text = libraryCollectionSummary(
-                        likedCount = likedTracks.size,
-                        albumCount = savedAlbums.size,
-                        artistCount = savedArtists.size,
-                        playlistCount = savedPlaylists.size + userPlaylists.size,
-                    ),
-                    style = Typography.bodySmall,
-                    color = colors.textMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = "Library",
+                    style = Typography.displayMedium,
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Bold,
                 )
+                if (!visibility.showConsolidatedEmpty) {
+                    Text(
+                        text = libraryCollectionSummary(
+                            likedCount = likedTracks.size,
+                            albumCount = savedAlbums.size,
+                            artistCount = savedArtists.size,
+                            playlistCount = savedPlaylists.size + userPlaylists.size,
+                        ),
+                        style = Typography.bodySmall,
+                        color = colors.textMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
+            FreqIconButton(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                onClick = onSearchClick,
+            )
         }
 
         if (visibility.showConsolidatedEmpty) {
@@ -164,53 +199,220 @@ fun LibraryScreen(
             return@Column
         }
 
-        // User-owned playlists first: the most actionable collection.
+        // Category rows: real collections expand inline; Genres and
+        // Downloads have no backing data or engine, so no dead rows.
         Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
-            FreqSectionHeader(
-                title = "Your Playlists",
-                actionText = "+ Create",
-                onActionClick = { showCreateDialog = true },
+            LibraryCategoryRow(
+                imageVector = Icons.Default.List,
+                iconTint = Color(0xFF8B5CF6),
+                label = "Playlists",
+                expanded = expandedPlaylists,
+                onClick = { expandedPlaylists = !expandedPlaylists },
             )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
-                contentPadding = PaddingValues(end = FreqSpacing.md),
-            ) {
-                item(key = "create_playlist") {
-                    CreatePlaylistCard(onClick = { showCreateDialog = true })
+            if (expandedPlaylists) {
+                // User-owned playlists first: the most actionable collection.
+                Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
+                    FreqSectionHeader(
+                        title = "Your Playlists",
+                        actionText = "+ Create",
+                        onActionClick = { showCreateDialog = true },
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
+                        contentPadding = PaddingValues(end = FreqSpacing.md),
+                    ) {
+                        item(key = "create_playlist") {
+                            CreatePlaylistCard(onClick = { showCreateDialog = true })
+                        }
+                        items(userPlaylists, key = { it.id }) { pl ->
+                            FreqMediaCard(
+                                title = pl.title,
+                                subtitle = "${pl.tracks.size} " + if (pl.tracks.size == 1) "track" else "tracks",
+                                artworkUrl = pl.artworkUrl,
+                                colors = listOf(colors.textSecondary, colors.textMuted),
+                                onClick = { onUserPlaylistClick(pl.id) },
+                                artSize = railArtSize,
+                                contentDescription = "Open playlist ${pl.title}",
+                            )
+                        }
+                    }
+                    if (userPlaylists.isEmpty()) {
+                        Text(
+                            text = "No playlists yet — create one to organize your music.",
+                            style = Typography.bodySmall,
+                            color = colors.textMuted,
+                        )
+                    }
                 }
-                items(userPlaylists, key = { it.id }) { pl ->
-                    FreqMediaCard(
-                        title = pl.title,
-                        subtitle = "${pl.tracks.size} " + if (pl.tracks.size == 1) "track" else "tracks",
-                        artworkUrl = pl.artworkUrl,
-                        colors = listOf(colors.textSecondary, colors.textMuted),
-                        onClick = { onUserPlaylistClick(pl.id) },
-                        artSize = railArtSize,
-                        contentDescription = "Open playlist ${pl.title}",
+                if (visibility.savedPlaylists) {
+                    Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
+                        FreqSectionHeader(title = "Saved Playlists")
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
+                            contentPadding = PaddingValues(end = FreqSpacing.md),
+                        ) {
+                            items(savedPlaylists, key = { it.id }) { playlist ->
+                                FreqMediaCard(
+                                    title = playlist.title,
+                                    subtitle = playlist.author,
+                                    artworkUrl = playlist.artworkUrl,
+                                    colors = listOf(colors.textSecondary, colors.textMuted),
+                                    onClick = { onPlaylistClick(playlist.id) },
+                                    artSize = railArtSize,
+                                    contentDescription = "Open playlist ${playlist.title}",
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            LibraryCategoryRow(
+                imageVector = Icons.Default.Person,
+                iconTint = Color(0xFF60A5FA),
+                label = "Artists",
+                expanded = expandedArtists,
+                onClick = { expandedArtists = !expandedArtists },
+            )
+            if (expandedArtists) {
+                if (visibility.artists) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
+                        contentPadding = PaddingValues(end = FreqSpacing.md),
+                    ) {
+                        items(savedArtists, key = { it.id }) { artist ->
+                            FreqMediaCard(
+                                title = artist.name,
+                                subtitle = null,
+                                artworkUrl = artist.artworkUrl,
+                                colors = listOf(colors.textSecondary, colors.textMuted),
+                                onClick = { onArtistClick(artist.id) },
+                                artSize = railArtSize,
+                                circular = true,
+                                contentDescription = "Open artist ${artist.name}",
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No followed artists yet.",
+                        style = Typography.bodySmall,
+                        color = colors.textMuted,
                     )
                 }
             }
-            if (userPlaylists.isEmpty()) {
-                Text(
-                    text = "No playlists yet — create one to organize your music.",
-                    style = Typography.bodySmall,
-                    color = colors.textMuted,
-                )
+
+            LibraryCategoryRow(
+                imageVector = FreqIcons.Album,
+                iconTint = Color(0xFFF59E0B),
+                label = "Albums",
+                expanded = expandedAlbums,
+                onClick = { expandedAlbums = !expandedAlbums },
+            )
+            if (expandedAlbums) {
+                if (visibility.albums) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
+                        contentPadding = PaddingValues(end = FreqSpacing.md),
+                    ) {
+                        items(savedAlbums, key = { it.id }) { album ->
+                            FreqMediaCard(
+                                title = album.title,
+                                subtitle = album.artist,
+                                artworkUrl = album.artworkUrl,
+                                colors = listOf(colors.textSecondary, colors.textMuted),
+                                onClick = { onAlbumClick(album.id) },
+                                artSize = railArtSize,
+                                contentDescription = "Open album ${album.title}",
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No saved albums yet.",
+                        style = Typography.bodySmall,
+                        color = colors.textMuted,
+                    )
+                }
+            }
+
+            LibraryCategoryRow(
+                imageVector = FreqIcons.MusicNote,
+                iconTint = Color(0xFFEC4899),
+                label = "Songs",
+                expanded = expandedSongs,
+                onClick = { expandedSongs = !expandedSongs },
+            )
+            if (expandedSongs) {
+                if (visibility.liked) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
+                        contentPadding = PaddingValues(end = FreqSpacing.md),
+                    ) {
+                        items(likedTracks, key = { it.id }) { track ->
+                            FreqMediaCard(
+                                title = track.title,
+                                subtitle = track.artist,
+                                artworkUrl = track.artworkUrl,
+                                colors = track.gradientColors,
+                                onClick = {
+                                    if (!playbackManager.playTrack(track)) onOpenNowPlaying()
+                                },
+                                artSize = railArtSize,
+                                badge = true,
+                                contentDescription = "Play ${track.title} by ${track.artist}",
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No liked songs yet — tap the heart on any song.",
+                        style = Typography.bodySmall,
+                        color = colors.textMuted,
+                    )
+                }
+            }
+
+            LibraryCategoryRow(
+                imageVector = FreqIcons.Download,
+                iconTint = Color(0xFF4ADE80),
+                label = "Downloads",
+                expanded = expandedDownloads,
+                onClick = { expandedDownloads = !expandedDownloads },
+            )
+            if (expandedDownloads) {
+                if (downloadedTracks.isNotEmpty()) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
+                        contentPadding = PaddingValues(end = FreqSpacing.md),
+                    ) {
+                        items(downloadedTracks, key = { it.id }) { track ->
+                            FreqMediaCard(
+                                title = track.title,
+                                subtitle = track.artist,
+                                artworkUrl = track.artworkUrl,
+                                colors = track.gradientColors,
+                                onClick = {
+                                    if (!playbackManager.playTrack(track)) onOpenNowPlaying()
+                                },
+                                artSize = railArtSize,
+                                badge = true,
+                                contentDescription = "Play downloaded ${track.title} by ${track.artist}",
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No downloads yet — use Download in the player menu.",
+                        style = Typography.bodySmall,
+                        color = colors.textMuted,
+                    )
+                }
             }
         }
 
-        if (visibility.liked) {
-            LikedSongsCard(
-                count = likedTracks.size,
-                artworkUrl = likedTracks.firstOrNull()?.artworkUrl,
-                onPlayAll = {
-                    playbackManager.playQueue(likedTracks)
-                },
-            )
-        }
-
         Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
-            FreqSectionHeader(title = "Recently Played")
+            FreqSectionHeader(title = "Recently Added")
             if (recentlyPlayed.isNotEmpty()) {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
@@ -223,7 +425,7 @@ fun LibraryScreen(
                             artworkUrl = track.artworkUrl,
                             colors = track.gradientColors,
                             onClick = {
-                                playbackManager.playTrack(track)
+                                if (!playbackManager.playTrack(track)) onOpenNowPlaying()
                             },
                             artSize = railArtSize,
                             badge = true,
@@ -239,141 +441,77 @@ fun LibraryScreen(
                 )
             }
         }
-
-        if (visibility.albums) {
-            Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
-                FreqSectionHeader(title = "Saved Albums")
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
-                    contentPadding = PaddingValues(end = FreqSpacing.md),
-                ) {
-                    items(savedAlbums, key = { it.id }) { album ->
-                        FreqMediaCard(
-                            title = album.title,
-                            subtitle = album.artist,
-                            artworkUrl = album.artworkUrl,
-                            colors = listOf(colors.textSecondary, colors.textMuted),
-                            onClick = { onAlbumClick(album.id) },
-                            artSize = railArtSize,
-                            contentDescription = "Open album ${album.title}",
-                        )
-                    }
-                }
-            }
-        }
-
-        if (visibility.artists) {
-            Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
-                FreqSectionHeader(title = "Followed Artists")
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
-                    contentPadding = PaddingValues(end = FreqSpacing.md),
-                ) {
-                    items(savedArtists, key = { it.id }) { artist ->
-                        FreqMediaCard(
-                            title = artist.name,
-                            subtitle = null,
-                            artworkUrl = artist.artworkUrl,
-                            colors = listOf(colors.textSecondary, colors.textMuted),
-                            onClick = { onArtistClick(artist.id) },
-                            artSize = railArtSize,
-                            circular = true,
-                            contentDescription = "Open artist ${artist.name}",
-                        )
-                    }
-                }
-            }
-        }
-
-        if (visibility.savedPlaylists) {
-            Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
-                FreqSectionHeader(title = "Saved Playlists")
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
-                    contentPadding = PaddingValues(end = FreqSpacing.md),
-                ) {
-                    items(savedPlaylists, key = { it.id }) { playlist ->
-                        FreqMediaCard(
-                            title = playlist.title,
-                            subtitle = playlist.author,
-                            artworkUrl = playlist.artworkUrl,
-                            colors = listOf(colors.textSecondary, colors.textMuted),
-                            onClick = { onPlaylistClick(playlist.id) },
-                            artSize = railArtSize,
-                            contentDescription = "Open playlist ${playlist.title}",
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
-/** Liked Songs as a prominent collection card with real count + play-all. */
+/**
+ * Category row (flagship mock): frosted pill, tinted glyph, label,
+ * chevron. Toggles its inline collection — never a dead destination.
+ */
 @Composable
-private fun LikedSongsCard(
-    count: Int,
-    artworkUrl: String?,
-    onPlayAll: () -> Unit,
+private fun LibraryCategoryRow(
+    imageVector: ImageVector,
+    iconTint: Color,
+    label: String,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = FreqTheme.colors
+    // Chevron swings right → down on expand (and back on collapse).
+    val chevronTurn by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(durationMillis = 250),
+        label = "chevronTurn",
+    )
     FreqGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(FreqShapes.pill)
+            .clickable(
+                role = Role.Button,
+                indication = ripple(),
+                interactionSource = remember { MutableInteractionSource() },
+                onClickLabel = label,
+                onClick = onClick,
+            ),
         tone = FreqGlassTone.Standard,
-        shape = FreqShapes.cardLarge,
+        shape = FreqShapes.pill,
+        shadow = FreqElevation.none,
+        contentAlignment = Alignment.CenterStart,
     ) {
         Row(
-            modifier = Modifier.padding(FreqSpacing.md),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = FreqSpacing.md, vertical = FreqSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(FreqSpacing.md),
         ) {
-            FreqArtwork(
-                artworkUrl = artworkUrl,
-                colors = listOf(colors.textSecondary, colors.textMuted),
-                shape = FreqShapes.card,
-                iconSize = FreqSpacing.iconLg,
-                modifier = Modifier.size(64.dp),
+            Icon(
+                imageVector = imageVector,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(22.dp),
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Liked Songs",
-                    style = Typography.titleLarge,
-                    color = colors.textPrimary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(modifier = Modifier.height(FreqSpacing.xxs))
-                Text(
-                    text = "$count " + if (count == 1) "song" else "songs",
-                    style = Typography.bodySmall,
-                    color = colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            // M27.6: blurred glass play disc, neutral border — never cyan.
-            FreqGlassSurface(
+            Spacer(modifier = Modifier.width(FreqSpacing.sm))
+            Text(
+                text = label,
+                style = Typography.titleMedium,
+                color = colors.textPrimary,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = FreqIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.textMuted,
                 modifier = Modifier
-                    .size(FreqSpacing.touchTargetMin)
-                    .clip(FreqShapes.circle)
-                    .clickable(
-                        role = Role.Button,
-                        onClickLabel = "Play all liked songs",
-                        onClick = onPlayAll,
-                    ),
-                tone = FreqGlassTone.Floating,
-                shape = FreqShapes.circle,
-                shadow = FreqElevation.none,
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    tint = colors.textPrimary,
-                    modifier = Modifier.size(FreqSpacing.iconLg),
-                )
-            }
+                    .size(FreqSpacing.iconMd)
+                    .graphicsLayer {
+                        rotationZ = chevronTurn
+                    },
+            )
         }
     }
 }

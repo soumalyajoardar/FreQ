@@ -133,4 +133,14 @@ class ArtistSearchTest {
         assertEquals("UCx", artist.id)
         assertEquals("Arijit Singh", artist.name)
     }
+
+    @Test
+    fun `artists show only for artist queries`() {
+        assertTrue(artistMatchesQuery("arijit", "Arijit Singh"))
+        assertTrue(artistMatchesQuery("Arijit Singh", "Arijit Singh"))
+        assertFalse(artistMatchesQuery("tum hi ho", "Arijit Singh"))
+        assertFalse(artistMatchesQuery("espresso", "Sabrina Carpenter"))
+        assertFalse(artistMatchesQuery("a", "Arijit Singh"))
+        assertFalse(artistMatchesQuery("", "Arijit Singh"))
+    }
 }

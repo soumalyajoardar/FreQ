@@ -56,6 +56,66 @@ data class PlaybackSessionSnapshot(
     val repeatMode: Int,
 )
 
+/**
+ * Controller-side track snapshot (M28u): media id + player metadata,
+ * captured on Main where controller access is legal. Feeds the
+ * no-catalog fallback so rotation/offline never leaves a playing
+ * service with an empty UI.
+ */
+internal data class ControllerTrackMeta(
+    val id: String,
+    val title: String?,
+    val artist: String?,
+    val album: String?,
+    val artworkUrl: String?,
+)
+
+/**
+ * Best-effort track from player metadata alone. Duration starts at 0
+ * (guarded everywhere) and converges from the live controller on the
+ * next progress tick; the id is the real video id, so source resolution,
+ * skip, and seek keep working. Pure.
+ */
+internal fun fallbackTrackFromMeta(meta: ControllerTrackMeta): MediaTrack {
+    return MediaTrack(
+        id = meta.id,
+        title = meta.title?.takeIf { it.isNotBlank() } ?: "Unknown Title",
+        artist = meta.artist?.takeIf { it.isNotBlank() } ?: "Unknown Artist",
+        album = meta.album?.takeIf { it.isNotBlank() } ?: "Single",
+        durationSeconds = 0,
+        artworkUrl = meta.artworkUrl?.takeIf { it.isNotBlank() },
+        mediaUri = null,
+    )
+}
+
+/**
+ * Reads one controller item's identity + metadata, or null when the
+ * slot is unusable. Must run on Main. Never throws.
+ */
+internal fun readControllerMeta(
+    controller: MediaController,
+    index: Int,
+): ControllerTrackMeta? {
+    return try {
+        val item = controller.getMediaItemAt(index)
+        val id = item.mediaId.takeIf { it.isNotBlank() } ?: return null
+        val metadata = item.mediaMetadata
+        ControllerTrackMeta(
+            id = id,
+            title = metadata.title?.toString(),
+            artist = metadata.artist?.toString(),
+            album = metadata.albumTitle?.toString(),
+            artworkUrl = try {
+                metadata.artworkUri?.toString()
+            } catch (_: Exception) {
+                null
+            },
+        )
+    } catch (_: Exception) {
+        null
+    }
+}
+
 @OptIn(UnstableApi::class)
 class PlaybackManager(
     context: Context,
@@ -274,6 +334,7 @@ class PlaybackManager(
                 // Instead, synchronize state from the active player.
                 var alreadyHasSession = false
                 val controllerMediaIds = mutableListOf<String>()
+                val controllerMetas = mutableListOf<ControllerTrackMeta>()
                 var activeIndex = 0
                 var isPlayingNow = false
                 var currentPos = 0L
@@ -285,8 +346,9 @@ class PlaybackManager(
                     if (controller != null && controller.mediaItemCount > 0) {
                         alreadyHasSession = true
                         for (i in 0 until controller.mediaItemCount) {
-                            controller.getMediaItemAt(i).mediaId.takeIf { it.isNotBlank() }?.let {
-                                controllerMediaIds.add(it)
+                            readControllerMeta(controller, i)?.let { meta ->
+                                controllerMetas.add(meta)
+                                controllerMediaIds.add(meta.id)
                             }
                         }
                         activeIndex = controller.currentMediaItemIndex
@@ -306,7 +368,14 @@ class PlaybackManager(
                     for (id in controllerMediaIds) {
                         musicRepository.getTrack(id)?.let { activeQueue.add(it) }
                     }
-                    val validQueue = if (activeQueue.isNotEmpty()) activeQueue else _state.value.queue
+                    // No-catalog fallback: controller metadata keeps a
+                    // playing service visible (title/artist now, duration
+                    // converges on the next tick) instead of an empty UI.
+                    val validQueue = when {
+                        activeQueue.isNotEmpty() -> activeQueue
+                        controllerMetas.isNotEmpty() -> controllerMetas.map { fallbackTrackFromMeta(it) }
+                        else -> _state.value.queue
+                    }
                     val clampedIndex = clampQueueIndex(activeIndex, validQueue.size)
                     val activeTrack = validQueue.getOrNull(clampedIndex) ?: _state.value.currentTrack
                     val isLiked = activeTrack?.let { libraryRepository?.isTrackLiked(it.id) } ?: false
@@ -793,6 +862,24 @@ class PlaybackManager(
     }
 
     /**
+     * Same-song tap (M28v): tapping the already-current track resumes it
+     * when paused and signals the UI to open Now Playing instead of
+     * stopping and replaying from zero. Returns true when the tap named
+     * the current track.
+     */
+    private fun resumeIfCurrent(track: MediaTrack): Boolean {
+        if (!isSameTrackSelected(_state.value.currentTrack?.id, track.id)) return false
+        try {
+            mediaController?.let { controller ->
+                if (!controller.isPlaying) controller.play()
+            }
+        } catch (_: Exception) {
+        }
+        _state.update { it.copy(isPlaying = true) }
+        return true
+    }
+
+    /**
      * Plays a single track. For single-track contexts (Home / Search /
      * Library / card taps), an autoplay queue is automatically generated
      * and appended after the track, providing continuous listening without
@@ -802,9 +889,14 @@ class PlaybackManager(
      *
      * [isExplicitQueue] is set to false so future calls to playQueue() can
      * upgrade it to an intentional queue.
+     *
+     * Returns false when the tap named the already-current track (resumed
+     * in place — the UI should open Now Playing); true when fresh
+     * playback started.
      */
-    fun playTrack(track: MediaTrack) {
+    fun playTrack(track: MediaTrack): Boolean {
         Log.d(TAG, "[PlaybackManager] playTrack called: ${track.id} ${track.title}")
+        if (resumeIfCurrent(track)) return false
         // Stop the current song first: the next source may take seconds
         // to resolve, and the old track must not keep playing under it.
         stopCurrentForSwitch()
@@ -872,7 +964,6 @@ class PlaybackManager(
                 Log.d(TAG, "[MEDIA3] setMediaItem+prepare+play durationMs=${System.currentTimeMillis() - media3Start} track=${track.id}")
                 Log.d(TAG, "[PLAYBACK_LATENCY] tapToPlayMs~${System.currentTimeMillis() - playTrackEntryMs} track=${track.id} (from playTrack entry to Media3 play call)")
                 recordPlaybackIfPlayable(track)
-
                 // M28: Prefetch next track's source immediately after playback starts,
                 // so skip-next is instant. Runs in background, non-blocking.
                 if (token == activePlaybackToken) {
@@ -893,6 +984,7 @@ class PlaybackManager(
             }
             persistCurrentSession()
         }
+        return true
     }
 
     /**
@@ -1199,16 +1291,17 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
         }
 }
 
-        fun playQueue(queue: List<MediaTrack>, startIndex: Int = 0) {
-        if (queue.isEmpty()) return
+        fun playQueue(queue: List<MediaTrack>, startIndex: Int = 0): Boolean {
+        if (queue.isEmpty()) return true
+        val validIndex = startIndex.coerceIn(0, queue.lastIndex)
+        val selectedTrack = queue[validIndex]
+        if (resumeIfCurrent(selectedTrack)) return false
         // Stop-first: same contract as single-track taps.
         stopCurrentForSwitch()
         // This is an intentional multi-track context (album, playlist, etc.).
         // Mark as explicit so autoplay does not append over it.
         isExplicitQueue = true
         autoplayJob?.cancel()
-        val validIndex = startIndex.coerceIn(0, queue.lastIndex)
-        val selectedTrack = queue[validIndex]
         val isLiked = libraryRepository?.isTrackLiked(selectedTrack.id) ?: false
 
         val token = ++activePlaybackToken
@@ -1268,6 +1361,7 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
             }
             persistCurrentSession()
         }
+        return true
     }
 
     private fun playQueueOnExoPlayer(
@@ -1499,6 +1593,84 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
         }
     }
 
+    /**
+     * Downloads the current track's stream for offline keeping (M28q).
+     * Resolves a fresh playable source, then hands the URL to
+     * DownloadManager (system notification + save into Music/FreQ).
+     * Local-only tracks are already on the device. [downloadRecorder]
+     * receives each successful enqueue so the Downloads collection can
+     * list it. Never throws; all outcomes toast honestly on Main.
+     */
+    var downloadRecorder: ((Long, MediaTrack) -> Unit)? = null
+
+    fun downloadCurrentTrack() {
+        val track = _state.value.currentTrack
+        if (track == null) {
+            scope.launch { toastOnMain("Nothing playing to download") }
+            return
+        }
+        scope.launch(Dispatchers.IO) {
+            try {
+                val source = cachedSourceFor(track)
+                val remote = source as? PlaybackSource.RemoteUri
+                if (remote == null) {
+                    toastOnMain("This track is already on your device")
+                    return@launch
+                }
+                val ext = extensionForMimeType(remote.mimeType)
+                val safeName = ("${track.artist} - ${track.title}")
+                    .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                    .trim()
+                    .take(100)
+                    .ifBlank { track.id }
+                val fileName = "FreQ - $safeName.$ext"
+                val manager = applicationContext.getSystemService(android.app.DownloadManager::class.java)
+                if (manager == null) {
+                    toastOnMain("Downloads unavailable on this device")
+                    return@launch
+                }
+                val request = android.app.DownloadManager.Request(remote.uri)
+                    .setTitle(fileName)
+                    .setDescription("FreQ download")
+                    .setNotificationVisibility(
+                        android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
+                    )
+                    .setDestinationInExternalPublicDir(
+                        android.os.Environment.DIRECTORY_MUSIC,
+                        "FreQ/$fileName",
+                    )
+                    .setMimeType(remote.mimeType ?: "audio/*")
+                val downloadId = manager.enqueue(request)
+                try {
+                    downloadRecorder?.invoke(downloadId, track)
+                } catch (_: Exception) {
+                }
+                toastOnMain("Downloading \"$fileName\"")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                toastOnMain("Download failed — check your connection")
+            }
+        }
+    }
+
+    private fun extensionForMimeType(mimeType: String?): String {
+        return when {
+            mimeType == null -> "webm"
+            "mp4" in mimeType || "m4a" in mimeType -> "m4a"
+            "opus" in mimeType -> "opus"
+            "ogg" in mimeType -> "ogg"
+            "mpeg" in mimeType || "mp3" in mimeType -> "mp3"
+            else -> "webm"
+        }
+    }
+
+    private suspend fun toastOnMain(message: String) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun seekTo(positionSeconds: Float) {
         val currentTrack = _state.value.currentTrack
         val positionMillis = (positionSeconds * 1000).toLong()
@@ -1656,12 +1828,13 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
         persistCurrentSession()
     }
 
-    fun playQueueItem(index: Int) {
+    fun playQueueItem(index: Int): Boolean {
         val currentQueue = _state.value.queue
-        if (index !in currentQueue.indices) return
+        if (index !in currentQueue.indices) return true
+        val targetTrack = currentQueue[index]
+        if (resumeIfCurrent(targetTrack)) return false
         // Stop-first: same contract as single-track taps.
         stopCurrentForSwitch()
-        val targetTrack = currentQueue[index]
         val isLiked = libraryRepository?.isTrackLiked(targetTrack.id) ?: false
 
         val token = ++activePlaybackToken
@@ -1710,6 +1883,7 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
             }
             persistCurrentSession()
         }
+        return true
     }
 
     /**
@@ -2155,9 +2329,10 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
             val controller = mediaController ?: return@launch
             if (released || isSyncStale(token, activePlaybackToken)) return@launch
             if (controller.mediaItemCount <= 0) return@launch
-            val ids = (0 until controller.mediaItemCount).mapNotNull { index ->
-                controller.getMediaItemAt(index).mediaId.takeIf { it.isNotBlank() }
+            val metas = (0 until controller.mediaItemCount).mapNotNull { index ->
+                readControllerMeta(controller, index)
             }
+            val ids = metas.map { it.id }
             if (ids.isEmpty() || isSyncStale(token, activePlaybackToken)) return@launch
             val liveIndex = controller.currentMediaItemIndex.coerceIn(0, ids.lastIndex)
             val livePlaying = controller.isPlaying
@@ -2170,7 +2345,7 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
             }
             scope.launch(Dispatchers.IO) {
                 if (isSyncStale(token, activePlaybackToken)) return@launch
-                val queue = ids.mapNotNull { id ->
+                val resolved = ids.mapNotNull { id ->
                     try {
                         musicRepository.getTrack(id)
                     } catch (e: CancellationException) {
@@ -2179,6 +2354,10 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
                         null
                     }
                 }
+                // Same no-catalog fallback as session restore: controller
+                // metadata keeps the UI alive when the catalog is
+                // unreachable. syncedPlayableIds still tracks raw ids.
+                val queue = resolved.ifEmpty { metas.map { fallbackTrackFromMeta(it) } }
                 if (queue.isEmpty() || isSyncStale(token, activePlaybackToken)) return@launch
                 withContext(Dispatchers.Main) {
                     if (released || isSyncStale(token, activePlaybackToken)) return@withContext
@@ -2258,6 +2437,16 @@ Log.d(PlaybackManager.TAG, "[Autoplay] Watch fetch returned ${watchTracks.size} 
         /** M27.6: lazy continuation resolution batch size. */
         const val AUTOPLAY_BATCH_SIZE = 5
     }
+}
+
+/**
+ * Whether tapping [tappedTrackId] names the already-current track (same
+ * non-blank id): the UI should redirect to the player instead of
+ * restarting it. Pure and unit-tested.
+ */
+fun isSameTrackSelected(currentTrackId: String?, tappedTrackId: String): Boolean {
+    if (tappedTrackId.isBlank()) return false
+    return currentTrackId == tappedTrackId
 }
 
 val LocalPlaybackManager = compositionLocalOf<PlaybackManager> {

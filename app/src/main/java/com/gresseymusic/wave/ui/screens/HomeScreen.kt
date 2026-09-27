@@ -68,17 +68,14 @@ import com.gresseymusic.wave.data.recommendation.RecommendationState
 import com.gresseymusic.wave.data.repository.CatalogResult
 import com.gresseymusic.wave.data.settings.LocalUserPreferences
 import com.gresseymusic.wave.data.settings.UserPreferences
-import com.gresseymusic.wave.player.AudioRoute
 import com.gresseymusic.wave.player.LocalPlaybackManager
 import com.gresseymusic.wave.player.MediaTrack
-import com.gresseymusic.wave.player.audioRouteLabel
 import com.gresseymusic.wave.ui.components.CatalogErrorState
 import com.gresseymusic.wave.ui.components.FreqDialogSurface
 import com.gresseymusic.wave.ui.components.FreqEmptyState
 import com.gresseymusic.wave.ui.components.FreqGhostButton
 import com.gresseymusic.wave.ui.components.FreqHeroCard
 import com.gresseymusic.wave.ui.components.FreqIconButton
-import com.gresseymusic.wave.ui.components.FreqIcons
 import com.gresseymusic.wave.ui.components.FreqMediaCard
 import com.gresseymusic.wave.ui.components.FreqSectionHeader
 import com.gresseymusic.wave.ui.theme.FreqResponsive
@@ -139,12 +136,6 @@ fun HomeScreen(
     val currentTrack by remember(playbackManager) {
         playbackManager.state.map { it.currentTrack }.distinctUntilChanged()
     }.collectAsState(initial = playbackManager.state.value.currentTrack)
-    // Output-route symbol: dedicated narrow flow, so route changes
-    // update only the header symbol — progress ticks never reach Home.
-    val audioRoute by remember(playbackManager) {
-        playbackManager.audioRoute
-    }.collectAsState()
-
     val recommendationState = remember(realRecentlyPlayed, likedTracks, savedArtists, userPlaylists, catalogResult, currentTrack?.id) {
         val catalogSections = (catalogResult as? CatalogResult.Success)?.data ?: emptyList()
         ListeningRecommendationEngine.computeRecommendations(
@@ -166,7 +157,7 @@ fun HomeScreen(
             "playlist" -> onPlaylistClick(item.id)
             "song" -> {
                 if (item.track != null) {
-                    playbackManager.playTrack(item.track)
+                    if (!playbackManager.playTrack(item.track)) onOpenNowPlaying()
                 }
             }
             else -> {}
@@ -174,7 +165,7 @@ fun HomeScreen(
     }
 
     fun playTrackAndOpen(track: MediaTrack) {
-        playbackManager.playTrack(track)
+        if (!playbackManager.playTrack(track)) onOpenNowPlaying()
     }
 
     var showAccountDialog by remember { mutableStateOf(false) }
@@ -194,7 +185,7 @@ fun HomeScreen(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = FreqSpacing.md)
-            .padding(bottom = if (currentTrack != null) FreqSpacing.miniPlayerClearance else FreqSpacing.bottomBarClearance),
+            .padding(top = FreqSpacing.sm, bottom = if (currentTrack != null) FreqSpacing.miniPlayerClearance else FreqSpacing.bottomBarClearance),
         verticalArrangement = Arrangement.spacedBy(FreqSpacing.lg),
     ) {
         HomeHeader(
@@ -202,7 +193,6 @@ fun HomeScreen(
             headline = UserPreferences.headlineForAppOpenCount(appOpenCount.coerceAtLeast(1)),
             subHeadline = UserPreferences.subHeadlineForAppOpenCount(appOpenCount.coerceAtLeast(1)),
             username = username,
-            audioRoute = audioRoute,
             onAccountClick = { showAccountDialog = true },
         )
 
@@ -219,12 +209,11 @@ fun HomeScreen(
                         message = "Nothing to show right now. Check your connection and try again later.",
                     )
                 } else {
-                    val firstSection = result.data.firstOrNull { it.items.isNotEmpty() }
-                    val heroSectionTitle = firstSection?.title.orEmpty()
-                    // Slidable hero: first items of the first real section.
-                    // The rail below drops exactly these so nothing repeats.
-                    val heroItems: List<HomeCatalogItem> = remember(result.data) {
-                        firstSection?.items?.take(HERO_PAGE_COUNT) ?: emptyList()
+                    // Popular-mixes hero: public mixes people listen to
+                    // (playlist-type catalog items) headline the pager;
+                    // without any, the first section heads it as before.
+                    val (heroItems, heroEyebrow) = remember(result.data) {
+                        selectHeroItems(result.data, HERO_PAGE_COUNT)
                     }
                     val heroPagerState = rememberPagerState(pageCount = { heroItems.size })
                     // Auto-slide every 5s, looping back to the first page.
@@ -249,7 +238,7 @@ fun HomeScreen(
                             ) { page ->
                                 val hero = heroItems[page]
                                 FreqHeroCard(
-                                    eyebrow = heroSectionTitle,
+                                    eyebrow = heroEyebrow,
                                     title = hero.title,
                                     subtitle = hero.subtitle,
                                     artworkUrl = hero.artworkUrl,
@@ -341,14 +330,11 @@ fun HomeScreen(
                         }
                     }
 
-                    result.data.forEachIndexed { sectionIndex, sec ->
-                        // The hero pager already showcases these items — the
-                        // rail shows the rest so nothing repeats.
-                        val railItems = if (sectionIndex == 0) {
-                            sec.items.drop(heroItems.size)
-                        } else {
-                            sec.items
-                        }
+                    // The hero pager already showcases these items — rails
+                    // drop them by id so nothing repeats anywhere.
+                    val heroIds = remember(heroItems) { heroItems.map { it.id }.toSet() }
+                    result.data.forEach { sec ->
+                        val railItems = sec.items.filter { it.id !in heroIds }
                         if (railItems.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm)) {
                                 FreqSectionHeader(title = sec.title)
@@ -461,7 +447,6 @@ private fun HomeHeader(
     headline: String,
     subHeadline: String,
     username: String?,
-    audioRoute: AudioRoute,
     onAccountClick: () -> Unit,
 ) {
     Column(
@@ -492,31 +477,13 @@ private fun HomeHeader(
                     ),
                 ),
             )
-            // Dummy account entry: frosted-glass circle, no outline.
-            // Leading output-route symbol (speaker / headphones /
-            // Bluetooth): icon only, live from the device callback.
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
-            ) {
-                val routeIcon = when (audioRoute) {
-                    AudioRoute.SPEAKER -> FreqIcons.Speaker
-                    AudioRoute.WIRED -> FreqIcons.Headphones
-                    AudioRoute.BLUETOOTH -> FreqIcons.Bluetooth
-                }
-                Icon(
-                    imageVector = routeIcon,
-                    contentDescription = "Audio output: ${audioRouteLabel(audioRoute)}",
-                    tint = FreqTheme.colors.textMuted,
-                    modifier = Modifier.size(20.dp),
-                )
-                FreqIconButton(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Account",
-                    onClick = onAccountClick,
-                    iconSize = 24.dp,
-                )
-            }
+            // Account entry: frosted-glass circle, no outline.
+            FreqIconButton(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Account",
+                onClick = onAccountClick,
+                iconSize = 24.dp,
+            )
         }
         Spacer(modifier = Modifier.height(FreqSpacing.md))
         // Greeting label: small caps editorial with a soft white glow.
@@ -606,6 +573,28 @@ const val HERO_PAGE_COUNT = 5
 
 /** Auto-slide interval for the Home hero pager. */
 const val HERO_AUTOSLIDE_MS = 5_000L
+
+/**
+ * Hero selection (M28o): public mixes people listen to (playlist-type
+ * catalog items across all sections) headline the pager under a
+ * "Popular Mixes" eyebrow. Without any mixes, the first non-empty
+ * section heads it under its own title, as before. Pure and unit-tested.
+ */
+fun selectHeroItems(
+    sections: List<HomeCatalogSection>,
+    limit: Int,
+): Pair<List<HomeCatalogItem>, String> {
+    val mixes = sections.asSequence()
+        .flatMap { it.items }
+        .filter { it.type.equals("playlist", ignoreCase = true) && it.id.isNotBlank() }
+        .distinctBy { it.id }
+        .take(limit.coerceAtLeast(0))
+        .toList()
+    if (mixes.isNotEmpty()) return mixes to "Popular Mixes"
+    val firstSection = sections.firstOrNull { it.items.isNotEmpty() }
+    return (firstSection?.items?.take(limit.coerceAtLeast(0)) ?: emptyList()) to
+        (firstSection?.title.orEmpty())
+}
 
 /**
  * Hero pick: the first item of the first non-empty catalog section, or null

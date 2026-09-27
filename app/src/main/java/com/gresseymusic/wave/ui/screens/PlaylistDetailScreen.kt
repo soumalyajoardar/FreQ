@@ -223,7 +223,7 @@ fun PlaylistDetailScreen(
                     leadingIcon = Icons.Default.PlayArrow,
                     onClick = {
                         if (playlist.tracks.isNotEmpty()) {
-                            playbackManager.playQueue(playlist.tracks)
+                            if (!playbackManager.playQueue(playlist.tracks)) onOpenNowPlaying()
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -235,7 +235,7 @@ fun PlaylistDetailScreen(
                     onClick = {
                         if (playlist.tracks.isNotEmpty()) {
                             if (!shuffleEnabled) playbackManager.toggleShuffle()
-                            playbackManager.playQueue(playlist.tracks)
+                            if (!playbackManager.playQueue(playlist.tracks)) onOpenNowPlaying()
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -263,7 +263,7 @@ fun PlaylistDetailScreen(
                             showDuration = false,
                             onPlay = {
                                 // Playlist ordering becomes the queue context.
-                                playbackManager.playQueue(playlist.tracks, index)
+                                if (!playbackManager.playQueue(playlist.tracks, index)) onOpenNowPlaying()
                             },
                             onPlayNext = { playbackManager.playNext(track) },
                             onAddToQueue = { playbackManager.addToQueue(track) },

@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -113,6 +114,15 @@ fun WaveNavGraph(
                 onPlaylistClick = { playlistId -> navController.navigate("playlist/$playlistId") },
                 onUserPlaylistClick = { userPlId -> navController.navigate("user_playlist/$userPlId") },
                 onArtistClick = { artistId -> navController.navigate("artist/$artistId") },
+                onSearchClick = {
+                    navController.navigate(WaveBottomTab.SEARCH.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
                 onOpenNowPlaying = { openNowPlayingOnce(navController) },
             )
         }

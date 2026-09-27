@@ -5,6 +5,7 @@ import com.gresseymusic.wave.data.model.AlbumDetail
 import com.gresseymusic.wave.data.model.AlbumItem
 import com.gresseymusic.wave.data.model.ArtistDetail
 import com.gresseymusic.wave.data.model.FoundArtist
+import com.gresseymusic.wave.data.model.TrackLyrics
 import com.gresseymusic.wave.data.model.HomeCatalogItem
 import com.gresseymusic.wave.data.model.HomeCatalogSection
 import com.gresseymusic.wave.data.model.PlaylistDetail
@@ -198,7 +199,7 @@ class MockMusicRepository(
         return emptyList()
     }
 
-    override suspend fun getLyrics(track: MediaTrack): List<String>? {
+    override suspend fun getLyrics(track: MediaTrack): TrackLyrics? {
         // Test-only seam: the mock carries no lyrics; callers render the
         // honest empty state.
         return null

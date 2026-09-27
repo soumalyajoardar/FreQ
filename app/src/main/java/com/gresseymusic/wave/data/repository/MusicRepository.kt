@@ -5,6 +5,7 @@ import com.gresseymusic.wave.data.model.AlbumDetail
 import com.gresseymusic.wave.data.model.ArtistDetail
 import com.gresseymusic.wave.data.model.FoundArtist
 import com.gresseymusic.wave.data.model.HomeCatalogSection
+import com.gresseymusic.wave.data.model.TrackLyrics
 import com.gresseymusic.wave.data.model.PlaylistDetail
 import com.gresseymusic.wave.player.MediaTrack
 
@@ -32,7 +33,7 @@ interface MusicRepository {
      * offline, server error). Never throws for transport failures and
      * never returns mock content.
      */
-    suspend fun getLyrics(track: MediaTrack): List<String>?
+    suspend fun getLyrics(track: MediaTrack): TrackLyrics?
 
     /**
      * On-device artist search (M28l): people matching [query] with channel

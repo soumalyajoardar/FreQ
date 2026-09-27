@@ -183,6 +183,7 @@ fun QueueScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = FreqSpacing.md)
+            .padding(top = FreqSpacing.sm),
     ) {
         QueueHeader(
             onBackClick = onBackClick,
@@ -283,7 +284,7 @@ fun QueueScreen(
                             resolvedDurationSeconds = resolvedDurations[itemTrack.id] ?: 0,
                             canMoveUp = canMoveUp,
                             canMoveDown = canMoveDown,
-                            onPlayItem = { playbackManager.playQueueItem(realIndex) },
+                            onPlayItem = { if (!playbackManager.playQueueItem(realIndex)) onCurrentTrackClick() },
                             onRemove = { playbackManager.removeFromQueue(realIndex) },
                             onMoveUp = { playbackManager.moveQueueItem(realIndex, realIndex - 1) },
                             onMoveDown = { playbackManager.moveQueueItem(realIndex, realIndex + 1) },
@@ -322,7 +323,7 @@ private fun QueueHeader(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Queue",
-                style = Typography.titleMedium,
+                style = Typography.headlineMedium,
                 color = FreqTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold,
             )

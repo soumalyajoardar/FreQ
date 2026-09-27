@@ -168,6 +168,18 @@ fun isTopSongMatch(query: String, track: MediaTrack): Boolean {
 }
 
 /**
+ * Whether [artistName] is what [query] names (either contains the other,
+ * case-insensitive): the Artists section only shows for artist queries,
+ * never for song titles that merely resolve to a singer. Pure.
+ */
+fun artistMatchesQuery(query: String, artistName: String): Boolean {
+    val q = query.trim().lowercase()
+    val name = artistName.trim().lowercase()
+    if (q.length < 2 || name.isEmpty()) return false
+    return name.contains(q) || q.contains(name)
+}
+
+/**
  * First song tracks across home catalog sections for the browse-mode
  * Trending rail. Real backend data only — empty when unloadable. Pure.
  */
@@ -639,12 +651,13 @@ fun SongBanner(
     modifier: Modifier = Modifier,
 ) {
     val colors = FreqTheme.colors
-    FreqGlassSurface(
-        tone = FreqGlassTone.Strong,
-        shape = FreqShapes.cardLarge,
+    // Flat translucent fill like every other search surface: a single
+    // layer can never read as stacked rectangles.
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(FreqShapes.cardLarge)
+            .background(colors.glassStandard)
             .clickable(
                 role = Role.Button,
                 indication = ripple(),
@@ -719,12 +732,13 @@ fun ArtistBanner(
     modifier: Modifier = Modifier,
 ) {
     val colors = FreqTheme.colors
-    FreqGlassSurface(
-        tone = FreqGlassTone.Strong,
-        shape = FreqShapes.cardLarge,
+    // Flat translucent fill like every other search surface: a single
+    // layer can never read as stacked rectangles.
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(FreqShapes.cardLarge)
+            .background(colors.glassStandard)
             .clickable(
                 role = Role.Button,
                 indication = ripple(),
@@ -905,7 +919,7 @@ fun ArtistsSection(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = FreqSpacing.md)
-            .padding(bottom = rememberMiniPlayerBottomClearance()),
+            .padding(top = FreqSpacing.sm, bottom = rememberMiniPlayerBottomClearance()),
         verticalArrangement = Arrangement.spacedBy(FreqSpacing.lg),
     ) {
         SearchHeader()
@@ -957,7 +971,7 @@ fun ArtistsSection(
                                         album = "Single",
                                         artworkUrl = item.artworkUrl,
                                     )
-                                playbackManager.playTrack(full)
+                                if (!playbackManager.playTrack(full)) onOpenNowPlaying()
                                 searchHistory.recordTrack(
                                     full.id,
                                     full.title,
@@ -970,15 +984,18 @@ fun ArtistsSection(
                                 // Offline: play from history metadata so the
                                 // tap still produces audio when cached.
                                 try {
-                                    playbackManager.playTrack(
-                                        MediaTrack(
-                                            id = item.trackId,
-                                            title = item.title,
-                                            artist = item.artist,
-                                            album = "Single",
-                                            artworkUrl = item.artworkUrl,
-                                        ),
-                                    )
+                                    if (!playbackManager.playTrack(
+                                            MediaTrack(
+                                                id = item.trackId,
+                                                title = item.title,
+                                                artist = item.artist,
+                                                album = "Single",
+                                                artworkUrl = item.artworkUrl,
+                                            ),
+                                        )
+                                    ) {
+                                        onOpenNowPlaying()
+                                    }
                                 } catch (_: Exception) {
                                 }
                             }
@@ -1009,7 +1026,7 @@ fun ArtistsSection(
                                 track.artworkUrl,
                             )
                         }
-                        playbackManager.playTrack(track)
+                        if (!playbackManager.playTrack(track)) onOpenNowPlaying()
                     },
                 )
             }
@@ -1029,18 +1046,17 @@ fun ArtistsSection(
                 albumCount = albumGroups.size,
             )
 
-            // Top result: famous artist banner wins; otherwise an
-            // exact-title song banners like one. Remaining artists list on.
-            val topArtist = if (selectedFilter == "All") {
-                artistResults.firstOrNull { isFamousArtist(it.subtitle) }
-            } else {
-                null
-            }
-            val otherArtists = if (selectedFilter == "All") {
-                artistResults.filter { it.id != topArtist?.id }
+            // Top result: famous artist banner wins, but only when the
+            // query names an artist (song titles stay songs); otherwise
+            // an exact-title song banners like one. Remaining artists
+            // list on.
+            val namedArtists = if (selectedFilter == "All") {
+                artistResults.filter { artistMatchesQuery(searchQuery, it.name) }
             } else {
                 emptyList()
             }
+            val topArtist = namedArtists.firstOrNull { isFamousArtist(it.subtitle) }
+            val otherArtists = namedArtists.filter { it.id != topArtist?.id }
             val topSong = if (topArtist == null && selectedFilter != "Albums") {
                 searchResults.firstOrNull { isTopSongMatch(searchQuery, it) }
             } else {
@@ -1063,7 +1079,7 @@ fun ArtistsSection(
                                 topSong.artworkUrl,
                             )
                         }
-                        playbackManager.playTrack(topSong)
+                        if (!playbackManager.playTrack(topSong)) onOpenNowPlaying()
                     },
                 )
             }
@@ -1097,7 +1113,7 @@ fun ArtistsSection(
                                             track.artworkUrl,
                                         )
                                     }
-                                    playbackManager.playTrack(track)
+                                    if (!playbackManager.playTrack(track)) onOpenNowPlaying()
                                 },
                                 onPlayNext = { playbackManager.playNext(track) },
                                 onAddToQueue = { playbackManager.addToQueue(track) },
@@ -1138,7 +1154,7 @@ fun ArtistsSection(
                                                 it.artworkUrl,
                                             )
                                         }
-                                        playbackManager.playTrack(it)
+                                        if (!playbackManager.playTrack(it)) onOpenNowPlaying()
                                     }
                                 },
                                 contentDescription = "Play album ${group.title} by ${group.artist}",
@@ -1210,7 +1226,7 @@ private fun SearchHeader() {
     ) {
         Text(
             text = "Search",
-            style = Typography.displaySmall,
+            style = Typography.displayMedium,
             color = FreqTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold,
         )
@@ -1336,14 +1352,6 @@ private fun SearchInputRow(
                 }
             }
         }
-
-        Text(
-            text = "Cancel",
-            style = Typography.labelLarge,
-            color = FreqTheme.colors.textSecondary,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable { onCancelClick() },
-        )
     }
 }
 

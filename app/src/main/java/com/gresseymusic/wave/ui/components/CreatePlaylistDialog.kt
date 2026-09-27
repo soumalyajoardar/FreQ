@@ -67,6 +67,7 @@ fun CreatePlaylistDialog(
             )
         },
         text = {
+            ApplyDialogBackgroundBlur()
             Column(
                 verticalArrangement = Arrangement.spacedBy(FreqSpacing.sm),
             ) {

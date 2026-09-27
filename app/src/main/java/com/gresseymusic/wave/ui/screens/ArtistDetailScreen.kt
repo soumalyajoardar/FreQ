@@ -285,7 +285,7 @@ fun ArtistDetailScreen(
                         text = "Play",
                         enabled = artist.topSongs.isNotEmpty(),
                         onClick = {
-                            playbackManager.playQueue(artist.topSongs)
+                            if (!playbackManager.playQueue(artist.topSongs)) onOpenNowPlaying()
                         },
                         modifier = Modifier.weight(1f),
                     )
@@ -327,7 +327,7 @@ fun ArtistDetailScreen(
                                         leadingLabel = (index + 1).toString(),
                                         onPlay = {
                                             // Artist ordering becomes the queue context.
-                                            playbackManager.playQueue(artist.topSongs, index)
+                                            if (!playbackManager.playQueue(artist.topSongs, index)) onOpenNowPlaying()
                                         },
                                         onPlayNext = { playbackManager.playNext(track) },
                                         onAddToQueue = { playbackManager.addToQueue(track) },

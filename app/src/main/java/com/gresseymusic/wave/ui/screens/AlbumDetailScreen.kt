@@ -237,7 +237,7 @@ fun AlbumDetailScreen(
                     text = if (album.tracks.isEmpty()) "Play" else "Play Album",
                     onClick = {
                         if (album.tracks.isNotEmpty()) {
-                            playbackManager.playQueue(album.tracks)
+                            if (!playbackManager.playQueue(album.tracks)) onOpenNowPlaying()
                         }
                     },
                     enabled = album.tracks.isNotEmpty(),
@@ -279,7 +279,7 @@ fun AlbumDetailScreen(
                                     leadingLabel = (index + 1).toString(),
                                     onPlay = {
                                         // Album ordering becomes the queue context.
-                                        playbackManager.playQueue(album.tracks, index)
+                                        if (!playbackManager.playQueue(album.tracks, index)) onOpenNowPlaying()
                                     },
                                     onPlayNext = { playbackManager.playNext(track) },
                                     onAddToQueue = { playbackManager.addToQueue(track) },
@@ -305,7 +305,9 @@ fun AlbumDetailScreen(
 @Composable
 private fun AlbumTopBar(onBackClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = FreqSpacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

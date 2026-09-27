@@ -4,6 +4,7 @@ import com.gresseymusic.wave.data.model.AlbumDetail
 import com.gresseymusic.wave.data.model.AlbumItem
 import com.gresseymusic.wave.data.model.ArtistDetail
 import com.gresseymusic.wave.data.model.FoundArtist
+import com.gresseymusic.wave.data.model.TrackLyrics
 import com.gresseymusic.wave.data.model.HomeCatalogItem
 import com.gresseymusic.wave.data.model.HomeCatalogSection
 import com.gresseymusic.wave.data.model.PlaylistDetail
@@ -210,15 +211,19 @@ class YtMusicRepository(
         }
     }
 
-    override suspend fun getLyrics(track: MediaTrack): List<String>? {        if (track.id.isBlank()) return null
+    override suspend fun getLyrics(track: MediaTrack): TrackLyrics? {
+        if (track.id.isBlank()) return null
         return withContext(Dispatchers.IO) {
             try {
                 apiClient.getLyrics(track.id)
                     ?.let { sanitizeLyricsLines(it) }
                     ?.ifEmpty { null }
-                    ?: lrcLibClient?.getLyrics(track)
-                        ?.let { sanitizeLyricsLines(it) }
-                        ?.ifEmpty { null }
+                    ?.let { TrackLyrics(lines = it) }
+                    ?: lrcLibClient?.getLyrics(track)?.let { remote ->
+                        val lines = sanitizeLyricsLines(remote.lines)
+                        if (lines.isEmpty()) return@let null
+                        TrackLyrics(lines = lines, synced = remote.synced)
+                    }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

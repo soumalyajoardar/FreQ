@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import coil.Coil
 import com.gresseymusic.wave.data.library.LocalLibraryRepositoryProvider
 import com.gresseymusic.wave.data.settings.LocalUserPreferences
-import com.gresseymusic.wave.ui.components.OnboardingDialog
 import com.gresseymusic.wave.ui.components.FreqConfirmDialog
 import com.gresseymusic.wave.ui.components.FreqGlassSurface
 import com.gresseymusic.wave.ui.components.FreqIconButton
@@ -74,14 +74,13 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val userPreferences = LocalUserPreferences.current
-    val currentUsername by userPreferences.usernameFlow.collectAsState(initial = null)
     val libraryRepository = LocalLibraryRepositoryProvider.current
+    val userPreferences = LocalUserPreferences.current
     val likedTracks by libraryRepository.likedTracks.collectAsState()
     val userPlaylists by libraryRepository.userPlaylists.collectAsState()
     val recentlyPlayed by libraryRepository.recentlyPlayed.collectAsState()
+    val autoUpdateEnabled by userPreferences.autoUpdateEnabledFlow.collectAsState(initial = false)
 
-    var showUsernameDialog by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -91,58 +90,11 @@ fun SettingsScreen(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = FreqSpacing.md)
-            .padding(bottom = rememberMiniPlayerBottomClearance()),
+            .padding(top = FreqSpacing.sm, bottom = rememberMiniPlayerBottomClearance()),
         verticalArrangement = Arrangement.spacedBy(FreqSpacing.lg),
     ) {
         // --- Header ---
         SettingsHeader(onBackClick = onBackClick)
-
-        // --- Personalization (M25) ---
-        SettingsSection(title = "PERSONALIZATION") {
-            FreqSettingsRow(
-                title = "Display Name",
-                description = currentUsername?.let { "Personalized greetings for $it" }
-                    ?: "Set your name for personalized greetings on Home",
-                leadingIcon = Icons.Default.Edit,
-                trailingContent = {
-                    Text(
-                        text = currentUsername ?: "Not set",
-                        style = com.gresseymusic.wave.ui.theme.Typography.bodyMedium,
-                        color = if (currentUsername != null) colors.textPrimary else colors.textMuted,
-                    )
-                },
-                onClick = { showUsernameDialog = true },
-                contentDescriptionText = "Display Name: ${currentUsername ?: "Not set"}. Tap to edit.",
-            )
-        }
-
-        // --- Playback & Audio Engine ---
-        SettingsSection(title = "AUDIO & PLAYBACK") {
-            FreqSettingsRow(
-                title = "Playback Engine",
-                description = "Hardware-accelerated ExoPlayer & Media3 service",
-                leadingIcon = FreqIcons.AudioWave,
-                trailingContent = {
-                    StatusBadge(text = "Active", isPositive = true)
-                },
-            )
-            FreqSettingsRow(
-                title = "Stream Resolver",
-                description = "On-device NewPipe Extractor with yt-dlp remote recovery",
-                leadingIcon = FreqIcons.AudioWave,
-                trailingContent = {
-                    StatusBadge(text = "Dual-Engine", isPositive = true)
-                },
-            )
-            FreqSettingsRow(
-                title = "Session Restoration",
-                description = "Persists active track, queue, seek position, shuffle & repeat",
-                leadingIcon = FreqIcons.AudioWave,
-                trailingContent = {
-                    StatusBadge(text = "Enabled", isPositive = true)
-                },
-            )
-        }
 
         // --- Data & Storage ---
         SettingsSection(title = "DATA & STORAGE") {
@@ -154,6 +106,27 @@ fun SettingsScreen(
                     historyCount = recentlyPlayed.size,
                 ),
                 leadingIcon = FreqIcons.Storage,
+            )
+            FreqSettingsRow(
+                title = "Auto-update",
+                description = "Check GitHub for new versions on launch",
+                leadingIcon = FreqIcons.Info,
+                trailingContent = {
+                    Switch(
+                        checked = autoUpdateEnabled,
+                        onCheckedChange = { enabled ->
+                            scope.launch { userPreferences.setAutoUpdateEnabled(enabled) }
+                        },
+                    )
+                },
+                onClick = {
+                    scope.launch { userPreferences.setAutoUpdateEnabled(!autoUpdateEnabled) }
+                },
+                contentDescriptionText = if (autoUpdateEnabled) {
+                    "Auto-update on. Tap to turn off."
+                } else {
+                    "Auto-update off. Tap to turn on."
+                },
             )
             FreqSettingsRow(
                 title = "Clear Temporary Cache",
@@ -177,7 +150,7 @@ fun SettingsScreen(
         SettingsSection(title = "ABOUT") {
             FreqSettingsRow(
                 title = "About FreQ",
-                description = "Version 1.0 Stable (Build 1) • Pure sound & discovery",
+                description = "Version 1.3 Stable (Build 3)",
                 leadingIcon = FreqIcons.Info,
                 trailingContent = {
                     Icon(
@@ -193,23 +166,6 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(FreqSpacing.md))
-    }
-
-    // --- Personalization Display Name Dialog (M25) ---
-    if (showUsernameDialog) {
-        OnboardingDialog(
-            title = "Edit Display Name",
-            subtitle = "What should FreQ call you?",
-            confirmText = "Save",
-            initialName = currentUsername.orEmpty(),
-            onSaveName = { newName ->
-                scope.launch {
-                    userPreferences.setUsername(newName)
-                    showUsernameDialog = false
-                }
-            },
-            onDismissRequest = { showUsernameDialog = false },
-        )
     }
 
     // --- Clear Cache Confirmation Dialog ---
@@ -255,21 +211,15 @@ private fun SettingsHeader(onBackClick: () -> Unit) {
             )
             Column {
                 Text(
-                    text = "SETTINGS",
-                    style = Typography.labelSmall,
-                    color = colors.textMuted,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "Control Room",
-                    style = Typography.headlineMedium,
+                    text = "Settings",
+                    style = Typography.displaySmall,
                     color = colors.textPrimary,
                     fontWeight = FontWeight.Bold,
                 )
             }
         }
         Text(
-            text = "Fine-tune FreQ's audio engine and local storage.",
+            text = "Fine-tune your local storage.",
             style = Typography.bodySmall,
             color = colors.textSecondary,
             modifier = Modifier.padding(start = FreqSpacing.xl + FreqSpacing.sm),
@@ -302,29 +252,8 @@ private fun SettingsSection(
     }
 }
 
-@Composable
-private fun StatusBadge(text: String, isPositive: Boolean) {
-    val colors = FreqTheme.colors
-    val badgeColor = if (isPositive) colors.success else colors.textMuted
-    FreqGlassSurface(
-        modifier = Modifier.padding(2.dp),
-        tone = FreqGlassTone.Subtle,
-        shape = FreqShapes.pill,
-        shadow = FreqElevation.none,
-    ) {
-        Text(
-            text = text,
-            style = Typography.labelSmall,
-            color = badgeColor,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = FreqSpacing.sm, vertical = 4.dp),
-        )
-    }
-}
-
 /** Pure formatting helper for unit tests */
-fun formatLibrarySummary(likedCount: Int, playlistCount: Int, historyCount: Int): String {
-    val liked = if (likedCount == 1) "1 liked song" else "$likedCount liked songs"
+fun formatLibrarySummary(likedCount: Int, playlistCount: Int, historyCount: Int): String {    val liked = if (likedCount == 1) "1 liked song" else "$likedCount liked songs"
     val playlists = if (playlistCount == 1) "1 playlist" else "$playlistCount playlists"
     return "$liked • $playlists • $historyCount in history"
 }

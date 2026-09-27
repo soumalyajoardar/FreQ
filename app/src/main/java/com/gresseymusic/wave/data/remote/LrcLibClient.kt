@@ -1,6 +1,8 @@
 package com.gresseymusic.wave.data.remote
 
 import android.util.Log
+import com.gresseymusic.wave.data.model.SyncedLyricLine
+import com.gresseymusic.wave.data.model.TrackLyrics
 import com.gresseymusic.wave.player.MediaTrack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +39,7 @@ open class LrcLibClient(
         .build(),
 ) {
 
-    open suspend fun getLyrics(track: MediaTrack): List<String>? {
+    open suspend fun getLyrics(track: MediaTrack): TrackLyrics? {
         val title = track.title.trim()
         val artist = track.artist.trim()
         if (title.isBlank() || artist.isBlank()) return null
@@ -59,7 +61,7 @@ open class LrcLibClient(
         title: String,
         album: String?,
         durationSeconds: Int,
-    ): List<String>? {
+    ): TrackLyrics? {
         if (artist.isBlank()) return null
         val base = baseUrl.trimEnd('/').toHttpUrlOrNull() ?: return null
         val url = base.newBuilder()
@@ -81,7 +83,7 @@ open class LrcLibClient(
             if (response.code == 404) return null
             if (!response.isSuccessful) return null
             val body = response.body?.string() ?: return null
-            return parseLrcLibBody(body)
+            return parseLrcLibResult(body)
         }
     }
 
@@ -125,14 +127,50 @@ open class LrcLibClient(
          * carries no usable plain lyrics. Pure.
          */
         fun parseLrcLibBody(body: String): List<String>? {
+            return parseLrcLibResult(body)?.lines
+        }
+
+        /**
+         * Full lyric payload (plain + synced lines) from an LRCLIB
+         * `/api/get` body, or null when it carries no usable plain
+         * lyrics. Pure.
+         */
+        fun parseLrcLibResult(body: String): TrackLyrics? {
             return try {
-                val text = JSONObject(body).optString("plainLyrics", "")
-                if (text.isBlank()) return null
-                val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                lines.ifEmpty { null }
+                val json = JSONObject(body)
+                val plain = json.optString("plainLyrics", "")
+                if (plain.isBlank()) return null
+                val lines = plain.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                if (lines.isEmpty()) return null
+                TrackLyrics(
+                    lines = lines,
+                    synced = parseSyncedLyrics(json.optString("syncedLyrics", "")),
+                )
             } catch (_: Exception) {
                 null
             }
+        }
+
+        private val LRC_LINE_REGEX = Regex("^\\[(\\d+):(\\d+(?:\\.\\d+)?)\\](.*)$")
+
+        /**
+         * Timestamped lines from LRC text ("[mm:ss.xx] lyric"). Metadata
+         * tags ([ar:], [ti:], [length:]) and blank cues are dropped;
+         * cues sort by time. Pure and unit-tested.
+         */
+        fun parseSyncedLyrics(lrc: String): List<SyncedLyricLine> {
+            if (lrc.isBlank()) return emptyList()
+            val out = ArrayList<SyncedLyricLine>()
+            for (raw in lrc.lines()) {
+                val match = LRC_LINE_REGEX.matchEntire(raw.trim()) ?: continue
+                val minutes = match.groupValues[1].toLongOrNull() ?: continue
+                val seconds = match.groupValues[2].toDoubleOrNull() ?: continue
+                val text = match.groupValues[3].trim()
+                if (text.isEmpty()) continue
+                out.add(SyncedLyricLine(timeMs = minutes * 60_000L + (seconds * 1000).toLong(), text = text))
+            }
+            out.sortBy { it.timeMs }
+            return out
         }
     }
 }
