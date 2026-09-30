@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Production & Build outputs
+dist/
+dist-electron/
+
+# Logs & temp files
+*.log
+freq-debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & OS files
+.DS_Store
+Thumbs.db
+*.local
