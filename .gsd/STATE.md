@@ -15,9 +15,12 @@
 - Local library persistence for Liked Songs, Custom Playlists, History, and Search History.
 - Windows MediaSession API integrated for hardware media keys & taskbar transport.
 - Batch and PowerShell launchers (`start-freq.bat`, `start-freq.ps1`) created for one-click startup.
+- Search resolution bug fixed: parsed `data.tracks` response format and added local `yt-dlp` search fallback bridge.
 
 ## Quick Metrics
 - Total Phases: 6
 - Completed Phases: 6
 - Build Status: Success (Vite + Esbuild compiled with 0 errors)
+- Search Engine: Dual-tier (FreQ Cloud API + Local yt-dlp fallback)
 - Blockers: None
+
