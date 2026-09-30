@@ -9,6 +9,7 @@
     "build:electron": "npx esbuild electron/main.ts --bundle --platform=node --target=node20 --outfile=dist-electron/main.js --external:electron && npx esbuild electron/preload.ts --bundle --platform=node --target=node20 --outfile=dist-electron/preload.js --external:electron",
     "build": "npm run build:ui && npm run build:electron",
     "start": "electron .",
+    "electron": "electron .",
     "freq": "npm run build && electron ."
   },
   "keywords": [

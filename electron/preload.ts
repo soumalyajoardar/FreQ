@@ -7,6 +7,7 @@ export interface ElectronAPI {
   isWindowMaximized: () => Promise<boolean>;
   onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
   getStreamUrl: (videoId: string) => Promise<{ streamUrl: string; fromCache: boolean }>;
+  searchTracks: (query: string) => Promise<any[]>;
   getLibraryData: () => Promise<any>;
   saveLibraryData: (data: any) => Promise<{ success: boolean; error?: string }>;
 }
@@ -24,6 +25,7 @@ const api: ElectronAPI = {
     };
   },
   getStreamUrl: (videoId: string) => ipcRenderer.invoke('get-stream-url', videoId),
+  searchTracks: (query: string) => ipcRenderer.invoke('search-tracks', query),
   getLibraryData: () => ipcRenderer.invoke('get-library-data'),
   saveLibraryData: (data: any) => ipcRenderer.invoke('save-library-data', data),
 };

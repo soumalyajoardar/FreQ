@@ -78,17 +78,43 @@ export function normalizeTrack(raw: any): MediaTrack {
 
 class YtMusicService {
   async search(query: string): Promise<MediaTrack[]> {
-    if (!query || query.trim().length < 2) return [];
+    if (!query || query.trim().length < 1) return [];
+    const trimmed = query.trim();
+
     try {
-      const res = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(query.trim())}`);
-      if (!res.ok) throw new Error(`Search failed: ${res.statusText}`);
-      const data = await res.json();
-      if (!Array.isArray(data)) return [];
-      return data.map(normalizeTrack);
+      const res = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(trimmed)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const rawList: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.tracks)
+          ? data.tracks
+          : Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data?.songs)
+          ? data.songs
+          : [];
+        if (rawList.length > 0) {
+          return rawList.map(normalizeTrack);
+        }
+      }
     } catch (err) {
-      console.error('YtMusic search error:', err);
-      return [];
+      console.warn('Cloud search error, falling back to local extractor:', err);
     }
+
+    // Fallback: local yt-dlp search bridge
+    if (window.electronAPI?.searchTracks) {
+      try {
+        const fallbackResults = await window.electronAPI.searchTracks(trimmed);
+        if (Array.isArray(fallbackResults) && fallbackResults.length > 0) {
+          return fallbackResults.map(normalizeTrack);
+        }
+      } catch (fbErr) {
+        console.error('Local yt-dlp search fallback failed:', fbErr);
+      }
+    }
+
+    return [];
   }
 
   async getHome(): Promise<{ sections: CatalogSection[] }> {

@@ -228,3 +228,45 @@ ipcMain.handle('save-library-data', async (_event, payload: any) => {
     return { success: false, error: e.message };
   }
 });
+
+// Local yt-dlp Track Search IPC Handler
+ipcMain.handle('search-tracks', async (_event, query: string) => {
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return [];
+  }
+  const ytdlpPath = findYtDlpPath();
+  try {
+    const { stdout } = await execFileAsync(
+      ytdlpPath,
+      [
+        `ytsearch15:${query.trim()}`,
+        '--dump-json',
+        '--flat-playlist',
+        '--no-warnings',
+      ],
+      { timeout: 15000 }
+    );
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    const results = [];
+    for (const line of lines) {
+      try {
+        const item = JSON.parse(line);
+        if (item.id && item.title) {
+          results.push({
+            id: item.id,
+            title: item.title,
+            artist: item.uploader || item.channel || 'YouTube Music',
+            album: 'Single',
+            durationSeconds: item.duration || 194,
+            artworkUrl: item.thumbnails?.[item.thumbnails.length - 1]?.url || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+            provider: 'youtube_music',
+          });
+        }
+      } catch {}
+    }
+    return results;
+  } catch (err: any) {
+    console.error('yt-dlp search error:', err.message || err);
+    return [];
+  }
+});
