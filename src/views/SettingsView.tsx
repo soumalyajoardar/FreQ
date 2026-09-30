@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Volume2, Sparkles, HardDrive, ShieldCheck, Info, Radio } from 'lucide-react';
 import { AudioMode } from '../types';
+import { libraryStore } from '../services/libraryStore';
 
 interface SettingsViewProps {
   audioMode: AudioMode;
@@ -20,6 +21,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onClearHistory,
 }) => {
   const [discordStatus, setDiscordStatus] = useState<{ isConnected: boolean; isEnabled: boolean } | null>(null);
+  const [customAppId, setCustomAppId] = useState(libraryStore.getDiscordClientId() || '');
+  const [saveMessage, setSaveMessage] = useState('');
 
   useEffect(() => {
     if (window.electronAPI?.getDiscordStatus) {
@@ -41,6 +44,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     await window.electronAPI.setDiscordEnabled(nextState);
     const updated = await window.electronAPI.getDiscordStatus();
     setDiscordStatus(updated);
+  };
+
+  const handleSaveCustomAppId = async () => {
+    libraryStore.setDiscordClientId(customAppId);
+    if (window.electronAPI?.setDiscordClientId) {
+      await window.electronAPI.setDiscordClientId(customAppId || '1177081335727267940');
+    }
+    setSaveMessage('Saved & Reconnected!');
+    setTimeout(() => setSaveMessage(''), 3000);
   };
 
   return (
@@ -180,7 +192,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Broadcasts your currently playing track, dynamic album artwork, live seek bar, and active audio flavor (SnR / Nightcore) to your Discord status profile with an interactive YouTube Music button.
+            Broadcasts your currently playing track ("Listening to FreQ"), artist name, album artwork, and live timeline progress bar to your Discord status profile.
           </span>
 
           <div
@@ -230,6 +242,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 }}
               />
             </div>
+          </div>
+
+          {/* Custom Discord Application ID */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Application Title in Discord ("Listening to ...")
+              </span>
+              <a
+                href="https://discord.com/developers/applications"
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: '12px', color: 'var(--accent-cyan)', textDecoration: 'none' }}
+              >
+                Discord Developer Portal ↗
+              </a>
+            </div>
+
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              Discord generates the status header (e.g. <strong>"Listening to FreQ"</strong>) using the name of the Application in Discord's Developer Portal. If you create a free application named <code>FreQ</code>, paste its Application ID below to display <strong>Listening to FreQ</strong>:
+            </p>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Paste Application ID (Default: 1177081335727267940)"
+                value={customAppId}
+                onChange={e => setCustomAppId(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#fff',
+                  fontSize: '13px',
+                }}
+              />
+              <button
+                onClick={handleSaveCustomAppId}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  backgroundColor: '#5865F2',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                Save
+              </button>
+            </div>
+
+            {saveMessage && (
+              <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>
+                ✓ {saveMessage}
+              </span>
+            )}
           </div>
         </div>
       </section>

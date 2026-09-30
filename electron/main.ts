@@ -292,7 +292,12 @@ ipcMain.handle('discord-set-enabled', (_event, enabled: boolean) => {
   discordRpcManager.setEnabled(enabled);
 });
 
+ipcMain.handle('discord-set-client-id', (_event, clientId: string) => {
+  discordRpcManager.setClientId(clientId);
+});
+
 ipcMain.handle('discord-get-status', () => {
   return discordRpcManager.getStatus();
 });
+
 

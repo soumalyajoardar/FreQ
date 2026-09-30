@@ -138,18 +138,12 @@ class DiscordRpcManager {
     if (audioMode === 'SNR') flavorLabel = 'FreQ • SnR (Slowed + Reverb)';
     else if (audioMode === 'NIGHTCORE') flavorLabel = 'FreQ • Nightcore (1.2x Pitch)';
 
-    const details = track.title.length < 2 ? `${track.title} ` : track.title;
-    const state = `${track.artist || 'Unknown'}${track.album ? ` • ${track.album}` : ''}`;
-
-    // Discord buttons (max 2)
-    const buttons = track.id && /^[A-Za-z0-9_-]{11}$/.test(track.id)
-      ? [
-          {
-            label: 'Listen on YouTube Music',
-            url: `https://music.youtube.com/watch?v=${track.id}`,
-          },
-        ]
-      : undefined;
+    // Exact user layout:
+    // Line 1: Song name
+    // Line 2: Artists name
+    // Bottom: Timeline progress bar
+    const details = (track.title || 'Unknown Track').trim().slice(0, 128);
+    const state = (track.artist || 'Unknown Artist').trim().slice(0, 128);
 
     try {
       if (isPlaying) {
@@ -160,23 +154,23 @@ class DiscordRpcManager {
         const endTimestamp = Math.floor(now + remainingSeconds * 1000);
 
         await this.client.user.setActivity({
-          details: details.slice(0, 128),
-          state: state.slice(0, 128),
-          startTimestamp,
-          endTimestamp,
+          type: 2, // 2 = LISTENING ("Listening to FreQ")
+          details, // Song name
+          state, // Artists name
+          startTimestamp, // Timeline start
+          endTimestamp, // Timeline end (renders live countdown timeline at the bottom)
           largeImageKey: track.artworkUrl || undefined,
-          largeImageText: track.album ? `${track.title} (${track.album})`.slice(0, 128) : track.title.slice(0, 128),
+          largeImageText: track.title.slice(0, 128),
           smallImageText: flavorLabel.slice(0, 128),
-          buttons,
         });
       } else {
         await this.client.user.setActivity({
-          details: `${details} [Paused]`.slice(0, 128),
-          state: state.slice(0, 128),
+          type: 2,
+          details,
+          state: `${state} (Paused)`.slice(0, 128),
           largeImageKey: track.artworkUrl || undefined,
           largeImageText: track.title.slice(0, 128),
           smallImageText: 'Paused',
-          buttons,
         });
       }
 

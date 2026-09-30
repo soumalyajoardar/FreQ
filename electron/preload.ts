@@ -13,6 +13,7 @@ export interface ElectronAPI {
   updateDiscordPresence: (payload: any) => Promise<void>;
   clearDiscordPresence: () => Promise<void>;
   setDiscordEnabled: (enabled: boolean) => Promise<void>;
+  setDiscordClientId: (clientId: string) => Promise<void>;
   getDiscordStatus: () => Promise<{ isConnected: boolean; isEnabled: boolean; clientId: string }>;
 }
 
@@ -35,6 +36,7 @@ const api: ElectronAPI = {
   updateDiscordPresence: (payload: any) => ipcRenderer.invoke('discord-update-activity', payload),
   clearDiscordPresence: () => ipcRenderer.invoke('discord-clear-activity'),
   setDiscordEnabled: (enabled: boolean) => ipcRenderer.invoke('discord-set-enabled', enabled),
+  setDiscordClientId: (clientId: string) => ipcRenderer.invoke('discord-set-client-id', clientId),
   getDiscordStatus: () => ipcRenderer.invoke('discord-get-status'),
 };
 

@@ -5,6 +5,7 @@ interface StoredLibrary {
   userPlaylists: UserPlaylist[];
   recentlyPlayed: MediaTrack[];
   searchHistory: string[];
+  discordClientId?: string;
 }
 
 type Listener = () => void;
@@ -14,6 +15,7 @@ class LibraryStore {
   private userPlaylists: UserPlaylist[] = [];
   private recentlyPlayed: MediaTrack[] = [];
   private searchHistory: string[] = [];
+  private discordClientId: string = '';
 
   private listeners: Set<Listener> = new Set();
   private isLoaded = false;
@@ -32,6 +34,10 @@ class LibraryStore {
           this.userPlaylists = data.userPlaylists || [];
           this.recentlyPlayed = data.recentlyPlayed || [];
           this.searchHistory = data.searchHistory || [];
+          this.discordClientId = data.discordClientId || '';
+          if (this.discordClientId && window.electronAPI.setDiscordClientId) {
+            window.electronAPI.setDiscordClientId(this.discordClientId);
+          }
         }
       } else {
         const raw = localStorage.getItem('freq_library_data');
@@ -41,6 +47,7 @@ class LibraryStore {
           this.userPlaylists = parsed.userPlaylists || [];
           this.recentlyPlayed = parsed.recentlyPlayed || [];
           this.searchHistory = parsed.searchHistory || [];
+          this.discordClientId = parsed.discordClientId || '';
         }
       }
     } catch (e) {
@@ -57,6 +64,7 @@ class LibraryStore {
       userPlaylists: this.userPlaylists,
       recentlyPlayed: this.recentlyPlayed,
       searchHistory: this.searchHistory,
+      discordClientId: this.discordClientId,
     };
 
     try {
@@ -193,6 +201,20 @@ class LibraryStore {
   public clearSearchHistory() {
     this.searchHistory = [];
     this.persist();
+    this.notify();
+  }
+
+  // --- Discord Client ID ---
+  public getDiscordClientId(): string {
+    return this.discordClientId;
+  }
+
+  public setDiscordClientId(id: string) {
+    this.discordClientId = id.trim();
+    this.persist();
+    if (window.electronAPI?.setDiscordClientId) {
+      window.electronAPI.setDiscordClientId(this.discordClientId || '1177081335727267940');
+    }
     this.notify();
   }
 }
