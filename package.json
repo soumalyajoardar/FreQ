@@ -10,7 +10,9 @@
     "build": "npm run build:ui && npm run build:electron",
     "start": "electron .",
     "electron": "electron .",
-    "freq": "npm run build && electron ."
+    "freq": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win",
+    "dist:dir": "npm run build && electron-builder --win --dir"
   },
   "keywords": [
     "music",
@@ -35,6 +37,7 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "electron": "^35.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.8.2",
     "vite": "^6.2.1"
   }

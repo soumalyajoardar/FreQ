@@ -25,10 +25,16 @@ const streamCache = new Map<string, { url: string; expiresAt: number }>();
 const DEFAULT_YTDLP_PATH = 'S:\\PROJECTS\\WAVE\\backend-python\\.venv\\Scripts\\yt-dlp.exe';
 
 function findYtDlpPath(): string {
+  // 1. Packaged Electron extraResources path
+  const packagedPath = path.join(process.resourcesPath, 'bin', 'yt-dlp.exe');
+  if (fs.existsSync(packagedPath)) {
+    return packagedPath;
+  }
+  // 2. Local WAVE dev environment path
   if (fs.existsSync(DEFAULT_YTDLP_PATH)) {
     return DEFAULT_YTDLP_PATH;
   }
-  // Fallback to checking AppData or PATH
+  // 3. System PATH fallback
   return 'yt-dlp';
 }
 

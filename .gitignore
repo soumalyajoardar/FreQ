@@ -4,6 +4,7 @@ node_modules/
 # Production & Build outputs
 dist/
 dist-electron/
+release/
 
 # Logs & temp files
 *.log
