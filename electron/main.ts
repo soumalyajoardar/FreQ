@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { discordRpcManager, DiscordActivityPayload } from './discordRpc';
 
 const execFileAsync = promisify(execFile);
 
@@ -129,6 +130,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   log('app will-quit fired');
+  discordRpcManager.destroy();
 });
 app.on('quit', () => {
   log('app quit fired');
@@ -276,3 +278,21 @@ ipcMain.handle('search-tracks', async (_event, query: string) => {
     return [];
   }
 });
+
+// Discord Rich Presence IPC Handlers
+ipcMain.handle('discord-update-activity', (_event, payload: DiscordActivityPayload) => {
+  discordRpcManager.updateActivity(payload);
+});
+
+ipcMain.handle('discord-clear-activity', () => {
+  discordRpcManager.clearActivity();
+});
+
+ipcMain.handle('discord-set-enabled', (_event, enabled: boolean) => {
+  discordRpcManager.setEnabled(enabled);
+});
+
+ipcMain.handle('discord-get-status', () => {
+  return discordRpcManager.getStatus();
+});
+

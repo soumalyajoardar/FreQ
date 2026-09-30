@@ -10,6 +10,10 @@ export interface ElectronAPI {
   searchTracks: (query: string) => Promise<any[]>;
   getLibraryData: () => Promise<any>;
   saveLibraryData: (data: any) => Promise<{ success: boolean; error?: string }>;
+  updateDiscordPresence: (payload: any) => Promise<void>;
+  clearDiscordPresence: () => Promise<void>;
+  setDiscordEnabled: (enabled: boolean) => Promise<void>;
+  getDiscordStatus: () => Promise<{ isConnected: boolean; isEnabled: boolean; clientId: string }>;
 }
 
 const api: ElectronAPI = {
@@ -28,6 +32,10 @@ const api: ElectronAPI = {
   searchTracks: (query: string) => ipcRenderer.invoke('search-tracks', query),
   getLibraryData: () => ipcRenderer.invoke('get-library-data'),
   saveLibraryData: (data: any) => ipcRenderer.invoke('save-library-data', data),
+  updateDiscordPresence: (payload: any) => ipcRenderer.invoke('discord-update-activity', payload),
+  clearDiscordPresence: () => ipcRenderer.invoke('discord-clear-activity'),
+  setDiscordEnabled: (enabled: boolean) => ipcRenderer.invoke('discord-set-enabled', enabled),
+  getDiscordStatus: () => ipcRenderer.invoke('discord-get-status'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

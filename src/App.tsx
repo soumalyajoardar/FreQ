@@ -116,6 +116,29 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, position, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume]);
 
+  // Synchronize Discord Rich Presence with current playback state
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    if (!currentTrack) {
+      window.electronAPI.clearDiscordPresence();
+      return;
+    }
+
+    window.electronAPI.updateDiscordPresence({
+      track: {
+        id: currentTrack.id,
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.album,
+        artworkUrl: currentTrack.artworkUrl,
+        durationSeconds: currentTrack.durationSeconds || duration || 194,
+      },
+      isPlaying,
+      position,
+      audioMode,
+    });
+  }, [currentTrack, isPlaying, audioMode]);
+
   const handlePlayTrack = async (track: MediaTrack, playlist?: MediaTrack[]) => {
     setCurrentTrack(track);
     libraryStore.recordPlayed(track);
@@ -204,6 +227,21 @@ export const App: React.FC = () => {
   const handleSeek = (sec: number) => {
     audioEngine.seek(sec);
     setPosition(sec);
+    if (window.electronAPI && currentTrack) {
+      window.electronAPI.updateDiscordPresence({
+        track: {
+          id: currentTrack.id,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          album: currentTrack.album,
+          artworkUrl: currentTrack.artworkUrl,
+          durationSeconds: currentTrack.durationSeconds || duration || 194,
+        },
+        isPlaying,
+        position: sec,
+        audioMode,
+      });
+    }
   };
 
   const handleVolumeChange = (vol: number) => {
