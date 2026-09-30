@@ -20,12 +20,19 @@
   - Portable Executable: `release/FreQ-Portable-1.0.0.exe` (zero-install standalone)
   - Windows Installer: `release/FreQ Setup 1.0.0.exe` (NSIS setup with desktop & start menu shortcuts)
   - Unpacked Binary: `release/win-unpacked/FreQ.exe` (includes bundled `bin/yt-dlp.exe`)
+- Discord Rich Presence integrated:
+  - Displays currently playing track title and artist/album
+  - Live progress bar with real-time start/end timestamps
+  - High-res dynamic album artwork and active audio flavor badge (SnR / Nightcore / Studio)
+  - Interactive "Listen on YouTube Music" profile action button
+  - Reconnection manager and in-app Settings toggle
 
 ## Quick Metrics
 - Total Phases: 6
 - Completed Phases: 6
 - Build Status: Success (Vite + Esbuild + electron-builder)
 - Windows Executable: Generated (.exe Portable + .exe Setup)
+- Discord Rich Presence: Integrated & Verified
 - Search Engine: Dual-tier (FreQ Cloud API + Local yt-dlp fallback)
 - Blockers: None
 
