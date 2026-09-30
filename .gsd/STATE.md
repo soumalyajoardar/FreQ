@@ -16,11 +16,17 @@
 - Windows MediaSession API integrated for hardware media keys & taskbar transport.
 - Batch and PowerShell launchers (`start-freq.bat`, `start-freq.ps1`) created for one-click startup.
 - Search resolution bug fixed: parsed `data.tracks` response format and added local `yt-dlp` search fallback bridge.
+- Standalone Windows `.exe` packages built:
+  - Portable Executable: `release/FreQ-Portable-1.0.0.exe` (zero-install standalone)
+  - Windows Installer: `release/FreQ Setup 1.0.0.exe` (NSIS setup with desktop & start menu shortcuts)
+  - Unpacked Binary: `release/win-unpacked/FreQ.exe` (includes bundled `bin/yt-dlp.exe`)
 
 ## Quick Metrics
 - Total Phases: 6
 - Completed Phases: 6
-- Build Status: Success (Vite + Esbuild compiled with 0 errors)
+- Build Status: Success (Vite + Esbuild + electron-builder)
+- Windows Executable: Generated (.exe Portable + .exe Setup)
 - Search Engine: Dual-tier (FreQ Cloud API + Local yt-dlp fallback)
 - Blockers: None
+
 
