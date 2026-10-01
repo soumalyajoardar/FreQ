@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -90,6 +91,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val appContext = applicationContext
+        
+        lifecycleScope.launch {
+            try {
+                UserPreferences(appContext).incrementAppOpenCount()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+        
         setContent {
             val libraryRepository = remember { LocalLibraryRepositoryImpl(appContext) }
             // Catalog search reads YouTube Music InnerTube straight from

@@ -1,4 +1,4 @@
-﻿package com.gresseymusic.wave.player
+package com.gresseymusic.wave.player
 
 import android.content.ComponentName
 import android.content.Context
@@ -857,6 +857,7 @@ class PlaybackManager(
     private fun stopCurrentForSwitch() {
         try {
             mediaController?.pause()
+            mediaController?.clearMediaItems()
         } catch (_: Exception) {
         }
     }
@@ -931,13 +932,8 @@ class PlaybackManager(
             "media3Index=pending media3Size=pending " +
             "playWhenReady=false playbackState=LOADING")
 
-        // M27.6: kick off continuation fetch IMMEDIATELY in parallel —
-        // the fetch runs while the current track source resolves, so Up
-        // Next metadata is ready without delaying playback start.
-        scheduleAutoplayFor(track, token)
-
         // CRITICAL: Resolve source for current track FIRST, then start playback immediately.
-        // Continuation fetch runs in parallel in background.
+        // Continuation fetch runs in parallel in background AFTER source is resolved to avoid clearing the queue.
         activePlaybackJob?.cancel()
         recoveryJob?.cancel()
         activePlaybackJob = scope.launch {
@@ -964,6 +960,10 @@ class PlaybackManager(
                 Log.d(TAG, "[MEDIA3] setMediaItem+prepare+play durationMs=${System.currentTimeMillis() - media3Start} track=${track.id}")
                 Log.d(TAG, "[PLAYBACK_LATENCY] tapToPlayMs~${System.currentTimeMillis() - playTrackEntryMs} track=${track.id} (from playTrack entry to Media3 play call)")
                 recordPlaybackIfPlayable(track)
+                
+                // M27.4 Bug 1 FIX: Schedule autoplay AFTER playSingleTrackFast has cleared ExoPlayer and set the first track.
+                scheduleAutoplayFor(track, token)
+                
                 // M28: Prefetch next track's source immediately after playback starts,
                 // so skip-next is instant. Runs in background, non-blocking.
                 if (token == activePlaybackToken) {

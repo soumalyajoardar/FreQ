@@ -1,4 +1,4 @@
-﻿package com.gresseymusic.wave.ui.screens
+package com.gresseymusic.wave.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -112,18 +112,10 @@ fun HomeScreen(
     val username by userPreferences.usernameFlow.collectAsState(initial = null)
     val appOpenCount by userPreferences.appOpenCountFlow.collectAsState(initial = 0)
 
-    // Rotating headline: increments once per Home entry so the editorial
-    // line changes every app open ("Music for your day." family).
-    LaunchedEffect(Unit) {
-        try {
-            userPreferences.incrementAppOpenCount()
-        } catch (_: Exception) {
-        }
-    }
+    // Rotating headline: reads the app open count to change the editorial line.
+    // The actual increment happens once per process launch in MainActivity.
 
-    // Rotating headline: increments once per Home entry so the editorial
-    // line changes every app open ("Music for your day." family).
-    
+
 
     // Catalog result from app-shell level state (loaded once, survives nav).
     val catalogResult: CatalogResult<List<HomeCatalogSection>>? = catalogState.catalogResult
@@ -135,7 +127,7 @@ fun HomeScreen(
     val userPlaylists by libraryRepository.userPlaylists.collectAsState()
     val currentTrack by remember(playbackManager) {
         playbackManager.state.map { it.currentTrack }.distinctUntilChanged()
-    }.collectAsState(initial = playbackManager.state.value.currentTrack)
+    }.collectAsState(initial = null)
     val recommendationState = remember(realRecentlyPlayed, likedTracks, savedArtists, userPlaylists, catalogResult, currentTrack?.id) {
         val catalogSections = (catalogResult as? CatalogResult.Success)?.data ?: emptyList()
         ListeningRecommendationEngine.computeRecommendations(
