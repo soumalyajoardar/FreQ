@@ -5,7 +5,7 @@
 > ⚠️ **Planning Lock**: Spec finalized and aligned with FreQ core vision and desktop user preferences.
 
 ## Vision
-FreQ Desktop for Windows is an ultra-premium, ad-free, account-free, tracking-free desktop music streaming application inspired directly by the FreQ Android experience (`S:\PROJECTS\WAVE`). It combines YouTube Music discovery, on-device audio stream resolution via high-speed native extraction (yt-dlp), Web Audio DSP with signature audio flavors (Normal, SnR / Slowed + Reverb, Nightcore), tap-to-flip LRCLIB synchronized lyrics, local-first library persistence, and a jaw-dropping Liquid-Glass dark aesthetic tailored for Windows desktop.
+FreQ Desktop for Windows is an ultra-premium, ad-free, account-free, tracking-free desktop music streaming application inspired directly by the FreQ Android experience (`S:\PROJECTS\WAVE\Android`). It combines YouTube Music discovery, on-device audio stream resolution via high-speed native extraction (yt-dlp), Web Audio DSP with signature audio flavors (Normal, SnR / Slowed + Reverb, Nightcore), tap-to-flip LRCLIB synchronized lyrics, local-first library persistence, and a jaw-dropping Liquid-Glass dark aesthetic tailored for Windows desktop.
 
 ## Goals
 1. **Desktop Native Parity** — Bring the complete FreQ Android experience to Windows with desktop-class ergonomics (frameless glass window, custom titlebar, sidebar navigation, Windows MediaSession integration with keyboard media keys and taskbar controls).
@@ -27,7 +27,7 @@ FreQ Desktop for Windows is an ultra-premium, ad-free, account-free, tracking-fr
 - Extraction leverages local executable (`yt-dlp.exe`) with fallback to node extractor or FreQ Vercel API.
 
 ## Success Criteria
-- [x] Comprehensive architectural analysis of `S:\PROJECTS\WAVE` completed.
+- [x] Comprehensive architectural analysis of `S:\PROJECTS\WAVE\Android` completed.
 - [ ] Electron + Vite + React desktop application successfully initialized and structured.
 - [ ] Frameless window with custom Windows titlebar, minimize, maximize/restore, and close buttons.
 - [ ] Local audio extraction bridge operational and streams audio playback smoothly.

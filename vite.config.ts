@@ -14,6 +14,18 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      // Build outputs churn constantly (packager staging, dist rebuilds) —
+      // watching them exhausts file handles and crashes the dev server.
+      ignored: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/dist-electron/**',
+        '**/release/**',
+        '**/electron-dist/**',
+        '**/build/yt-dlp.exe',
+      ],
+    },
   },
   build: {
     outDir: 'dist',

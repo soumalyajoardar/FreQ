@@ -1,6 +1,6 @@
 import { Client } from '@xhayper/discord-rpc';
 
-const DEFAULT_CLIENT_ID = '1177081335727267940';
+const DEFAULT_CLIENT_ID = '1555196374067322940';
 
 export interface DiscordActivityPayload {
   track: {
@@ -25,9 +25,65 @@ class DiscordRpcManager {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private lastActivity: DiscordActivityPayload | null = null;
   private lastUpdateTimestamp = 0;
+  private lastActive = Date.now();
+  private lastPlaying = false;
+  private showingAfk = false;
+  private afkTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.connect();
+    this.startAfkLoop();
+  }
+
+  // Any user interaction resets the 5-minute AFK clock. If we were
+  // showing AFK, drop back to the browsing presence immediately.
+  public poke() {
+    this.lastActive = Date.now();
+    if (this.showingAfk) {
+      this.showingAfk = false;
+      this.showBrowsing();
+    }
+  }
+
+  // Every 30s: untouched for 5+ minutes and nothing playing → AFK.
+  private startAfkLoop() {
+    if (this.afkTimer) return;
+    this.afkTimer = setInterval(() => {
+      if (!this.isEnabled || !this.isConnected || this.lastPlaying || this.showingAfk) return;
+      if (Date.now() - this.lastActive < 5 * 60 * 1000) return;
+      this.showingAfk = true;
+      this.applyStaticPresence('AFK in FreQ', 'Idle — nothing playing');
+    }, 30000);
+  }
+
+  private async applyStaticPresence(details: string, state: string) {
+    if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
+    try {
+      await this.client.user.setActivity({
+        type: 0, // PLAYING ("Playing FreQ")
+        details: details.slice(0, 128),
+        state: state.slice(0, 128),
+        largeImageKey: 'freq_logo',
+        largeImageText: 'FreQ Desktop',
+      });
+      this.lastUpdateTimestamp = Date.now();
+    } catch (err: any) {
+      console.warn('[Discord RPC] static presence warning:', err.message || err);
+    }
+  }
+
+  // Idle with no song: logo + browsing text (not a cleared presence).
+  public showBrowsing() {
+    if (!this.isEnabled) return;
+    this.lastPlaying = false;
+    this.showingAfk = false;
+    if (!this.isConnected) {
+      this.connect();
+      return;
+    }
+    const now = Date.now();
+    if (now - this.lastUpdateTimestamp < 1200) return;
+    this.applyStaticPresence('Browsing libraries', 'FreQ Desktop');
   }
 
   public setClientId(newId: string) {
@@ -67,7 +123,13 @@ class DiscordRpcManager {
         console.log(`[Discord RPC] Connected to Discord as ${this.client?.user?.username || 'user'}`);
 
         if (this.lastActivity && this.isEnabled) {
-          this.applyActivity(this.lastActivity);
+          if (this.lastActivity.track && this.lastActivity.track.title) {
+            this.applyActivity(this.lastActivity);
+          } else {
+            this.showBrowsing();
+          }
+        } else if (this.isEnabled) {
+          this.showBrowsing();
         }
       });
 
@@ -108,7 +170,16 @@ class DiscordRpcManager {
 
   public updateActivity(payload: DiscordActivityPayload) {
     this.lastActivity = payload;
+    this.lastActive = Date.now();
+    this.showingAfk = false;
     if (!this.isEnabled) return;
+
+    if (!payload || !payload.track || !payload.track.title) {
+      this.lastPlaying = false;
+      this.showBrowsing();
+      return;
+    }
+    this.lastPlaying = !!payload.isPlaying;
 
     if (!this.isConnected) {
       this.connect();
@@ -139,7 +210,7 @@ class DiscordRpcManager {
     else if (audioMode === 'NIGHTCORE') flavorLabel = 'FreQ • Nightcore (1.2x Pitch)';
 
     // Exact user layout:
-    // Line 1: Song name
+    // Line 1: Song title only
     // Line 2: Artists name
     // Bottom: Timeline progress bar
     const details = (track.title || 'Unknown Track').trim().slice(0, 128);
@@ -155,12 +226,13 @@ class DiscordRpcManager {
 
         await this.client.user.setActivity({
           type: 2, // 2 = LISTENING ("Listening to FreQ")
-          details, // Song name
+          details, // Listening to {Song name}
           state, // Artists name
           startTimestamp, // Timeline start
           endTimestamp, // Timeline end (renders live countdown timeline at the bottom)
           largeImageKey: track.artworkUrl || undefined,
           largeImageText: track.title.slice(0, 128),
+          smallImageKey: 'freq_logo', // FreQ app icon (upload in portal Art Assets)
           smallImageText: flavorLabel.slice(0, 128),
         });
       } else {
@@ -182,6 +254,8 @@ class DiscordRpcManager {
 
   public async clearActivity() {
     this.lastActivity = null;
+    this.lastPlaying = false;
+    this.showingAfk = false;
     if (this.client && this.client.user && this.isConnected) {
       try {
         await this.client.user.clearActivity();
@@ -195,6 +269,10 @@ class DiscordRpcManager {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.afkTimer) {
+      clearInterval(this.afkTimer);
+      this.afkTimer = null;
     }
     if (this.client) {
       try {

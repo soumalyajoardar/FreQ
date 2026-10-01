@@ -1,7 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import { Volume2, Sparkles, HardDrive, ShieldCheck, Info, Radio } from 'lucide-react';
+import React from 'react';
+import { Volume2, Sparkles, HardDrive, ShieldCheck } from 'lucide-react';
 import { AudioMode } from '../types';
+import { audioEngine } from '../services/audioEngine';
 import { libraryStore } from '../services/libraryStore';
+import freqIcon from '../assets/freq-icon.png';
+import { FlatScrubber } from '../components/FlatScrubber';
+
+const FlavorSlider: React.FC<{
+  label: string;
+  valueLabel: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (v: number) => void;
+  minLabel?: string;
+  maxLabel?: string;
+}> = ({ label, valueLabel, min, max, step, value, onChange, minLabel, maxLabel }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+        {label}
+      </span>
+      <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+        {valueLabel}
+      </span>
+    </div>
+    <FlatScrubber
+      value={value}
+      max={max}
+      step={step}
+      height={5}
+      ariaLabel={label}
+      onSeek={onChange}
+    />
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+      <span>{minLabel ?? `${min.toFixed(2)}x`}</span>
+      <span>{maxLabel ?? `${max.toFixed(2)}x`}</span>
+    </div>
+  </div>
+);
 
 interface SettingsViewProps {
   audioMode: AudioMode;
@@ -20,43 +58,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   historyCount,
   onClearHistory,
 }) => {
-  const [discordStatus, setDiscordStatus] = useState<{ isConnected: boolean; isEnabled: boolean } | null>(null);
-  const [customAppId, setCustomAppId] = useState(libraryStore.getDiscordClientId() || '');
-  const [saveMessage, setSaveMessage] = useState('');
-
-  useEffect(() => {
-    if (window.electronAPI?.getDiscordStatus) {
-      window.electronAPI.getDiscordStatus().then(status => {
-        setDiscordStatus(status);
-      });
-      const interval = setInterval(() => {
-        window.electronAPI?.getDiscordStatus().then(status => {
-          setDiscordStatus(status);
-        });
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, []);
-
-  const handleToggleDiscord = async () => {
-    if (!window.electronAPI) return;
-    const nextState = !discordStatus?.isEnabled;
-    await window.electronAPI.setDiscordEnabled(nextState);
-    const updated = await window.electronAPI.getDiscordStatus();
-    setDiscordStatus(updated);
-  };
-
-  const handleSaveCustomAppId = async () => {
-    libraryStore.setDiscordClientId(customAppId);
-    if (window.electronAPI?.setDiscordClientId) {
-      await window.electronAPI.setDiscordClientId(customAppId || '1177081335727267940');
-    }
-    setSaveMessage('Saved & Reconnected!');
-    setTimeout(() => setSaveMessage(''), 3000);
-  };
-
+  const [snrRate, setSnrRate] = React.useState(() => audioEngine.getSnrRate());
+  const [snrReverb, setSnrReverb] = React.useState(() => audioEngine.getSnrReverb());
+  const [nightcoreRate, setNightcoreRate] = React.useState(() => audioEngine.getNightcoreRate());
+  const [bassBoost, setBassBoost] = React.useState(() => audioEngine.getBassBoost());
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px' }}>
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px' }} className="view-enter">
       <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
         Settings & Audio Engine
       </h1>
@@ -67,6 +74,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           borderRadius: '20px',
           backgroundColor: 'rgba(255, 255, 255, 0.03)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
@@ -74,276 +83,79 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Volume2 size={20} color="var(--accent-cyan)" />
+          <Volume2 size={20} color="#fff" />
           <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Audio Flavors & Web Audio DSP
+            Custom Audio Flavors
           </h2>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Choose how FreQ shapes your sound output via Web Audio API:
+            Tune each flavor below. Switch flavors from the player or sidebar:
           </span>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-            <div
-              onClick={() => onAudioModeChange('NORMAL')}
-              style={{
-                padding: '14px',
-                borderRadius: '12px',
-                backgroundColor: audioMode === 'NORMAL' ? 'rgba(0, 229, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid ' + (audioMode === 'NORMAL' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.08)'),
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
+          {/* Custom SnR sliders */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
+            <FlavorSlider
+              label="Slowed tempo"
+              valueLabel={`${snrRate.toFixed(1)}x`}
+              min={0.5}
+              max={1.0}
+              step={0.1}
+              value={snrRate}
+              onChange={v => {
+                setSnrRate(v);
+                audioEngine.setSnrRate(v);
+                libraryStore.setSnrRate(v);
               }}
-            >
-              <span style={{ fontSize: '14px', fontWeight: 700, color: audioMode === 'NORMAL' ? 'var(--accent-cyan)' : '#fff' }}>
-                Normal
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                1.0x standard pitch & speed, pure dry studio fidelity.
-              </span>
-            </div>
-
-            <div
-              onClick={() => onAudioModeChange('SNR')}
-              style={{
-                padding: '14px',
-                borderRadius: '12px',
-                backgroundColor: audioMode === 'SNR' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid ' + (audioMode === 'SNR' ? 'var(--accent-violet)' : 'rgba(255, 255, 255, 0.08)'),
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
+            />
+            <FlavorSlider
+              label="Reverb amount"
+              valueLabel={`${Math.round(snrReverb * 100)}%`}
+              min={0}
+              max={1}
+              step={0.1}
+              minLabel="Dry"
+              maxLabel="Wet"
+              value={snrReverb}
+              onChange={v => {
+                setSnrReverb(v);
+                audioEngine.setSnrReverb(v);
+                libraryStore.setSnrReverb(v);
               }}
-            >
-              <span style={{ fontSize: '14px', fontWeight: 700, color: audioMode === 'SNR' ? 'var(--accent-violet)' : '#fff' }}>
-                SnR (Slowed + Reverb)
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                0.8x tempo + pitched down with a lush ConvolverNode impulse reverb.
-              </span>
-            </div>
-
-            <div
-              onClick={() => onAudioModeChange('NIGHTCORE')}
-              style={{
-                padding: '14px',
-                borderRadius: '12px',
-                backgroundColor: audioMode === 'NIGHTCORE' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid ' + (audioMode === 'NIGHTCORE' ? 'var(--accent-pink)' : 'rgba(255, 255, 255, 0.08)'),
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
+            />
+            <FlavorSlider
+              label="Nightcore speed"
+              valueLabel={`${nightcoreRate.toFixed(1)}x`}
+              min={1.0}
+              max={1.5}
+              step={0.1}
+              value={nightcoreRate}
+              onChange={v => {
+                setNightcoreRate(v);
+                audioEngine.setNightcoreRate(v);
+                libraryStore.setNightcoreRate(v);
               }}
-            >
-              <span style={{ fontSize: '14px', fontWeight: 700, color: audioMode === 'NIGHTCORE' ? 'var(--accent-pink)' : '#fff' }}>
-                Nightcore
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                1.2x upbeat speed + high pitch without time-stretching.
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Discord Rich Presence */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Radio size={20} color="#5865F2" />
-            <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Discord Rich Presence
-            </h2>
-          </div>
-
-          {discordStatus && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: discordStatus.isConnected ? '#10B981' : '#6B7280',
-                  boxShadow: discordStatus.isConnected ? '0 0 10px #10B981' : 'none',
-                }}
-              />
-              <span style={{ fontSize: '12px', color: discordStatus.isConnected ? '#10B981' : 'var(--text-muted)' }}>
-                {discordStatus.isConnected ? 'Connected to Discord' : 'Looking for Discord...'}
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Broadcasts your currently playing track ("Listening to FreQ"), artist name, album artwork, and live timeline progress bar to your Discord status profile.
-          </span>
-
-          <div
-            onClick={handleToggleDiscord}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 18px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>
-                Show Status on Discord
-              </span>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Display current track and listening progress in Discord
-              </span>
-            </div>
-
-            <div
-              style={{
-                width: '44px',
-                height: '24px',
-                borderRadius: '999px',
-                backgroundColor: discordStatus?.isEnabled ? '#5865F2' : 'rgba(255, 255, 255, 0.15)',
-                position: 'relative',
-                transition: 'background-color 0.2s',
+            />
+            <FlavorSlider
+              label="Bass booster"
+              valueLabel={bassBoost <= 0 ? 'Off' : `+${Math.round(bassBoost * 12)} dB`}
+              min={0}
+              max={1}
+              step={0.1}
+              minLabel="Off"
+              maxLabel="+12 dB"
+              value={bassBoost}
+              onChange={v => {
+                setBassBoost(v);
+                audioEngine.setBassBoost(v);
+                libraryStore.setBassBoost(v);
               }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: discordStatus?.isEnabled ? '22px' : '2px',
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  backgroundColor: '#fff',
-                  transition: 'left 0.2s',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Custom Discord Application ID */}
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Application Title in Discord ("Listening to ...")
-              </span>
-              <a
-                href="https://discord.com/developers/applications"
-                target="_blank"
-                rel="noreferrer"
-                style={{ fontSize: '12px', color: 'var(--accent-cyan)', textDecoration: 'none' }}
-              >
-                Discord Developer Portal ↗
-              </a>
-            </div>
-
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              Discord generates the status header (e.g. <strong>"Listening to FreQ"</strong>) using the name of the Application in Discord's Developer Portal. If you create a free application named <code>FreQ</code>, paste its Application ID below to display <strong>Listening to FreQ</strong>:
-            </p>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                placeholder="Paste Application ID (Default: 1177081335727267940)"
-                value={customAppId}
-                onChange={e => setCustomAppId(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#fff',
-                  fontSize: '13px',
-                }}
-              />
-              <button
-                onClick={handleSaveCustomAppId}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  backgroundColor: '#5865F2',
-                  color: '#fff',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: 'none',
-                }}
-              >
-                Save
-              </button>
-            </div>
-
-            {saveMessage && (
-              <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>
-                ✓ {saveMessage}
-              </span>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Stream Engine & Bridge */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Sparkles size={20} color="var(--accent-teal)" />
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Stream Resolution Bridge
-          </h2>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <div>
-            <strong>Resolver:</strong> Native local <code>yt-dlp</code> process with residential IP extraction.
-          </div>
-          <div>
-            <strong>Fallback:</strong> FreQ Vercel Cloud API (<code>https://freq-api.vercel.app</code>).
-          </div>
-          <div>
-            <strong>Lyrics Engine:</strong> LRCLIB On-Device API with LRC timestamp parser and millisecond cue sync.
+            />
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Sliders tune SnR and Nightcore. Normal always plays pure 1.0x —
+              unaltered. Bass boost applies to SnR and Nightcore only.
+            </span>
           </div>
         </div>
       </section>
@@ -354,6 +166,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           borderRadius: '20px',
           backgroundColor: 'rgba(255, 255, 255, 0.03)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
@@ -412,26 +226,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           borderRadius: '20px',
           backgroundColor: 'rgba(255, 255, 255, 0.03)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Info size={20} color="var(--text-secondary)" />
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            About FreQ Desktop
-          </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img
+            src={freqIcon}
+            alt="FreQ"
+            style={{ width: '44px', height: '44px', borderRadius: '12px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.12)' }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              About FreQ Desktop
+            </h2>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Version v1.3 Stable. Made by GRESSEY & OPENCODE. All rights reserved.
+            </span>
+          </div>
         </div>
 
         <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
           FreQ is free software licensed under GPL v3.0. A music app that simply respects you:
           no ads, no subscriptions, no accounts, and no tracking. Your library never leaves your device.
         </p>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Version 1.0.0 Desktop • Built with Electron, Vite & Web Audio API
-        </span>
       </section>
     </div>
   );

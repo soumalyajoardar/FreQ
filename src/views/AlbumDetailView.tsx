@@ -3,6 +3,7 @@ import { ArrowLeft, Play, Shuffle, Heart, Disc } from 'lucide-react';
 import { AlbumDetails, MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { formatTime } from '../components/PlayerBar';
+import { SquareArt } from '../components/SquareArt';
 
 interface AlbumDetailViewProps {
   albumId: string;
@@ -58,7 +59,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   const tracks = album.tracks || [];
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }} className="view-enter">
       <button
         onClick={onBack}
         style={{
@@ -94,7 +95,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           }}
         >
           {album.artworkUrl ? (
-            <img src={album.artworkUrl} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <SquareArt src={album.artworkUrl} alt={album.title} style={{ width: '100%', height: '100%' }} />
           ) : (
             <Disc size={60} color="var(--text-muted)" />
           )}
@@ -124,11 +125,11 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
                 gap: '8px',
                 padding: '10px 22px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #00e5ff 0%, #8b5cf6 100%)',
+                backgroundColor: '#f8fafc',
                 color: '#090A0F',
                 fontWeight: 700,
                 fontSize: '13px',
-                boxShadow: '0 0 16px rgba(0, 229, 255, 0.4)',
+                boxShadow: '0 0 16px rgba(255, 255, 255, 0.4)',
               }}
             >
               <Play size={16} fill="#090A0F" />

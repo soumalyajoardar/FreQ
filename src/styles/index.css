@@ -6,12 +6,12 @@
   --surface-elevated: #1b1e2e;
   --surface-floating: rgba(27, 30, 46, 0.65);
   
-  /* Luminous Accents */
-  --accent-cyan: #00e5ff;
+  /* Monochrome accents (cyan/teal/blue neutralized to white) */
+  --accent-cyan: #f8fafc;
   --accent-violet: #8b5cf6;
-  --accent-teal: #00f5d4;
+  --accent-teal: #f8fafc;
   --accent-pink: #ec4899;
-  --accent-glow: rgba(0, 229, 255, 0.35);
+  --accent-glow: rgba(255, 255, 255, 0.35);
   
   /* Typography Colors */
   --text-primary: #f8fafc;
@@ -168,19 +168,164 @@ input {
   color: inherit;
 }
 
-/* Accent Gradients */
+/* Flat brand accents (gradients removed — solid colors only) */
 .gradient-cyan-violet {
-  background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-violet) 100%);
+  background-color: var(--accent-cyan);
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #ffffff 20%, var(--accent-cyan) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #f8fafc;
 }
 
 .text-gradient-cyan {
-  background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-teal) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--accent-cyan);
+}
+
+@keyframes freqFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes freqPopIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes freqEq {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes freqSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes freqSlideInRight {
+  from { opacity: 0; transform: translateX(48px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes freqSlideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(48px); }
+}
+
+@keyframes freqSlideDownOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(24px); }
+}
+
+@keyframes freqFadeScaleOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(10px) scale(0.97); }
+}
+
+/* View navigation: every screen slides in on mount */
+@keyframes freqViewSlide {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.view-enter {
+  animation: freqViewSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes freqRiseIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes freqArtIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes freqHeartPop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes freqSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Scrollable with zero visible chrome (lyrics) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Centered two-column Now Playing layout */
+.np-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2%;
+  gap: 56px;
+}
+.np-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(480px, 100%);
+  min-height: 0;
+  gap: 22px;
+}
+.np-queue {
+  width: 340px;
+  flex-shrink: 0;
+  min-height: 0;
+  align-self: flex-start;
+  max-height: 100%;
+  margin-left: auto;
+}
+@media (max-width: 940px) {
+  .np-queue { display: none; }
+}
+
+/* ---- Liquid Glass surfaces (bars, panels — monochrome light-play only) ---- */
+/* Top edge-light for bars and drawers */
+.liquid-bar {
+  position: relative;
+}
+.liquid-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+/* Specular sheen for dialog panels */
+.liquid-panel {
+  position: relative;
+}
+.liquid-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 24% 0%, rgba(255, 255, 255, 0.14), transparent 50%);
+  pointer-events: none;
 }

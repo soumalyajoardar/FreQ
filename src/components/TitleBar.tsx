@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Radio } from 'lucide-react';
+import { Minus, Square, Copy, X } from 'lucide-react';
+import freqIcon from '../assets/freq-icon.png';
 
 interface TitleBarProps {
   onSearchFocus?: () => void;
@@ -43,6 +44,7 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
 
   return (
     <div
+      className="liquid-bar"
       style={{
         height: 'var(--titlebar-height)',
         display: 'flex',
@@ -52,51 +54,70 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
         backgroundColor: 'rgba(9, 10, 15, 0.85)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-        WebkitAppRegion: 'drag' as any,
+        ...( { WebkitAppRegion: 'drag' } as any ),
         zIndex: 9999,
         position: 'relative',
       }}
     >
       {/* FreQ Logo & Brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <div
+        <img
+          src={freqIcon}
+          alt="FreQ"
           style={{
             width: '26px',
             height: '26px',
             borderRadius: '8px',
-            background: 'linear-gradient(135deg, #00e5ff 0%, #8b5cf6 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 12px rgba(0, 229, 255, 0.4)',
+            objectFit: 'cover',
+            boxShadow: '0 0 12px rgba(0, 0, 0, 0.5)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
           }}
-        >
-          <Radio size={15} color="#090A0F" strokeWidth={2.5} />
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                fontWeight: 800,
+                fontSize: '14px',
+                letterSpacing: '0.6px',
+                color: '#f8fafc',
+                fontFamily: 'Inter, sans-serif',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              FreQ
+            </span>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 800,
+                letterSpacing: '1px',
+                padding: '3px 10px',
+                borderRadius: '999px',
+                backgroundColor: 'rgba(255, 255, 255, 0.10)',
+                border: '1px solid rgba(255, 255, 255, 0.22)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                color: '#fff',
+                whiteSpace: 'nowrap',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.18)',
+              }}
+            >
+              Desktop
+            </span>
+          </div>
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '2px',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            BY GRESSEY
+          </span>
         </div>
-        <span
-          style={{
-            fontWeight: 800,
-            fontSize: '14px',
-            letterSpacing: '1.2px',
-            color: '#f8fafc',
-            fontFamily: 'Inter, sans-serif',
-          }}
-        >
-          FreQ
-        </span>
-        <span
-          style={{
-            fontSize: '11px',
-            padding: '2px 8px',
-            borderRadius: '999px',
-            background: 'rgba(0, 229, 255, 0.12)',
-            color: 'var(--accent-cyan)',
-            fontWeight: 600,
-            border: '1px solid rgba(0, 229, 255, 0.25)',
-          }}
-        >
-          Desktop
-        </span>
       </div>
 
       {/* Center Editorial Greeting */}
@@ -119,7 +140,7 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
           display: 'flex',
           alignItems: 'center',
           gap: '4px',
-          WebkitAppRegion: 'no-drag' as any,
+          ...( { WebkitAppRegion: 'no-drag' } as any ),
         }}
       >
         <button

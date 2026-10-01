@@ -23,20 +23,45 @@ let mainWindow: BrowserWindow | null = null;
 const streamCache = new Map<string, { url: string; expiresAt: number }>();
 
 // Path to verified local yt-dlp executable
-const DEFAULT_YTDLP_PATH = 'S:\\PROJECTS\\WAVE\\backend-python\\.venv\\Scripts\\yt-dlp.exe';
+const DEFAULT_YTDLP_PATH = 'S:\\PROJECTS\\WAVE\\Android\\backend-python\\.venv\\Scripts\\yt-dlp.exe';
+const DEFAULT_VENV_PYTHON = 'S:\\PROJECTS\\WAVE\\Android\\backend-python\\.venv\\Scripts\\python.exe';
+
+interface YtDlpCommand { cmd: string; prefixArgs: string[]; }
+
+function resolveYtDlp(): YtDlpCommand {
+  // 1. Packaged Electron extraResources path
+  try {
+    const packagedPath = path.join(process.resourcesPath, 'bin', 'yt-dlp.exe');
+    if (fs.existsSync(packagedPath)) {
+      return { cmd: packagedPath, prefixArgs: [] };
+    }
+  } catch {}
+  // 2. Venv python -m yt_dlp (robust against venv moves; .exe shims carry absolute paths)
+  const siblingPython = path.resolve(__dirname, '../../Android/backend-python/.venv/Scripts/python.exe');
+  for (const py of [DEFAULT_VENV_PYTHON, siblingPython]) {
+    try {
+      if (py && fs.existsSync(py)) {
+        return { cmd: py, prefixArgs: ['-m', 'yt_dlp'] };
+      }
+    } catch {}
+  }
+  // 3. Direct exe (may be stale after folder moves)
+  if (fs.existsSync(DEFAULT_YTDLP_PATH)) {
+    return { cmd: DEFAULT_YTDLP_PATH, prefixArgs: [] };
+  }
+  try {
+    const siblingExe = path.resolve(__dirname, '../../Android/backend-python/.venv/Scripts/yt-dlp.exe');
+    if (fs.existsSync(siblingExe)) {
+      return { cmd: siblingExe, prefixArgs: [] };
+    }
+  } catch {}
+  // 4. System PATH fallback
+  return { cmd: 'yt-dlp', prefixArgs: [] };
+}
 
 function findYtDlpPath(): string {
-  // 1. Packaged Electron extraResources path
-  const packagedPath = path.join(process.resourcesPath, 'bin', 'yt-dlp.exe');
-  if (fs.existsSync(packagedPath)) {
-    return packagedPath;
-  }
-  // 2. Local WAVE dev environment path
-  if (fs.existsSync(DEFAULT_YTDLP_PATH)) {
-    return DEFAULT_YTDLP_PATH;
-  }
-  // 3. System PATH fallback
-  return 'yt-dlp';
+  const r = resolveYtDlp();
+  return r.prefixArgs.length ? `${r.cmd} ${r.prefixArgs.join(' ')}` : r.cmd;
 }
 
 function getLibraryFilePath(): string {
@@ -47,8 +72,8 @@ function getLibraryFilePath(): string {
 function createWindow() {
   log('createWindow called');
   mainWindow = new BrowserWindow({
-    width: 1240,
-    height: 820,
+    width: 1520,
+    height: 850,
     minWidth: 980,
     minHeight: 640,
     frame: false, // Frameless for custom liquid-glass titlebar
@@ -82,6 +107,8 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     log('mainWindow ready-to-show');
+    // Open close to fullscreen (frameless custom chrome handles the rest)
+    mainWindow?.maximize();
     mainWindow?.show();
   });
 
@@ -170,33 +197,54 @@ ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
     return { streamUrl: cached.url, fromCache: true };
   }
 
-  const ytdlpPath = findYtDlpPath();
+  const ytdlp = resolveYtDlp();
 
-  try {
-    // 2. Execute local yt-dlp with best audio format
-    // Extracts direct googlevideo playback URL
-    const { stdout } = await execFileAsync(
-      ytdlpPath,
-      [
-        '-f', 'ba/ba*',
-        '-g',
-        `https://www.youtube.com/watch?v=${videoId}`
-      ],
-      { timeout: 15000 }
-    );
+  // Extraction strategies (mirrors backend-python): base client on both
+  // YouTube Music + YouTube front doors, then the tv_embedded player
+  // client which is far less aggressive about bot-checks on some networks.
+  const attempts: { url: string; extraArgs: string[] }[] = [
+    { url: `https://www.youtube.com/watch?v=${videoId}`, extraArgs: [] },
+    { url: `https://music.youtube.com/watch?v=${videoId}`, extraArgs: [] },
+    {
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      extraArgs: ['--extractor-args', 'youtube:player_client=tv_embedded'],
+    },
+    {
+      url: `https://music.youtube.com/watch?v=${videoId}`,
+      extraArgs: ['--extractor-args', 'youtube:player_client=tv_embedded'],
+    },
+  ];
 
-    const streamUrl = stdout.trim().split('\n')[0]?.trim();
-    if (streamUrl && streamUrl.startsWith('http')) {
-      // Cache stream URL for 4 hours
-      streamCache.set(videoId, {
-        url: streamUrl,
-        expiresAt: Date.now() + 4 * 60 * 60 * 1000,
-      });
-      return { streamUrl, fromCache: false };
+  for (const attempt of attempts) {
+    try {
+      // Execute local yt-dlp with best audio format — direct googlevideo URL
+      const { stdout } = await execFileAsync(
+        ytdlp.cmd,
+        [
+          ...ytdlp.prefixArgs,
+          ...attempt.extraArgs,
+          '-f', 'ba/ba*',
+          '-g',
+          attempt.url,
+        ],
+        { timeout: 15000 }
+      );
+
+      const streamUrl = stdout.trim().split('\n')[0]?.trim();
+      if (streamUrl && streamUrl.startsWith('http')) {
+        // Cache stream URL for 4 hours
+        streamCache.set(videoId, {
+          url: streamUrl,
+          expiresAt: Date.now() + 4 * 60 * 60 * 1000,
+        });
+        return { streamUrl, fromCache: false };
+      }
+    } catch (err: any) {
+      const detail = err?.stderr || err?.stdout || err.message || err;
+      console.warn(`Local yt-dlp attempt failed for ${videoId} (${attempt.url}):`, detail);
     }
-  } catch (err: any) {
-    console.warn(`Local yt-dlp extraction warning for ${videoId}:`, err.message || err);
   }
+  log(`All yt-dlp attempts failed for ${videoId} via ${ytdlp.cmd}`);
 
   // 3. Fallback: Query FreQ cloud API
   try {
@@ -210,6 +258,13 @@ ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
   }
 
   throw new Error(`Failed to resolve audio stream for track ${videoId}`);
+});
+
+// Drop a poisoned stream URL so the next attempt re-extracts fresh.
+ipcMain.handle('invalidate-stream', async (_event, videoId: string) => {
+  if (typeof videoId === 'string' && videoId) {
+    streamCache.delete(videoId);
+  }
 });
 
 // Local Library Storage IPC
@@ -242,17 +297,18 @@ ipcMain.handle('search-tracks', async (_event, query: string) => {
   if (!query || typeof query !== 'string' || !query.trim()) {
     return [];
   }
-  const ytdlpPath = findYtDlpPath();
+  const ytdlp = resolveYtDlp();
   try {
     const { stdout } = await execFileAsync(
-      ytdlpPath,
+      ytdlp.cmd,
       [
+        ...ytdlp.prefixArgs,
         `ytsearch15:${query.trim()}`,
         '--dump-json',
         '--flat-playlist',
         '--no-warnings',
       ],
-      { timeout: 15000 }
+      { timeout: 20000 }
     );
     const lines = stdout.trim().split('\n').filter(Boolean);
     const results = [];
@@ -282,6 +338,10 @@ ipcMain.handle('search-tracks', async (_event, query: string) => {
 // Discord Rich Presence IPC Handlers
 ipcMain.handle('discord-update-activity', (_event, payload: DiscordActivityPayload) => {
   discordRpcManager.updateActivity(payload);
+});
+
+ipcMain.handle('discord-poke', () => {
+  discordRpcManager.poke();
 });
 
 ipcMain.handle('discord-clear-activity', () => {

@@ -2,7 +2,7 @@
 
 > Unlock the full potential of music: stream effortlessly on Windows with a stunning liquid-glass desktop experience!
 
-FreQ Desktop brings the signature **FreQ Android (`S:\PROJECTS\WAVE`)** experience to Windows with native desktop power: **zero ads, zero subscriptions, zero accounts, and zero tracking**. Your personal library never leaves your PC.
+FreQ Desktop brings the signature **FreQ Android (`S:\PROJECTS\WAVE\Android`)** experience to Windows with native desktop power: **zero ads, zero subscriptions, zero accounts, and zero tracking**. Your personal library never leaves your PC.
 
 ---
 

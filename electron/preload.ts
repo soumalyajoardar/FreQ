@@ -7,10 +7,12 @@ export interface ElectronAPI {
   isWindowMaximized: () => Promise<boolean>;
   onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
   getStreamUrl: (videoId: string) => Promise<{ streamUrl: string; fromCache: boolean }>;
+  invalidateStreamUrl: (videoId: string) => Promise<void>;
   searchTracks: (query: string) => Promise<any[]>;
   getLibraryData: () => Promise<any>;
   saveLibraryData: (data: any) => Promise<{ success: boolean; error?: string }>;
   updateDiscordPresence: (payload: any) => Promise<void>;
+  pokeDiscordPresence: () => Promise<void>;
   clearDiscordPresence: () => Promise<void>;
   setDiscordEnabled: (enabled: boolean) => Promise<void>;
   setDiscordClientId: (clientId: string) => Promise<void>;
@@ -30,10 +32,12 @@ const api: ElectronAPI = {
     };
   },
   getStreamUrl: (videoId: string) => ipcRenderer.invoke('get-stream-url', videoId),
+  invalidateStreamUrl: (videoId: string) => ipcRenderer.invoke('invalidate-stream', videoId),
   searchTracks: (query: string) => ipcRenderer.invoke('search-tracks', query),
   getLibraryData: () => ipcRenderer.invoke('get-library-data'),
   saveLibraryData: (data: any) => ipcRenderer.invoke('save-library-data', data),
   updateDiscordPresence: (payload: any) => ipcRenderer.invoke('discord-update-activity', payload),
+  pokeDiscordPresence: () => ipcRenderer.invoke('discord-poke'),
   clearDiscordPresence: () => ipcRenderer.invoke('discord-clear-activity'),
   setDiscordEnabled: (enabled: boolean) => ipcRenderer.invoke('discord-set-enabled', enabled),
   setDiscordClientId: (clientId: string) => ipcRenderer.invoke('discord-set-client-id', clientId),

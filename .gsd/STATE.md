@@ -5,7 +5,7 @@
 > **Last Status Update**: 2026-09-30
 
 ## Current Context
-- Full analysis of `S:\PROJECTS\WAVE` completed.
+- Full analysis of `S:\PROJECTS\WAVE\Android` completed.
 - Electron + Vite + React 19 + TypeScript Windows desktop application built and verified.
 - Frameless Windows window with custom TitleBar (minimize, maximize/restore, close).
 - Liquid-Glass UI with 4 signature time-of-day backgrounds and dynamic track artwork glow.

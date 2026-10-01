@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, Library, Heart, Plus, Settings, Sparkles, Music } from 'lucide-react';
+import { Home, Library, Heart, Plus, Settings, Sparkles, Music } from 'lucide-react';
 import { AudioMode, UserPlaylist } from '../types';
 
 interface SidebarProps {
@@ -49,8 +49,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             fontSize: '14px',
             fontWeight: currentView === 'home' ? 700 : 500,
             color: currentView === 'home' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            backgroundColor: currentView === 'home' ? 'rgba(0, 229, 255, 0.12)' : 'transparent',
-            border: currentView === 'home' ? '1px solid rgba(0, 229, 255, 0.25)' : '1px solid transparent',
+            backgroundColor: currentView === 'home' ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+            border: currentView === 'home' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
             transition: 'all 0.18s ease',
           }}
           onMouseEnter={e => {
@@ -65,32 +65,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <button
-          onClick={() => onNavigate('search')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            fontSize: '14px',
-            fontWeight: currentView === 'search' ? 700 : 500,
-            color: currentView === 'search' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            backgroundColor: currentView === 'search' ? 'rgba(0, 229, 255, 0.12)' : 'transparent',
-            border: currentView === 'search' ? '1px solid rgba(0, 229, 255, 0.25)' : '1px solid transparent',
-            transition: 'all 0.18s ease',
-          }}
-          onMouseEnter={e => {
-            if (currentView !== 'search') e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-          }}
-          onMouseLeave={e => {
-            if (currentView !== 'search') e.currentTarget.style.backgroundColor = 'transparent';
-          }}
-        >
-          <Search size={18} color={currentView === 'search' ? 'var(--accent-cyan)' : 'currentColor'} />
-          <span>Search</span>
-        </button>
-
-        <button
           onClick={() => onNavigate('library')}
           style={{
             display: 'flex',
@@ -101,8 +75,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             fontSize: '14px',
             fontWeight: currentView === 'library' ? 700 : 500,
             color: currentView === 'library' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            backgroundColor: currentView === 'library' ? 'rgba(0, 229, 255, 0.12)' : 'transparent',
-            border: currentView === 'library' ? '1px solid rgba(0, 229, 255, 0.25)' : '1px solid transparent',
+            backgroundColor: currentView === 'library' ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+            border: currentView === 'library' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
             transition: 'all 0.18s ease',
           }}
           onMouseEnter={e => {
@@ -119,12 +93,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Audio Flavors Switcher Card */}
       <div
+        className="glass-card"
         style={{
-          background: 'linear-gradient(135deg, rgba(27, 30, 46, 0.6) 0%, rgba(18, 20, 31, 0.8) 100%)',
+          backgroundColor: 'rgba(255, 255, 255, 0.04)',
           borderRadius: '16px',
           padding: '12px',
           border: '1px solid rgba(255, 255, 255, 0.09)',
           boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
@@ -134,22 +111,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
-          <button
-            onClick={() => onAudioModeChange('NORMAL')}
-            title="Normal: 1.0x standard fidelity"
-            style={{
-              padding: '6px 4px',
-              borderRadius: '8px',
-              fontSize: '11px',
-              fontWeight: 600,
-              backgroundColor: audioMode === 'NORMAL' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.05)',
-              color: audioMode === 'NORMAL' ? '#090A0F' : 'var(--text-secondary)',
-              boxShadow: audioMode === 'NORMAL' ? '0 0 10px rgba(0, 229, 255, 0.4)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            Normal
-          </button>
           <button
             onClick={() => onAudioModeChange('SNR')}
             title="SnR: 0.8x Slowed + Lush Procedural Reverb"
@@ -165,6 +126,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
           >
             SnR
+          </button>
+          <button
+            onClick={() => onAudioModeChange('NORMAL')}
+            title="Normal: 1.0x standard fidelity"
+            style={{
+              padding: '6px 4px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              backgroundColor: audioMode === 'NORMAL' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.05)',
+              color: audioMode === 'NORMAL' ? '#090A0F' : 'var(--text-secondary)',
+              boxShadow: audioMode === 'NORMAL' ? '0 0 10px rgba(255, 255, 255, 0.4)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Normal
           </button>
           <button
             onClick={() => onAudioModeChange('NIGHTCORE')}
@@ -206,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               transition: 'background 0.15s, color 0.15s',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = 'rgba(0, 229, 255, 0.2)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
               e.currentTarget.style.color = 'var(--accent-cyan)';
             }}
             onMouseLeave={e => {
@@ -243,11 +220,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
+              backgroundColor: 'rgba(255, 255, 255, 0.09)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 10px rgba(236, 72, 153, 0.4)',
               flexShrink: 0,
             }}
           >
@@ -273,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 borderRadius: '8px',
                 fontSize: '13px',
                 color: currentView === `playlist_${pl.id}` ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                backgroundColor: currentView === `playlist_${pl.id}` ? 'rgba(0, 229, 255, 0.1)' : 'transparent',
+                backgroundColor: currentView === `playlist_${pl.id}` ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                 textAlign: 'left',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',

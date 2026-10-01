@@ -1,7 +1,9 @@
 import React from 'react';
-import { ArrowLeft, Play, Shuffle, Heart, Trash2, Music } from 'lucide-react';
+import { ArrowLeft, Play, Shuffle, Heart, Trash2, Music, ChevronUp, ChevronDown, ListPlus } from 'lucide-react';
 import { MediaTrack, UserPlaylist } from '../types';
 import { formatTime } from '../components/PlayerBar';
+import { SquareArt } from '../components/SquareArt';
+import { SafeArtwork } from '../components/SafeArtwork';
 
 interface PlaylistDetailViewProps {
   title: string;
@@ -14,6 +16,8 @@ interface PlaylistDetailViewProps {
   onToggleLike: (track: MediaTrack) => void;
   isLiked: (trackId: string) => boolean;
   onRemoveTrack?: (trackId: string) => void;
+  onMoveTrack?: (fromIndex: number, toIndex: number) => void;
+  onPlayNext?: (track: MediaTrack) => void;
   isLikedView?: boolean;
 }
 
@@ -28,13 +32,15 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   onToggleLike,
   isLiked,
   onRemoveTrack,
+  onMoveTrack,
+  onPlayNext,
   isLikedView = false,
 }) => {
   const totalSeconds = tracks.reduce((acc, t) => acc + (t.durationSeconds || 0), 0);
   const totalDurationStr = formatTime(totalSeconds);
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }} className="view-enter">
       {/* Back button */}
       <button
         onClick={onBack}
@@ -71,13 +77,15 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
           }}
         >
           {artworkUrl ? (
-            <img src={artworkUrl} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <SquareArt src={artworkUrl} alt={title} style={{ width: '100%', height: '100%' }} />
           ) : isLikedView ? (
             <div
               style={{
                 width: '100%',
                 height: '100%',
-                background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(18px)',
+                WebkitBackdropFilter: 'blur(18px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -117,11 +125,11 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                 gap: '8px',
                 padding: '10px 22px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #00e5ff 0%, #8b5cf6 100%)',
+                backgroundColor: '#f8fafc',
                 color: '#090A0F',
                 fontWeight: 700,
                 fontSize: '13px',
-                boxShadow: '0 0 16px rgba(0, 229, 255, 0.4)',
+                boxShadow: '0 0 16px rgba(255, 255, 255, 0.4)',
                 opacity: tracks.length === 0 ? 0.5 : 1,
               }}
             >
@@ -171,7 +179,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
           <span style={{ flex: 1 }}>Title</span>
           <span style={{ width: '220px' }}>Album</span>
           <span style={{ width: '70px', textAlign: 'right' }}>Time</span>
-          <span style={{ width: '70px', textAlign: 'right' }}>Actions</span>
+          <span style={{ width: '120px', textAlign: 'right' }}>Actions</span>
         </div>
 
         {tracks.map((track, idx) => (
@@ -197,8 +205,9 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
               onClick={() => onPlayTrack(track, tracks)}
               style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, cursor: 'pointer', overflow: 'hidden' }}
             >
-              <img
-                src={track.artworkUrl || ''}
+              <SquareArt
+                src={track.artworkUrl}
+                videoId={track.id}
                 alt={track.title}
                 style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
               />
@@ -220,10 +229,40 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
               {formatTime(track.durationSeconds)}
             </span>
 
-            <div style={{ width: '70px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+            <div style={{ width: '120px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+              {onMoveTrack && (
+                <>
+                  <button
+                    onClick={() => idx > 0 && onMoveTrack(idx, idx - 1)}
+                    disabled={idx === 0}
+                    title="Move up"
+                    style={{ color: idx === 0 ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: '5px' }}
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+                  <button
+                    onClick={() => idx < tracks.length - 1 && onMoveTrack(idx, idx + 1)}
+                    disabled={idx === tracks.length - 1}
+                    title="Move down"
+                    style={{ color: idx === tracks.length - 1 ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: '5px' }}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                </>
+              )}
+              {onPlayNext && (
+                <button
+                  onClick={() => onPlayNext(track)}
+                  title="Play next"
+                  style={{ color: 'var(--accent-cyan)', padding: '5px' }}
+                >
+                  <ListPlus size={15} />
+                </button>
+              )}
               <button
                 onClick={() => onToggleLike(track)}
-                style={{ color: isLiked(track.id) ? '#ec4899' : 'var(--text-muted)', padding: '4px' }}
+                title={isLiked(track.id) ? 'Unlike' : 'Like'}
+                style={{ color: isLiked(track.id) ? '#ec4899' : 'var(--text-muted)', padding: '5px' }}
               >
                 <Heart size={16} fill={isLiked(track.id) ? '#ec4899' : 'transparent'} />
               </button>
@@ -232,7 +271,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                 <button
                   onClick={() => onRemoveTrack(track.id)}
                   title="Remove from playlist"
-                  style={{ color: 'var(--text-muted)', padding: '4px' }}
+                  style={{ color: 'var(--text-muted)', padding: '5px' }}
                   onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                 >

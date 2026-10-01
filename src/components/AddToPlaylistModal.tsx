@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { X, Plus, Music, Check } from 'lucide-react';
 import { MediaTrack, UserPlaylist } from '../types';
+import { useExitTransition } from './useExitTransition';
+import { SafeArtwork } from './SafeArtwork';
+import { SquareArt } from './SquareArt';
 
 interface AddToPlaylistModalProps {
   isOpen: boolean;
@@ -21,8 +24,9 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 }) => {
   const [newTitle, setNewTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const { visible, closing } = useExitTransition(isOpen, 180);
 
-  if (!isOpen || !track) return null;
+  if (!visible || !track) return null;
 
   const handleCreateAndAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,15 +52,18 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="glass-floating"
+        className="glass-floating liquid-panel"
         style={{
           width: '420px',
           borderRadius: '20px',
           padding: '24px',
-          backgroundColor: '#12141f',
+          backgroundColor: 'rgba(18, 20, 31, 0.88)',
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
+          animation: closing ? 'freqFadeScaleOut 0.16s ease' : 'freqPopIn 0.22s cubic-bezier(0.16,1,0.3,1)',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -84,8 +91,9 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
             border: '1px solid rgba(255, 255, 255, 0.06)',
           }}
         >
-          <img
-            src={track.artworkUrl || ''}
+          <SquareArt
+            src={track.artworkUrl}
+            videoId={track.id}
             alt={track.title}
             style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }}
           />
@@ -123,7 +131,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
               style={{
                 padding: '0 16px',
                 borderRadius: '10px',
-                background: 'linear-gradient(135deg, #00e5ff 0%, #8b5cf6 100%)',
+                backgroundColor: '#f8fafc',
                 color: '#090A0F',
                 fontWeight: 700,
                 fontSize: '13px',
@@ -141,8 +149,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
               gap: '10px',
               padding: '10px 14px',
               borderRadius: '10px',
-              backgroundColor: 'rgba(0, 229, 255, 0.1)',
-              border: '1px solid rgba(0, 229, 255, 0.25)',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
               color: 'var(--accent-cyan)',
               fontSize: '13px',
               fontWeight: 600,

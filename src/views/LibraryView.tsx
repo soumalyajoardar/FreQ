@@ -1,7 +1,8 @@
 import React from 'react';
-import { Heart, Plus, Play, Trash2, Clock, Music } from 'lucide-react';
+import { Heart, Plus, Play, Trash2, Clock, Music, Pencil } from 'lucide-react';
 import { MediaTrack, UserPlaylist } from '../types';
 import { formatTime } from '../components/PlayerBar';
+import { SquareArt } from '../components/SquareArt';
 
 interface LibraryViewProps {
   likedTracks: MediaTrack[];
@@ -12,6 +13,7 @@ interface LibraryViewProps {
   onOpenLiked: () => void;
   onCreatePlaylist: () => void;
   onDeletePlaylist: (playlistId: string) => void;
+  onRenamePlaylist?: (playlistId: string) => void;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -23,9 +25,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onOpenLiked,
   onCreatePlaylist,
   onDeletePlaylist,
+  onRenamePlaylist,
 }) => {
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }} className="view-enter">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
           Your Library
@@ -38,8 +41,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             gap: '8px',
             padding: '8px 16px',
             borderRadius: '999px',
-            backgroundColor: 'rgba(0, 229, 255, 0.12)',
-            border: '1px solid rgba(0, 229, 255, 0.3)',
+            backgroundColor: 'rgba(255, 255, 255, 0.12)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
             color: 'var(--accent-cyan)',
             fontWeight: 700,
             fontSize: '13px',
@@ -57,15 +60,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           onClick={onOpenLiked}
           style={{
             borderRadius: '20px',
-            background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.8) 0%, rgba(139, 92, 246, 0.9) 100%)',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(22px)',
+            WebkitBackdropFilter: 'blur(22px)',
             padding: '24px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             height: '200px',
             cursor: 'pointer',
-            boxShadow: '0 12px 32px rgba(236, 72, 153, 0.35)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             position: 'relative',
             overflow: 'hidden',
             transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -114,6 +119,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             borderRadius: '20px',
             backgroundColor: 'rgba(255, 255, 255, 0.03)',
             border: '1px solid rgba(255, 255, 255, 0.07)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             padding: '20px 24px',
             display: 'flex',
             flexDirection: 'column',
@@ -170,6 +177,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 borderRadius: '16px',
                 backgroundColor: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
@@ -200,7 +209,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 }}
               >
                 {pl.artworkUrl ? (
-                  <img src={pl.artworkUrl} alt={pl.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <SquareArt src={pl.artworkUrl} alt={pl.title} style={{ width: '100%', height: '100%' }} />
                 ) : (
                   <Music size={36} color="var(--text-muted)" />
                 )}
@@ -218,11 +227,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       width: '38px',
                       height: '38px',
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #00e5ff 0%, #8b5cf6 100%)',
+                      backgroundColor: '#f8fafc',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 4px 12px rgba(0, 229, 255, 0.4)',
+                      boxShadow: '0 4px 12px rgba(255, 255, 255, 0.4)',
                     }}
                   >
                     <Play size={16} fill="#090A0F" color="#090A0F" style={{ marginLeft: '2px' }} />
@@ -240,20 +249,34 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   </span>
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {onRenamePlaylist && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      onRenamePlaylist(pl.id);
+                    }}
+                    title="Rename playlist"
+                    style={{ color: 'var(--text-muted)', padding: '6px' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
                 <button
                   onClick={e => {
                     e.stopPropagation();
-                    if (confirm(`Delete playlist "${pl.title}"?`)) {
-                      onDeletePlaylist(pl.id);
-                    }
+                    onDeletePlaylist(pl.id);
                   }}
                   title="Delete Playlist"
-                  style={{ color: 'var(--text-muted)', padding: '4px' }}
+                  style={{ color: 'var(--text-muted)', padding: '6px' }}
                   onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                 >
                   <Trash2 size={15} />
                 </button>
+                </div>
               </div>
             </div>
           ))}

@@ -19,21 +19,34 @@ export function upgradeArtworkUrl(url: string | null | undefined, videoId?: stri
       } else if (!url.includes('=')) {
         return `${url}=w544-h544-l90-rj`;
       }
-    } else if (url.includes('i.ytimg.com')) {
-      const viRegex = /\/vi\/([^/]+)\/(?:default|mqdefault|hqdefault|sddefault)\.jpg$/;
-      if (viRegex.test(url)) {
-        return url.replace(viRegex, '/vi/$1/hq720.jpg');
-      }
     }
+    // NOTE: i.ytimg.com URLs are left untouched — rewriting hqdefault to
+    // hq720 breaks videos without an HD thumbnail (blank artwork).
   } catch (_e) {
     // Keep original
   }
   return url;
 }
 
+// Picks the most reliable thumbnail from a raw list: largest width when
+// known, otherwise the last entry (YTM orders smallest-first).
+export function pickBestThumbnail(list: any): string | null {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const withUrl = list.filter((t: any) => t && typeof t.url === 'string' && t.url);
+  if (withUrl.length === 0) return null;
+  const withWidth = withUrl.filter((t: any) => typeof t.width === 'number');
+  if (withWidth.length > 0) {
+    return withWidth.reduce((a: any, b: any) => (b.width > a.width ? b : a)).url;
+  }
+  return withUrl[withUrl.length - 1].url;
+}
+
 export function normalizeTrack(raw: any): MediaTrack {
   const id = raw.id || raw.videoId || '';
-  const title = raw.title || raw.name || 'Unknown Track';
+  const rawTitle = raw.title ?? raw.name ?? '';
+  const title = typeof rawTitle === 'string' && rawTitle.trim() && rawTitle !== 'null'
+    ? rawTitle
+    : 'Unknown Title';
   let artist = 'Unknown Artist';
 
   if (typeof raw.artist === 'string' && raw.artist !== 'null') {
@@ -63,7 +76,10 @@ export function normalizeTrack(raw: any): MediaTrack {
     durationSeconds = raw.duration;
   }
 
-  const artworkUrl = upgradeArtworkUrl(raw.artworkUrl || raw.thumbnail || raw.thumbnails?.[0]?.url, id);
+  const artworkUrl = upgradeArtworkUrl(
+    raw.artworkUrl || raw.thumbnail || pickBestThumbnail(raw.thumbnails),
+    id
+  );
 
   return {
     id,
@@ -78,7 +94,7 @@ export function normalizeTrack(raw: any): MediaTrack {
 
 class YtMusicService {
   async search(query: string): Promise<MediaTrack[]> {
-    if (!query || query.trim().length < 1) return [];
+    if (!query || query.trim().length < 2) return [];
     const trimmed = query.trim();
 
     try {
@@ -195,6 +211,65 @@ class YtMusicService {
     } catch (err) {
       console.error('YtMusic getAlbum error:', err);
       return null;
+    }
+  }
+  // Curated Indian home: mood/genre/popular rails built from Indian
+  // queries only (no foreign content). Cached 10 min. Each rail holds songs.
+  private indianHomeCache: { at: number; sections: CatalogSection[] } = { at: 0, sections: [] };
+
+  async getIndianHome(): Promise<{ sections: CatalogSection[] }> {
+    if (Date.now() - this.indianHomeCache.at < 10 * 60 * 1000 && this.indianHomeCache.sections.length > 0) {
+      return { sections: this.indianHomeCache.sections };
+    }
+    const defs = [
+      { title: 'Trending Hindi Hits', query: 'trending hindi songs 2024' },
+      { title: 'Sad Songs', query: 'sad hindi songs' },
+      { title: 'Happy Vibes', query: 'happy hindi songs' },
+      { title: 'Punjabi Party', query: 'punjabi party songs' },
+      { title: 'Romantic Hits', query: 'romantic hindi songs' },
+      { title: '90s Bollywood Gold', query: '90s hindi hit songs' },
+      { title: 'Tamil Hits', query: 'tamil hit songs' },
+      { title: 'Telugu Hits', query: 'telugu hit songs' },
+    ];
+    const results: (CatalogSection | null)[] = await Promise.all(
+      defs.map(async d => {
+        try {
+          const tracks = (await this.search(d.query)).slice(0, 12);
+          if (tracks.length === 0) return null;
+          return {
+            title: d.title,
+            items: tracks.map(t => ({
+              type: 'song' as const,
+              id: t.id,
+              title: t.title,
+              artist: t.artist,
+              artistId: null as string | null,
+              album: t.album,
+              year: null as string | null,
+              durationSeconds: t.durationSeconds,
+              artworkUrl: t.artworkUrl,
+            })),
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+    const sections = results.filter((s): s is CatalogSection => s !== null);
+    if (sections.length > 0) this.indianHomeCache = { at: Date.now(), sections };
+    return { sections };
+  }
+
+  async getWatch(trackId: string, limit = 25): Promise<MediaTrack[]> {    if (!trackId) return [];
+    try {
+      const res = await fetch(`${BASE_URL}/api/watch/${encodeURIComponent(trackId)}?limit=${Math.min(Math.max(limit, 1), 50)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rawList: any[] = Array.isArray(data?.tracks) ? data.tracks : [];
+      return rawList.map(normalizeTrack).filter(t => t.id);
+    } catch (err) {
+      console.warn('getWatch failed, falling back to local autoplay:', err);
+      return [];
     }
   }
 }

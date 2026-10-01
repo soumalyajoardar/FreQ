@@ -11,14 +11,18 @@ import {
   VolumeX,
   Heart,
   Maximize2,
-  ListMusic,
-  FileText,
+  X,
 } from 'lucide-react';
+import { LyricsIcon } from './LyricsIcon';
 import { AudioMode, MediaTrack, RepeatMode } from '../types';
+import { FlatScrubber } from './FlatScrubber';
+import { SquareArt } from './SquareArt';
+import freqIcon from '../assets/freq-icon.png';
 
 interface PlayerBarProps {
   currentTrack: MediaTrack | null;
   isPlaying: boolean;
+  isLoading?: boolean;
   position: number;
   duration: number;
   volume: number;
@@ -30,6 +34,7 @@ interface PlayerBarProps {
   onPlayPause: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onStop: () => void;
   onSeek: (seconds: number) => void;
   onVolumeChange: (vol: number) => void;
   onToggleMute: () => void;
@@ -38,7 +43,8 @@ interface PlayerBarProps {
   onToggleLike: () => void;
   onAudioModeChange: (mode: AudioMode) => void;
   onOpenNowPlaying: () => void;
-  onToggleQueue: () => void;
+  onToggleLyrics?: () => void;
+  isLyricsActive?: boolean;
 }
 
 export function formatTime(seconds: number): string {
@@ -51,6 +57,7 @@ export function formatTime(seconds: number): string {
 export const PlayerBar: React.FC<PlayerBarProps> = ({
   currentTrack,
   isPlaying,
+  isLoading = false,
   position,
   duration,
   volume,
@@ -62,6 +69,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   onPlayPause,
   onPrev,
   onNext,
+  onStop,
   onSeek,
   onVolumeChange,
   onToggleMute,
@@ -70,47 +78,36 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   onToggleLike,
   onAudioModeChange,
   onOpenNowPlaying,
-  onToggleQueue,
+  onToggleLyrics,
+  isLyricsActive = false,
 }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekVal, setSeekVal] = useState(0);
 
   const displayPosition = isSeeking ? seekVal : position;
-  const progressPercent = duration > 0 ? (displayPosition / duration) * 100 : 0;
-
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSeekVal(parseFloat(e.target.value));
-  };
-
-  const handleSeekMouseDown = () => {
-    setIsSeeking(true);
-    setSeekVal(position);
-  };
-
-  const handleSeekMouseUp = () => {
-    setIsSeeking(false);
-    onSeek(seekVal);
-  };
 
   const cycleFlavor = () => {
-    if (audioMode === 'NORMAL') onAudioModeChange('SNR');
-    else if (audioMode === 'SNR') onAudioModeChange('NIGHTCORE');
-    else onAudioModeChange('NORMAL');
+    if (audioMode === 'SNR') onAudioModeChange('NORMAL');
+    else if (audioMode === 'NORMAL') onAudioModeChange('NIGHTCORE');
+    else onAudioModeChange('SNR');
   };
 
   return (
     <footer
+      className="liquid-bar"
       style={{
         height: 'var(--playerbar-height)',
-        backgroundColor: 'rgba(14, 16, 24, 0.88)',
-        backdropFilter: 'blur(30px)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(14, 16, 24, 0.72)',
+        backdropFilter: 'blur(30px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(30px) saturate(160%)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.10)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 24px',
         position: 'relative',
         zIndex: 50,
+        animation: 'freqSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       {/* Left: Track Info & Like */}
@@ -133,13 +130,18 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               }}
             >
               {currentTrack.artworkUrl ? (
-                <img
+                <SquareArt
                   src={currentTrack.artworkUrl}
+                  videoId={currentTrack.id}
                   alt={currentTrack.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: '100%', height: '100%' }}
                 />
               ) : (
-                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1b1e2e, #0e1018)' }} />
+                <img
+                  src={freqIcon}
+                  alt="FreQ"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
               )}
             </div>
 
@@ -252,24 +254,28 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               width: '42px',
               height: '42px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #00e5ff 0%, #8b5cf6 100%)',
+              backgroundColor: '#f8fafc',
               color: '#090A0F',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(0, 229, 255, 0.5)',
-              transition: 'transform 0.15s, box-shadow 0.15s',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+              transition: 'transform 0.15s',
             }}
             onMouseEnter={e => {
               e.currentTarget.style.transform = 'scale(1.06)';
-              e.currentTarget.style.boxShadow = '0 0 22px rgba(0, 229, 255, 0.7)';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 0 16px rgba(0, 229, 255, 0.5)';
             }}
           >
-            {isPlaying ? <Pause size={20} fill="#090A0F" /> : <Play size={20} fill="#090A0F" style={{ marginLeft: '2px' }} />}
+            {isLoading ? (
+              <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2.5px solid rgba(9, 10, 15, 0.25)', borderTopColor: '#090A0F', animation: 'freqSpin 0.8s linear infinite' }} />
+            ) : isPlaying ? (
+              <Pause size={20} fill="#090A0F" />
+            ) : (
+              <Play size={20} fill="#090A0F" style={{ marginLeft: '2px' }} />
+            )}
           </button>
 
           <button
@@ -283,6 +289,21 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             <SkipForward size={20} fill="currentColor" />
+          </button>
+
+          <button
+            onClick={onStop}
+            title="Stop and close player"
+            style={{
+              color: 'var(--text-secondary)',
+              transition: 'color 0.15s, transform 0.15s',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.transform = 'scale(1.12)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            <X size={17} strokeWidth={2.5} />
           </button>
 
           <button
@@ -303,28 +324,15 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             {formatTime(displayPosition)}
           </span>
 
-          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
-            <input
-              type="range"
-              min="0"
-              max={duration > 0 ? duration : 100}
-              step="0.5"
-              value={displayPosition}
-              onChange={handleSeekChange}
-              onMouseDown={handleSeekMouseDown}
-              onMouseUp={handleSeekMouseUp}
-              style={{
-                width: '100%',
-                height: '4px',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                background: `linear-gradient(to right, #00e5ff 0%, #8b5cf6 ${progressPercent}%, rgba(255, 255, 255, 0.12) ${progressPercent}%, rgba(255, 255, 255, 0.12) 100%)`,
-                borderRadius: '999px',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
+          <FlatScrubber
+            value={displayPosition}
+            max={duration}
+            ariaLabel="Seek track position"
+            onSeek={onSeek}
+            onScrub={v => setSeekVal(v)}
+            onScrubStart={() => { setIsSeeking(true); setSeekVal(position); }}
+            onScrubEnd={v => { setIsSeeking(false); onSeek(v); }}
+          />
 
           <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '36px', textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
             {formatTime(duration)}
@@ -350,13 +358,13 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 ? 'rgba(139, 92, 246, 0.2)'
                 : audioMode === 'NIGHTCORE'
                 ? 'rgba(236, 72, 153, 0.2)'
-                : 'rgba(0, 229, 255, 0.15)',
+                : 'rgba(255, 255, 255, 0.15)',
             border:
               audioMode === 'SNR'
                 ? '1px solid rgba(139, 92, 246, 0.4)'
                 : audioMode === 'NIGHTCORE'
                 ? '1px solid rgba(236, 72, 153, 0.4)'
-                : '1px solid rgba(0, 229, 255, 0.3)',
+                : '1px solid rgba(255, 255, 255, 0.3)',
             color:
               audioMode === 'SNR'
                 ? 'var(--accent-violet)'
@@ -371,30 +379,19 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
         {/* Lyrics Button */}
         <button
-          onClick={onOpenNowPlaying}
-          title="Synced Lyrics"
+          onClick={() => (onToggleLyrics ? onToggleLyrics() : onOpenNowPlaying())}
+          title="Lyrics"
           style={{
-            color: 'var(--text-secondary)',
+            color: isLyricsActive ? '#fff' : 'var(--text-secondary)',
             transition: 'color 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = isLyricsActive ? '#fff' : 'var(--text-secondary)'; }}
         >
-          <FileText size={18} />
-        </button>
-
-        {/* Queue Button */}
-        <button
-          onClick={onToggleQueue}
-          title="Up Next Queue"
-          style={{
-            color: 'var(--text-secondary)',
-            transition: 'color 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
-        >
-          <ListMusic size={19} />
+          <LyricsIcon
+            size={18}
+            style={isLyricsActive ? { filter: 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.9))' } : undefined}
+          />
         </button>
 
         {/* Volume Slider */}
@@ -407,24 +404,16 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           >
             {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </button>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.02"
+          <div style={{ width: '132px' }}>
+          <FlatScrubber
             value={isMuted ? 0 : volume}
-            onChange={e => onVolumeChange(parseFloat(e.target.value))}
-            style={{
-              width: '74px',
-              height: '4px',
-              appearance: 'none',
-              WebkitAppearance: 'none',
-              background: `linear-gradient(to right, #00e5ff 0%, #8b5cf6 ${(isMuted ? 0 : volume) * 100}%, rgba(255, 255, 255, 0.15) ${(isMuted ? 0 : volume) * 100}%, rgba(255, 255, 255, 0.15) 100%)`,
-              borderRadius: '999px',
-              outline: 'none',
-              cursor: 'pointer',
-            }}
+            max={1}
+            step={0.02}
+            height={5}
+            ariaLabel="Volume"
+            onSeek={onVolumeChange}
           />
+          </div>
         </div>
 
         {/* Expand Now Playing Button */}

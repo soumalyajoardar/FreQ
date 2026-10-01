@@ -3,6 +3,8 @@ import { ArrowLeft, Play, Disc } from 'lucide-react';
 import { ArtistDetails, MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { formatTime } from '../components/PlayerBar';
+import { SafeArtwork } from '../components/SafeArtwork';
+import { SquareArt } from '../components/SquareArt';
 
 interface ArtistDetailViewProps {
   artistId: string;
@@ -52,7 +54,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   }
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }} className="view-enter">
       <button
         onClick={onBack}
         style={{
@@ -80,12 +82,12 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
             overflow: 'hidden',
             backgroundColor: '#1b1e2e',
             boxShadow: '0 16px 36px rgba(0, 0, 0, 0.5)',
-            border: '2px solid rgba(0, 229, 255, 0.3)',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
             flexShrink: 0,
           }}
         >
           {artist.artworkUrl && (
-            <img src={artist.artworkUrl} alt={artist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <SquareArt src={artist.artworkUrl} alt={artist.name} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
           )}
         </div>
 
@@ -133,8 +135,9 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)', width: '20px', textAlign: 'center' }}>
                   {idx + 1}
                 </span>
-                <img
-                  src={track.artworkUrl || ''}
+                <SquareArt
+                  src={track.artworkUrl}
+                  videoId={track.id}
                   alt={track.title}
                   style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
                 />
@@ -181,7 +184,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
               >
                 <div style={{ width: '100%', aspectRatio: '1', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#1b1e2e' }}>
                   {alb.artworkUrl ? (
-                    <img src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <SquareArt src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%' }} />
                   ) : (
                     <Disc size={40} color="var(--text-muted)" />
                   )}

@@ -3,6 +3,8 @@ import { Search, X, Play, Heart, PlusCircle, Clock, Music, Disc, User } from 'lu
 import { MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { formatTime } from '../components/PlayerBar';
+import { SafeArtwork } from '../components/SafeArtwork';
+import { SquareArt } from '../components/SquareArt';
 
 interface SearchViewProps {
   onPlayTrack: (track: MediaTrack, queue?: MediaTrack[]) => void;
@@ -12,6 +14,7 @@ interface SearchViewProps {
   searchHistory: string[];
   onAddSearchHistory: (q: string) => void;
   onClearSearchHistory: () => void;
+  initialQuery?: string;
 }
 
 export const SearchView: React.FC<SearchViewProps> = ({
@@ -22,8 +25,9 @@ export const SearchView: React.FC<SearchViewProps> = ({
   searchHistory,
   onAddSearchHistory,
   onClearSearchHistory,
+  initialQuery,
 }) => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery || '');
   const [results, setResults] = useState<MediaTrack[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'SONGS' | 'ARTISTS' | 'ALBUMS'>('ALL');
@@ -39,11 +43,42 @@ export const SearchView: React.FC<SearchViewProps> = ({
     ytMusicService.search(trimmed).then(res => {
       setResults(res);
       setIsLoading(false);
-      onAddSearchHistory(trimmed);
     }).catch(() => {
       setIsLoading(false);
     });
   };
+
+  // Explicit search submit (Enter/button): the ONLY writer of history,
+  // plus playing a song from results.
+  const submitSearch = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    onAddSearchHistory(trimmed);
+    executeSearch(trimmed);
+  };
+
+  // Song taps play single (not the results list) so Up Next is built
+  // from vibe/continuation instead of echoing similar titles.
+  const handlePlayFromSearch = (track: MediaTrack) => {
+    const trimmed = query.trim();
+    if (trimmed) onAddSearchHistory(trimmed);
+    onPlayTrack(track);
+  };
+
+  // Artist/album cards keep their grouped list (same artist/album = same vibe).
+  const handlePlayCollectionFromSearch = (track: MediaTrack, list: MediaTrack[]) => {
+    const trimmed = query.trim();
+    if (trimmed) onAddSearchHistory(trimmed);
+    onPlayTrack(track, list);
+  };
+
+  // Run once when arriving with a query from Home.
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      executeSearch(initialQuery.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -111,16 +146,17 @@ export const SearchView: React.FC<SearchViewProps> = ({
       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'; }}
     >
       <div
-        onClick={() => onPlayTrack(track, trackList)}
+        onClick={() => handlePlayFromSearch(track)}
         style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, cursor: 'pointer', overflow: 'hidden' }}
       >
         <span style={{ fontSize: '13px', color: 'var(--text-muted)', width: '20px', textAlign: 'center' }}>
           {idx + 1}
         </span>
 
-        <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
-          <img
-            src={track.artworkUrl || ''}
+        <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', backgroundColor: '#1b1e2e' }}>
+          <SquareArt
+            src={track.artworkUrl}
+            videoId={track.id}
             alt={track.title}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -185,21 +221,29 @@ export const SearchView: React.FC<SearchViewProps> = ({
   );
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }} className="view-enter">
       {/* Search Input Bar */}
       <div style={{ position: 'relative', width: '100%', maxWidth: '640px' }}>
         <div
           style={{
             position: 'absolute',
-            left: '16px',
+            left: '8px',
             top: '50%',
             transform: 'translateY(-50%)',
-            color: 'var(--accent-cyan)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '11px',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            color: '#fff',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 1,
           }}
         >
-          <Search size={20} />
+          <Search size={18} strokeWidth={2.5} />
         </div>
 
         <input
@@ -209,7 +253,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter') {
-              executeSearch(query.trim());
+              submitSearch(query);
             }
           }}
           autoFocus
@@ -228,7 +272,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
           }}
           onFocus={e => {
             e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-            e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 229, 255, 0.25)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.25)';
           }}
           onBlur={e => {
             e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
@@ -322,7 +366,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
       {isLoading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', color: 'var(--text-muted)', gap: '10px' }}>
           <div style={{ width: '18px', height: '18px', border: '2px solid var(--accent-cyan)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          <span>Searching YouTube Music...</span>
+          <span>Searching in FreQ database...</span>
         </div>
       ) : activeFilter === 'ARTISTS' ? (
         uniqueArtists.length > 0 ? (
@@ -334,7 +378,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
               {uniqueArtists.map((art, idx) => (
                 <div
                   key={idx}
-                  onClick={() => art.tracks.length > 0 && onPlayTrack(art.tracks[0], art.tracks)}
+                  onClick={() => art.tracks.length > 0 && handlePlayCollectionFromSearch(art.tracks[0], art.tracks)}
                   style={{
                     padding: '16px',
                     borderRadius: '16px',
@@ -353,7 +397,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                 >
                   <div style={{ width: '100px', height: '100px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#1b1e2e' }}>
                     {art.artworkUrl ? (
-                      <img src={art.artworkUrl} alt={art.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <SquareArt src={art.artworkUrl} alt={art.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <User size={40} color="var(--text-muted)" style={{ margin: '30px auto' }} />
                     )}
@@ -381,7 +425,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
               {uniqueAlbums.map((alb, idx) => (
                 <div
                   key={idx}
-                  onClick={() => alb.tracks.length > 0 && onPlayTrack(alb.tracks[0], alb.tracks)}
+                  onClick={() => alb.tracks.length > 0 && handlePlayCollectionFromSearch(alb.tracks[0], alb.tracks)}
                   style={{
                     padding: '14px',
                     borderRadius: '16px',
@@ -398,7 +442,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                 >
                   <div style={{ width: '100%', aspectRatio: '1', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#1b1e2e' }}>
                     {alb.artworkUrl ? (
-                      <img src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <SquareArt src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <Disc size={40} color="var(--text-muted)" style={{ margin: '40px auto' }} />
                     )}
@@ -428,7 +472,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                 Top Result
               </span>
               <div
-                onClick={() => onPlayTrack(topResult, results)}
+                onClick={() => handlePlayFromSearch(topResult)}
                 style={{
                   padding: '20px',
                   borderRadius: '16px',
@@ -451,8 +495,8 @@ export const SearchView: React.FC<SearchViewProps> = ({
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <div style={{ width: '88px', height: '88px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', position: 'relative' }}>
-                  <img src={topResult.artworkUrl || ''} alt={topResult.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ width: '88px', height: '88px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', position: 'relative', backgroundColor: '#1b1e2e' }}>
+                  <SquareArt src={topResult.artworkUrl} videoId={topResult.id} alt={topResult.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
                 <div>
                   <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -475,7 +519,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 4px 16px rgba(0, 229, 255, 0.4)',
+                    boxShadow: '0 4px 16px rgba(255, 255, 255, 0.4)',
                   }}
                 >
                   <Play size={20} fill="#090A0F" color="#090A0F" style={{ marginLeft: '2px' }} />

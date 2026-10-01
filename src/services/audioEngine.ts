@@ -9,6 +9,7 @@ class AudioEngine {
   private audio: HTMLAudioElement;
   private audioCtx: AudioContext | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
+  private bassNode: BiquadFilterNode | null = null;
   private dryGainNode: GainNode | null = null;
   private wetGainNode: GainNode | null = null;
   private convolverNode: ConvolverNode | null = null;
@@ -16,14 +17,53 @@ class AudioEngine {
   private isAudioGraphReady = false;
 
   private currentTrack: MediaTrack | null = null;
-  private audioMode: AudioMode = 'NORMAL';
+  private audioMode: AudioMode = 'SNR';
   private volume: number = 0.85;
+  // Custom flavor parameters (tunable from Settings, persisted in library)
+  private snrRate: number = 0.8;
+  private snrReverb: number = 0.55;
+  private nightcoreRate: number = 1.2;
+  // Bass booster (0–1 → 0–+12 dB low shelf). Heard in SnR/Nightcore
+  // only — Normal always plays pure and unaltered.
+  private bassBoost: number = 0;
 
   private onPlayListeners: PlaybackCallback[] = [];
   private onPauseListeners: PlaybackCallback[] = [];
   private onTimeUpdateListeners: TimeUpdateCallback[] = [];
   private onTrackEndListeners: TrackEndCallback[] = [];
   private onErrorListeners: ErrorCallback[] = [];
+
+  // Smooth timeline clock (10fps rAF) — timeupdate alone fires ~4Hz,
+  // which makes the scrubber step and freeze position up to 250ms stale.
+  private rafId: number | null = null;
+  private lastTick: number = 0;
+
+  private emitTime() {
+    const pos = this.audio.currentTime || 0;
+    const dur = this.audio.duration || 0;
+    this.onTimeUpdateListeners.forEach(cb => cb(pos, dur));
+    this.updateMediaSessionPosition(pos, dur);
+  }
+
+  private startSmoothClock() {
+    this.stopSmoothClock();
+    this.lastTick = 0;
+    const loop = (t: number) => {
+      if (t - this.lastTick >= 100) {
+        this.lastTick = t;
+        this.emitTime();
+      }
+      this.rafId = requestAnimationFrame(loop);
+    };
+    this.rafId = requestAnimationFrame(loop);
+  }
+
+  private stopSmoothClock() {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
 
   constructor() {
     this.audio = new Audio();
@@ -42,6 +82,12 @@ class AudioEngine {
       this.audioCtx = new AudioCtxClass();
       this.sourceNode = this.audioCtx.createMediaElementSource(this.audio);
 
+      // Bass booster: low shelf feeding both dry and reverb paths
+      this.bassNode = this.audioCtx.createBiquadFilter();
+      this.bassNode.type = 'lowshelf';
+      this.bassNode.frequency.value = 120;
+      this.bassNode.gain.value = 0;
+
       this.masterGainNode = this.audioCtx.createGain();
       this.masterGainNode.gain.value = 1.0;
 
@@ -54,12 +100,13 @@ class AudioEngine {
       this.convolverNode = this.audioCtx.createConvolver();
       this.convolverNode.buffer = this.createReverbImpulse(this.audioCtx, 2.5, 2.0);
 
-      // Route dry signal: source -> dryGain -> masterGain -> destination
-      this.sourceNode.connect(this.dryGainNode);
+      // Route dry signal: source -> bass -> dryGain -> masterGain
+      this.sourceNode.connect(this.bassNode);
+      this.bassNode.connect(this.dryGainNode);
       this.dryGainNode.connect(this.masterGainNode);
 
-      // Route wet reverb signal: source -> convolver -> wetGain -> masterGain -> destination
-      this.sourceNode.connect(this.convolverNode);
+      // Route wet reverb signal: bass -> convolver -> wetGain -> masterGain
+      this.bassNode.connect(this.convolverNode);
       this.convolverNode.connect(this.wetGainNode);
       this.wetGainNode.connect(this.masterGainNode);
 
@@ -91,21 +138,33 @@ class AudioEngine {
     this.audio.addEventListener('play', () => {
       this.onPlayListeners.forEach(cb => cb());
       this.updateMediaSessionPlaybackState('playing');
+      this.emitTime();
+      this.startSmoothClock();
     });
 
     this.audio.addEventListener('pause', () => {
+      this.stopSmoothClock();
+      // Exact freeze: timeupdate may lag a paused frame by ~250ms.
+      this.emitTime();
       this.onPauseListeners.forEach(cb => cb());
       this.updateMediaSessionPlaybackState('paused');
     });
 
     this.audio.addEventListener('timeupdate', () => {
-      const pos = this.audio.currentTime;
-      const dur = this.audio.duration || 0;
-      this.onTimeUpdateListeners.forEach(cb => cb(pos, dur));
-      this.updateMediaSessionPosition(pos, dur);
+      this.emitTime();
+    });
+
+    // Metadata / seek landings report exact position immediately.
+    this.audio.addEventListener('loadedmetadata', () => {
+      this.emitTime();
+    });
+
+    this.audio.addEventListener('seeked', () => {
+      this.emitTime();
     });
 
     this.audio.addEventListener('ended', () => {
+      this.stopSmoothClock();
       this.onTrackEndListeners.forEach(cb => cb());
     });
 
@@ -171,6 +230,54 @@ class AudioEngine {
     return this.audioMode;
   }
 
+  // Custom SnR tempo (0.5–1.0). Applies live when SnR is active.
+  public setSnrRate(rate: number) {
+    this.snrRate = Math.min(1, Math.max(0.5, rate));
+    if (this.audioMode === 'SNR') this.applyAudioFlavor('SNR');
+  }
+
+  public getSnrRate(): number {
+    return this.snrRate;
+  }
+
+  // Custom SnR reverb send (0–1). Applies live when SnR is active.
+  public setSnrReverb(amount: number) {
+    this.snrReverb = Math.min(1, Math.max(0, amount));
+    if (this.audioMode === 'SNR') this.applyAudioFlavor('SNR');
+  }
+
+  public getSnrReverb(): number {
+    return this.snrReverb;
+  }
+
+  // Custom Nightcore speed (1.0–1.5). Applies live when Nightcore is active.
+  public setNightcoreRate(rate: number) {
+    this.nightcoreRate = Math.min(1.5, Math.max(1.0, rate));
+    if (this.audioMode === 'NIGHTCORE') this.applyAudioFlavor('NIGHTCORE');
+  }
+
+  public getNightcoreRate(): number {
+    return this.nightcoreRate;
+  }
+
+  // Bass booster amount (0–1). Heard in SnR/Nightcore only —
+  // Normal always plays pure and unaltered.
+  public setBassBoost(amount: number) {
+    this.bassBoost = Math.min(1, Math.max(0, amount));
+    this.applyBass();
+  }
+
+  public getBassBoost(): number {
+    return this.bassBoost;
+  }
+
+  private applyBass() {
+    if (!this.bassNode || !this.audioCtx) return;
+    const t = this.audioCtx.currentTime;
+    const target = this.audioMode === 'NORMAL' ? 0 : this.bassBoost * 12;
+    this.bassNode.gain.setTargetAtTime(target, t, 0.05);
+  }
+
   private applyAudioFlavor(mode: AudioMode) {
     const audioEl = this.audio as any;
 
@@ -180,20 +287,23 @@ class AudioEngine {
       if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = true;
       if (this.dryGainNode) this.dryGainNode.gain.value = 1.0;
       if (this.wetGainNode) this.wetGainNode.gain.value = 0.0;
+      this.applyBass();
     } else if (mode === 'SNR') {
-      // SnR: Slowed + Reverb (0.8x speed, pitched down, 50% wet reverb send)
-      this.audio.playbackRate = 0.8;
+      // SnR: custom slowed tempo + custom reverb send, pitched down
+      this.audio.playbackRate = this.snrRate;
       if ('preservesPitch' in audioEl) audioEl.preservesPitch = false;
       if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = false;
       if (this.dryGainNode) this.dryGainNode.gain.value = 0.85;
-      if (this.wetGainNode) this.wetGainNode.gain.value = 0.55;
+      if (this.wetGainNode) this.wetGainNode.gain.value = this.snrReverb * 0.9;
+      this.applyBass();
     } else if (mode === 'NIGHTCORE') {
-      // Nightcore: 1.2x speed, pitched up with tempo, dry signal
-      this.audio.playbackRate = 1.2;
+      // Nightcore: custom speed, pitched up with tempo, dry signal
+      this.audio.playbackRate = this.nightcoreRate;
       if ('preservesPitch' in audioEl) audioEl.preservesPitch = false;
       if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = false;
       if (this.dryGainNode) this.dryGainNode.gain.value = 1.0;
       if (this.wetGainNode) this.wetGainNode.gain.value = 0.0;
+      this.applyBass();
     }
   }
 
@@ -254,24 +364,29 @@ class AudioEngine {
     }
   }
 
-  public onPlay(cb: PlaybackCallback) {
+  public onPlay(cb: PlaybackCallback): () => void {
     this.onPlayListeners.push(cb);
+    return () => { this.onPlayListeners = this.onPlayListeners.filter(l => l !== cb); };
   }
 
-  public onPause(cb: PlaybackCallback) {
+  public onPause(cb: PlaybackCallback): () => void {
     this.onPauseListeners.push(cb);
+    return () => { this.onPauseListeners = this.onPauseListeners.filter(l => l !== cb); };
   }
 
-  public onTimeUpdate(cb: TimeUpdateCallback) {
+  public onTimeUpdate(cb: TimeUpdateCallback): () => void {
     this.onTimeUpdateListeners.push(cb);
+    return () => { this.onTimeUpdateListeners = this.onTimeUpdateListeners.filter(l => l !== cb); };
   }
 
-  public onTrackEnd(cb: TrackEndCallback) {
+  public onTrackEnd(cb: TrackEndCallback): () => void {
     this.onTrackEndListeners.push(cb);
+    return () => { this.onTrackEndListeners = this.onTrackEndListeners.filter(l => l !== cb); };
   }
 
-  public onError(cb: ErrorCallback) {
+  public onError(cb: ErrorCallback): () => void {
     this.onErrorListeners.push(cb);
+    return () => { this.onErrorListeners = this.onErrorListeners.filter(l => l !== cb); };
   }
 
   public getCurrentTime(): number {

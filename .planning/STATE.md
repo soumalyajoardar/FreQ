@@ -5,10 +5,10 @@
 > **Last Status Update**: 2026-09-30
 
 ## Current Context
-- `S:\PROJECTS\WAVE` analyzed thoroughly (FreQ Android architecture, UI design system, audio flavors, LRCLIB synced lyrics, AutoplayEngine, and YTMusic backend).
+- `S:\PROJECTS\WAVE\Android` analyzed thoroughly (FreQ Android architecture, UI design system, audio flavors, LRCLIB synced lyrics, AutoplayEngine, and YTMusic backend).
 - User selected Electron + Vite + React with Liquid-Glass design and local yt-dlp audio stream extraction.
 - Workspace initialized with git repo, `.gsd/SPEC.md`, `.gsd/ARCHITECTURE.md`, `.gsd/ROADMAP.md`.
-- Next immediate action: Scaffold the Electron + Vite + React desktop application in `s:\PROJECTS\FreQ Application`.
+- Next immediate action: Scaffold the Electron + Vite + React desktop application in `S:\PROJECTS\WAVE\Windows` (done).
 
 ## Quick Metrics
 - Total Phases: 6

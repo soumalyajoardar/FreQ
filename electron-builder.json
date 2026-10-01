@@ -13,7 +13,7 @@
   ],
   "extraResources": [
     {
-      "from": "S:/PROJECTS/WAVE/backend-python/.venv/Scripts/yt-dlp.exe",
+      "from": "build/yt-dlp.exe",
       "to": "bin/yt-dlp.exe"
     }
   ],

@@ -1,4 +1,4 @@
-import { MediaTrack, UserPlaylist } from '../types';
+import { AudioMode, MediaTrack, UserPlaylist } from '../types';
 
 interface StoredLibrary {
   likedTracks: MediaTrack[];
@@ -6,6 +6,11 @@ interface StoredLibrary {
   recentlyPlayed: MediaTrack[];
   searchHistory: string[];
   discordClientId?: string;
+  audioMode?: AudioMode;
+  snrRate?: number;
+  snrReverb?: number;
+  nightcoreRate?: number;
+  bassBoost?: number;
 }
 
 type Listener = () => void;
@@ -16,6 +21,11 @@ class LibraryStore {
   private recentlyPlayed: MediaTrack[] = [];
   private searchHistory: string[] = [];
   private discordClientId: string = '';
+  private audioMode: AudioMode = 'SNR';
+  private snrRate: number = 0.8;
+  private snrReverb: number = 0.55;
+  private nightcoreRate: number = 1.2;
+  private bassBoost: number = 0;
 
   private listeners: Set<Listener> = new Set();
   private isLoaded = false;
@@ -35,6 +45,13 @@ class LibraryStore {
           this.recentlyPlayed = data.recentlyPlayed || [];
           this.searchHistory = data.searchHistory || [];
           this.discordClientId = data.discordClientId || '';
+          if (data.audioMode === 'SNR' || data.audioMode === 'NIGHTCORE' || data.audioMode === 'NORMAL') {
+            this.audioMode = data.audioMode;
+          }
+          if (typeof data.snrRate === 'number') this.snrRate = Math.min(1, Math.max(0.5, data.snrRate));
+          if (typeof data.snrReverb === 'number') this.snrReverb = Math.min(1, Math.max(0, data.snrReverb));
+          if (typeof data.nightcoreRate === 'number') this.nightcoreRate = Math.min(1.5, Math.max(1.0, data.nightcoreRate));
+          if (typeof data.bassBoost === 'number') this.bassBoost = Math.min(1, Math.max(0, data.bassBoost));
           if (this.discordClientId && window.electronAPI.setDiscordClientId) {
             window.electronAPI.setDiscordClientId(this.discordClientId);
           }
@@ -48,6 +65,13 @@ class LibraryStore {
           this.recentlyPlayed = parsed.recentlyPlayed || [];
           this.searchHistory = parsed.searchHistory || [];
           this.discordClientId = parsed.discordClientId || '';
+          if (parsed.audioMode === 'SNR' || parsed.audioMode === 'NIGHTCORE' || parsed.audioMode === 'NORMAL') {
+            this.audioMode = parsed.audioMode;
+          }
+          if (typeof parsed.snrRate === 'number') this.snrRate = Math.min(1, Math.max(0.5, parsed.snrRate));
+          if (typeof parsed.snrReverb === 'number') this.snrReverb = Math.min(1, Math.max(0, parsed.snrReverb));
+          if (typeof parsed.nightcoreRate === 'number') this.nightcoreRate = Math.min(1.5, Math.max(1.0, parsed.nightcoreRate));
+          if (typeof parsed.bassBoost === 'number') this.bassBoost = Math.min(1, Math.max(0, parsed.bassBoost));
         }
       }
     } catch (e) {
@@ -65,6 +89,11 @@ class LibraryStore {
       recentlyPlayed: this.recentlyPlayed,
       searchHistory: this.searchHistory,
       discordClientId: this.discordClientId,
+      audioMode: this.audioMode,
+      snrRate: this.snrRate,
+      snrReverb: this.snrReverb,
+      nightcoreRate: this.nightcoreRate,
+      bassBoost: this.bassBoost,
     };
 
     try {
@@ -136,10 +165,12 @@ class LibraryStore {
     this.notify();
   }
 
-  public renamePlaylist(playlistId: string, newTitle: string) {
+  public renamePlaylist(playlistId: string, newTitle: string, newDescription?: string) {
     const pl = this.userPlaylists.find(p => p.id === playlistId);
     if (pl) {
-      pl.title = newTitle.trim() || pl.title;
+      const t = newTitle.trim();
+      if (t) pl.title = t;
+      if (newDescription !== undefined) pl.description = newDescription.trim();
       this.persist();
       this.notify();
     }
@@ -161,14 +192,32 @@ class LibraryStore {
     const pl = this.userPlaylists.find(p => p.id === playlistId);
     if (pl) {
       pl.tracks = pl.tracks.filter(t => t.id !== trackId);
-      if (pl.tracks.length > 0) {
-        pl.artworkUrl = pl.tracks[0].artworkUrl || null;
-      } else {
-        pl.artworkUrl = null;
-      }
+      // Parity with Android derivePlaylistArtworkAfterRemove: first non-blank artwork
+      const nextArt = pl.tracks.find(t => t.artworkUrl && t.artworkUrl.trim())?.artworkUrl || null;
+      pl.artworkUrl = nextArt;
       this.persist();
       this.notify();
     }
+  }
+
+  public clearRecentlyPlayed() {
+    this.recentlyPlayed = [];
+    this.persist();
+    this.notify();
+  }
+
+  public moveTrackInPlaylist(playlistId: string, fromIndex: number, toIndex: number): boolean {
+    const pl = this.userPlaylists.find(p => p.id === playlistId);
+    if (!pl) return false;
+    if (fromIndex < 0 || fromIndex >= pl.tracks.length || toIndex < 0 || toIndex >= pl.tracks.length) return false;
+    if (fromIndex === toIndex) return false;
+    const updated = [...pl.tracks];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    pl.tracks = updated;
+    this.persist();
+    this.notify();
+    return true;
   }
 
   // --- Recently Played ---
@@ -177,10 +226,11 @@ class LibraryStore {
   }
 
   public recordPlayed(track: MediaTrack) {
+    if (!track?.id) return;
     this.recentlyPlayed = [
       track,
       ...this.recentlyPlayed.filter(t => t.id !== track.id),
-    ].slice(0, 30);
+    ].slice(0, 50);
     this.persist();
     this.notify();
   }
@@ -193,7 +243,8 @@ class LibraryStore {
   public addSearchQuery(query: string) {
     const q = query.trim();
     if (!q) return;
-    this.searchHistory = [q, ...this.searchHistory.filter(item => item !== q)].slice(0, 10);
+    // Parity with Android: case-insensitive dedup, max 20, front-move
+    this.searchHistory = [q, ...this.searchHistory.filter(item => item.toLowerCase() !== q.toLowerCase())].slice(0, 20);
     this.persist();
     this.notify();
   }
@@ -213,8 +264,60 @@ class LibraryStore {
     this.discordClientId = id.trim();
     this.persist();
     if (window.electronAPI?.setDiscordClientId) {
-      window.electronAPI.setDiscordClientId(this.discordClientId || '1177081335727267940');
+      window.electronAPI.setDiscordClientId(this.discordClientId || '1555196374067322940');
     }
+    this.notify();
+  }
+
+  // --- Custom Audio Flavors (SnR tempo/reverb, Nightcore speed) ---
+  public getAudioMode(): AudioMode {
+    return this.audioMode;
+  }
+
+  public setAudioMode(mode: AudioMode) {
+    if (mode !== 'SNR' && mode !== 'NIGHTCORE' && mode !== 'NORMAL') return;
+    this.audioMode = mode;
+    this.persist();
+    this.notify();
+  }
+
+  public getSnrRate(): number {
+    return this.snrRate;
+  }
+
+  public setSnrRate(rate: number) {
+    this.snrRate = Math.min(1, Math.max(0.5, rate));
+    this.persist();
+    this.notify();
+  }
+
+  public getSnrReverb(): number {
+    return this.snrReverb;
+  }
+
+  public setSnrReverb(amount: number) {
+    this.snrReverb = Math.min(1, Math.max(0, amount));
+    this.persist();
+    this.notify();
+  }
+
+  public getNightcoreRate(): number {
+    return this.nightcoreRate;
+  }
+
+  public setNightcoreRate(rate: number) {
+    this.nightcoreRate = Math.min(1.5, Math.max(1.0, rate));
+    this.persist();
+    this.notify();
+  }
+
+  public getBassBoost(): number {
+    return this.bassBoost;
+  }
+
+  public setBassBoost(amount: number) {
+    this.bassBoost = Math.min(1, Math.max(0, amount));
+    this.persist();
     this.notify();
   }
 }
