@@ -294,14 +294,29 @@ class DiscordRpcManager {
     else if (audioMode === 'NIGHTCORE') flavorLabel = 'FreQ • Nightcore (1.2x Pitch)';
 
     // Layout:
-    // Line 1: Song title (Which song they are listening to)
-    // Line 2: If in a party: "In a song party with X/5 people"
-    //         Else: Artists name
-    // Bottom: Timeline progress bar
-    const details = (track.title || 'Unknown Track').trim().slice(0, 128);
-    const partyDesc = `In a song party with ${partySize}/5 people`;
-    const baseState = inParty ? partyDesc : (track.artist || 'Unknown Artist').trim();
-    const state = isPlaying ? baseState.slice(0, 128) : `${baseState} (Paused)`.slice(0, 128);
+    // When in a party:
+    // Line 1 (heading): "In a party : X/5"
+    // Line 2: Song title
+    // Line 3: Artist name
+    // When not in a party:
+    // Line 1 (heading): Song title
+    // Line 2: Artist name
+    // Line 3: Album / Audio mode
+    // Bottom: Live timeline progress bar
+    const songTitle = (track.title || 'Unknown Track').trim();
+    const artistName = (track.artist || 'Unknown Artist').trim();
+
+    const details = inParty
+      ? `In a party : ${partySize}/${partyMax}`.slice(0, 128)
+      : songTitle.slice(0, 128);
+
+    const state = inParty
+      ? (isPlaying ? songTitle : `${songTitle} (Paused)`).slice(0, 128)
+      : (isPlaying ? artistName : `${artistName} (Paused)`).slice(0, 128);
+
+    const largeImageText = inParty
+      ? artistName.slice(0, 128)
+      : (track.album || artistName || 'FreQ Music').slice(0, 128);
 
     const partyConfig = inParty
       ? {
@@ -324,12 +339,12 @@ class DiscordRpcManager {
 
         await this.client.user.setActivity({
           type: 2, // 2 = LISTENING ("Listening to FreQ")
-          details, // Song name
-          state, // "In a song party with X/5 people"
+          details, // Line 1: Heading ("In a party : X/5" or song title)
+          state, // Line 2: Song title (or artist if solo)
           startTimestamp, // Timeline start
           endTimestamp, // Timeline end (renders live countdown timeline at the bottom)
           largeImageKey: track.artworkUrl || undefined,
-          largeImageText: track.title.slice(0, 128),
+          largeImageText, // Line 3: Artist name (or album if solo)
           smallImageKey: 'freq_logo', // FreQ app icon
           smallImageText: smallText.slice(0, 128),
           ...partyConfig,
@@ -340,7 +355,7 @@ class DiscordRpcManager {
           details,
           state,
           largeImageKey: track.artworkUrl || undefined,
-          largeImageText: track.title.slice(0, 128),
+          largeImageText,
           smallImageKey: 'freq_logo',
           smallImageText: smallText.slice(0, 128),
           ...partyConfig,
