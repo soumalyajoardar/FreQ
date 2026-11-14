@@ -19,7 +19,7 @@ export interface PartyReaction {
 export type PartyStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
 export interface PartySyncEvent {
-  type: 'track' | 'playState' | 'seek' | 'reaction' | 'memberJoined' | 'memberLeft' | 'kicked' | 'hostEnded';
+  type: 'track' | 'playState' | 'seek' | 'timelineSync' | 'reaction' | 'memberJoined' | 'memberLeft' | 'kicked' | 'hostEnded';
   track?: MediaTrack;
   isPlaying?: boolean;
   position?: number;
@@ -391,7 +391,7 @@ export class PartyService {
         timestamp: Date.now(),
         senderId: this.myMemberId,
       });
-    }, 2500);
+    }, 3500);
   }
 
   private broadcastStateSync() {
@@ -678,7 +678,7 @@ export class PartyService {
         const latency = (Date.now() - (payload.timestamp || Date.now())) / 1000;
         const targetPos = Math.max(0, (payload.position || 0) + (payload.isPlaying ? latency : 0));
         this.notifySync({
-          type: 'seek',
+          type: 'timelineSync',
           position: targetPos,
           isPlaying: !!payload.isPlaying,
         });

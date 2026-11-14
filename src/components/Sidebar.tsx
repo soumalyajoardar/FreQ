@@ -16,7 +16,7 @@ interface SidebarProps {
   partyMembersCount?: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const SidebarComponent: React.FC<SidebarProps> = ({
   currentView,
   onNavigate,
   audioMode,
@@ -370,3 +370,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   );
 };
+
+export const Sidebar = React.memo(SidebarComponent);

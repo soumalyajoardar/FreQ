@@ -53,7 +53,7 @@ function daypart(): keyof typeof MOOD_ICONS {
   return 'night';
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({
+const HomeViewComponent: React.FC<HomeViewProps> = ({
   onPlayTrack,
   onToggleLike,
   isLiked,
@@ -217,7 +217,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           style={{
             width: '100%',
             height: '50px',
-            padding: '0 58px 0 50px',
+            padding: '0 235px 0 50px',
             borderRadius: suggestOpen && homeQuery.trim().length >= 2 ? '16px 16px 0 0' : '16px',
             backgroundColor: 'rgba(255, 255, 255, 0.06)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -230,6 +230,40 @@ export const HomeView: React.FC<HomeViewProps> = ({
             outline: 'none',
           }}
         />
+        {/* Powered by ORIGIN SOUNDS */}
+        <div
+          style={{
+            position: 'absolute',
+            right: '52px',
+            top: '25px',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 10px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          <Sparkles size={11} color="#38bdf8" />
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              letterSpacing: '0.6px',
+              textTransform: 'uppercase',
+              background: 'linear-gradient(90deg, #a78bfa, #38bdf8)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Powered by ORIGIN SOUNDS
+          </span>
+        </div>
         <button
           type="submit"
           title="Search"
@@ -735,6 +769,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
     </div>
   );
 };
+
+export const HomeView = React.memo(HomeViewComponent);
 
 
 

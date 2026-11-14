@@ -76,7 +76,7 @@ interface SettingsViewProps {
   onTogglePrivate?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({
+const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   audioMode,
   onAudioModeChange,
   likedCount,
@@ -662,6 +662,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     </div>
   );
 };
+
+export const SettingsView = React.memo(SettingsViewComponent);
 
 
 

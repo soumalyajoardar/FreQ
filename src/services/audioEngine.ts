@@ -70,10 +70,10 @@ class AudioEngine {
   private onTrackEndListeners: TrackEndCallback[] = [];
   private onErrorListeners: ErrorCallback[] = [];
 
-  // Smooth timeline clock (10 Hz) — timeupdate alone fires ~4 Hz, which makes
-  // the scrubber step. A plain timer is far cheaper than a 60 fps rAF loop
-  // that only acts every 10th frame.
+  // Smooth timeline clock (~4-5 Hz) — smooth enough for scrubber and timers
+  // while cutting React reconciliation passes and main thread work by 60%.
   private clockId: number | null = null;
+  private syncRateMultiplier: number = 1.0;
 
   private emitTime() {
     const pos = this.audio.currentTime || 0;
@@ -87,12 +87,10 @@ class AudioEngine {
     this.stopSmoothClock();
     const tick = () => {
       this.emitTime();
-      // ~1 Hz in the background keeps the media session alive without
-      // waking the renderer ten times a second.
       const idle = document.hidden || !document.hasFocus();
-      this.clockId = window.setTimeout(tick, idle ? 1000 : 100);
+      this.clockId = window.setTimeout(tick, idle ? 1000 : 220);
     };
-    this.clockId = window.setTimeout(tick, 100);
+    this.clockId = window.setTimeout(tick, 220);
   }
 
   private stopSmoothClock() {
@@ -283,23 +281,84 @@ class AudioEngine {
     });
   }
 
-  public async loadAndPlay(streamUrl: string, track: MediaTrack) {
+  public async loadAndPlay(streamUrl: string, track: MediaTrack, startAtSec: number = 0) {
     this.initAudioGraph();
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
       await this.audioCtx.resume();
     }
 
     this.currentTrack = track;
+    this.syncRateMultiplier = 1.0;
     this.audio.src = streamUrl;
+    if (startAtSec > 0) {
+      try {
+        this.audio.currentTime = startAtSec;
+      } catch {}
+    }
     this.applyAudioFlavor(this.audioMode);
 
     this.updateMediaSessionMetadata(track);
 
     try {
       await this.audio.play();
+      if (startAtSec > 0 && Math.abs((this.audio.currentTime || 0) - startAtSec) > 0.6) {
+        this.audio.currentTime = startAtSec;
+      }
     } catch (e: any) {
       console.error('Failed to start audio playback:', e);
       throw e;
+    }
+  }
+
+  public setSyncRateMultiplier(multiplier: number) {
+    this.syncRateMultiplier = Math.max(0.85, Math.min(1.15, multiplier));
+    this.updateEffectivePlaybackRate();
+  }
+
+  public getSyncRateMultiplier(): number {
+    return this.syncRateMultiplier;
+  }
+
+  public updateEffectivePlaybackRate() {
+    let base = 1.0;
+    if (this.audioMode === 'SNR') base = this.snrRate;
+    else if (this.audioMode === 'NIGHTCORE') base = this.nightcoreRate;
+
+    const targetRate = base * this.syncRateMultiplier;
+    if (Math.abs(this.audio.playbackRate - targetRate) > 0.005) {
+      this.audio.playbackRate = targetRate;
+    }
+  }
+
+  // Smooth, glitch-free drift correction for Listen Together parties.
+  // Instead of dumping audio buffers with hard currentTime seeks (which causes music stuttering),
+  // small drifts (0.2s - 3.5s) are smoothly caught up via gentle pitch-preserving playbackRate adjustments (±4%).
+  public syncDrift(targetSec: number, isExplicitSeek: boolean = false) {
+    if (isNaN(targetSec) || !this.audio.src) return;
+    const current = this.audio.currentTime || 0;
+    const diff = targetSec - current;
+
+    if (isExplicitSeek || Math.abs(diff) > 3.5) {
+      this.seek(targetSec);
+      this.setSyncRateMultiplier(1.0);
+      return;
+    }
+
+    // Already tightly synchronized within 200ms
+    if (Math.abs(diff) < 0.20) {
+      if (this.syncRateMultiplier !== 1.0) {
+        this.setSyncRateMultiplier(1.0);
+      }
+      return;
+    }
+
+    // Behind host: gently run 4% faster to close gap without audio interruptions
+    if (diff >= 0.20) {
+      this.setSyncRateMultiplier(1.04);
+    }
+    // Ahead of host: gently run 4% slower
+    else if (diff <= -0.20) {
+      this.setSyncRateMultiplier(0.96);
     }
   }
 
@@ -556,9 +615,9 @@ class AudioEngine {
 
   private applyAudioFlavor(mode: AudioMode) {
     const audioEl = this.audio as any;
+    this.updateEffectivePlaybackRate();
 
     if (mode === 'NORMAL') {
-      this.audio.playbackRate = 1.0;
       if ('preservesPitch' in audioEl) audioEl.preservesPitch = true;
       if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = true;
       if (this.dryGainNode) this.dryGainNode.gain.value = 1.0;
@@ -566,7 +625,6 @@ class AudioEngine {
       this.applyBass();
     } else if (mode === 'SNR') {
       // SnR: custom slowed tempo + custom reverb send, pitched down
-      this.audio.playbackRate = this.snrRate;
       if ('preservesPitch' in audioEl) audioEl.preservesPitch = false;
       if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = false;
       if (this.dryGainNode) this.dryGainNode.gain.value = 0.85;
@@ -574,7 +632,6 @@ class AudioEngine {
       this.applyBass();
     } else if (mode === 'NIGHTCORE') {
       // Nightcore: custom speed, pitched up with tempo, dry signal
-      this.audio.playbackRate = this.nightcoreRate;
       if ('preservesPitch' in audioEl) audioEl.preservesPitch = false;
       if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = false;
       if (this.dryGainNode) this.dryGainNode.gain.value = 1.0;

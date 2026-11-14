@@ -377,3 +377,23 @@ input:focus-visible {
   background: radial-gradient(circle at 24% 0%, rgba(255, 255, 255, 0.08), transparent 50%);
   pointer-events: none;
 }
+
+/* ---- App-wide Hardware Acceleration & Smooth Rendering ---- */
+/* Hardware accelerated layer promotion for scrolling viewports */
+main, .main-scroll, [data-view-scroll] {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* GPU acceleration for interactive player controls, overlays & animated panels */
+button, input, .liquid-bar, .liquid-panel, .player-bar {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Image rendering optimization */
+img {
+  image-rendering: auto;
+  content-visibility: auto;
+}

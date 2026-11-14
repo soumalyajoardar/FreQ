@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, X, Play, Heart, PlusCircle, Clock, Music, Disc, User } from 'lucide-react';
+import { Search, X, Play, Heart, PlusCircle, Clock, Music, Disc, User, Sparkles } from 'lucide-react';
 import { MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { formatTime } from '../components/PlayerBar';
@@ -19,7 +19,7 @@ interface SearchViewProps {
   onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({
+const SearchViewComponent: React.FC<SearchViewProps> = ({
   onPlayTrack,
   onToggleLike,
   isLiked,
@@ -265,7 +265,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
           style={{
             width: '100%',
             height: '52px',
-            padding: '0 48px 0 52px',
+            padding: query ? '0 235px 0 52px' : '0 195px 0 52px',
             borderRadius: '16px',
             backgroundColor: 'rgba(255, 255, 255, 0.06)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -284,6 +284,41 @@ export const SearchView: React.FC<SearchViewProps> = ({
             e.currentTarget.style.boxShadow = 'none';
           }}
         />
+
+        {/* Powered by ORIGIN SOUNDS */}
+        <div
+          style={{
+            position: 'absolute',
+            right: query ? '46px' : '16px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 10px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          <Sparkles size={11} color="#38bdf8" />
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              letterSpacing: '0.6px',
+              textTransform: 'uppercase',
+              background: 'linear-gradient(90deg, #a78bfa, #38bdf8)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Powered by ORIGIN SOUNDS
+          </span>
+        </div>
 
         {query && (
           <button
@@ -594,6 +629,8 @@ export const SearchView: React.FC<SearchViewProps> = ({
     </div>
   );
 };
+
+export const SearchView = React.memo(SearchViewComponent);
 
 
 

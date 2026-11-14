@@ -29,7 +29,7 @@ interface LibraryViewProps {
   onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
 }
 
-export const LibraryView: React.FC<LibraryViewProps> = ({
+const LibraryViewComponent: React.FC<LibraryViewProps> = ({
   likedTracks,
   userPlaylists,
   recentlyPlayed,
@@ -551,4 +551,6 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     </div>
   );
 };
+
+export const LibraryView = React.memo(LibraryViewComponent);
 

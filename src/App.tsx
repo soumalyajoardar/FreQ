@@ -508,10 +508,10 @@ export const App: React.FC = () => {
         handlePrev();
       } else if (match(bindings.seekForward.code, bindings.seekForward.ctrl)) {
         e.preventDefault();
-        handleSeek(position + 5);
+        handleSeek(positionRef.current + 5);
       } else if (match(bindings.seekBack.code, bindings.seekBack.ctrl)) {
         e.preventDefault();
-        handleSeek(position - 5);
+        handleSeek(positionRef.current - 5);
       } else if (match(bindings.mute.code, bindings.mute.ctrl)) {
         handleToggleMute();
       } else if (e.code === 'Escape') {
@@ -526,7 +526,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, position, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume]);
+  }, [isPlaying, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume]);
 
   // Synchronize Discord Rich Presence with current playback state.
   // No track → browsing presence (handled main-side). Any real
@@ -697,12 +697,11 @@ export const App: React.FC = () => {
       // A newer tap superseded this load — never start stale audio.
       if (token !== loadTokenRef.current) return;
 
-      await audioEngine.loadAndPlay(streamUrl, activeTrack);
+      await audioEngine.loadAndPlay(streamUrl, activeTrack, startAtSec);
       sourceLoadedRef.current = true;
       libraryStore.recordTrackStart(activeTrack);
       listenMarkRef.current = { id: activeTrack.id, atSec: startAtSec };
       if (startAtSec > 0) {
-        audioEngine.seek(startAtSec);
         setPosition(startAtSec);
       }
       if (token !== loadTokenRef.current) {
@@ -1343,11 +1342,7 @@ export const App: React.FC = () => {
           if (!current || current.id !== ev.track.id) {
             handlePlayTrackRef.current(ev.track, [ev.track], true, ev.position || 0);
           } else if (ev.position !== undefined) {
-            const diff = Math.abs(positionRef.current - ev.position);
-            if (diff > 1.2) {
-              audioEngine.seek(ev.position);
-              setPosition(ev.position);
-            }
+            audioEngine.syncDrift(ev.position, false);
           }
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
@@ -1362,15 +1357,14 @@ export const App: React.FC = () => {
         case 'playState': {
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
-              if (ev.position !== undefined && Math.abs(positionRef.current - ev.position) > 1.2) {
-                audioEngine.seek(ev.position);
-                setPosition(ev.position);
+              if (ev.position !== undefined) {
+                audioEngine.syncDrift(ev.position, false);
               }
               audioEngine.play().catch(() => {});
             } else if (!ev.isPlaying && isPlayingRef.current) {
               audioEngine.pause();
               if (ev.position !== undefined) {
-                audioEngine.seek(ev.position);
+                audioEngine.syncDrift(ev.position, false);
                 setPosition(ev.position);
               }
             }
@@ -1380,11 +1374,24 @@ export const App: React.FC = () => {
 
         case 'seek': {
           if (ev.position !== undefined) {
-            const diff = Math.abs(positionRef.current - ev.position);
-            if (diff > 1.2) {
-              audioEngine.seek(ev.position);
-              setPosition(ev.position);
+            // Explicit host scrubber action: seek immediately
+            audioEngine.syncDrift(ev.position, true);
+            setPosition(ev.position);
+          }
+          if (ev.isPlaying !== undefined) {
+            if (ev.isPlaying && !isPlayingRef.current) {
+              audioEngine.play().catch(() => {});
+            } else if (!ev.isPlaying && isPlayingRef.current) {
+              audioEngine.pause();
             }
+          }
+          break;
+        }
+
+        case 'timelineSync': {
+          if (ev.position !== undefined) {
+            // Smooth micro-pitch drift synchronization without dumping audio buffers
+            audioEngine.syncDrift(ev.position, false);
           }
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
