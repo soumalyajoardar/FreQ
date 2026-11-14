@@ -12,9 +12,11 @@ interface SearchViewProps {
   isLiked: (trackId: string) => boolean;
   onOpenAddToPlaylist: (track: MediaTrack) => void;
   searchHistory: string[];
+  recentlyPlayed?: MediaTrack[];
   onAddSearchHistory: (q: string) => void;
   onClearSearchHistory: () => void;
   initialQuery?: string;
+  onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
 }
 
 export const SearchView: React.FC<SearchViewProps> = ({
@@ -23,9 +25,11 @@ export const SearchView: React.FC<SearchViewProps> = ({
   isLiked,
   onOpenAddToPlaylist,
   searchHistory,
+  recentlyPlayed = [],
   onAddSearchHistory,
   onClearSearchHistory,
   initialQuery,
+  onTrackContextMenu,
 }) => {
   const [query, setQuery] = useState(initialQuery || '');
   const [results, setResults] = useState<MediaTrack[]>([]);
@@ -132,6 +136,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
   const renderTrackItem = (track: MediaTrack, idx: number, trackList: MediaTrack[]) => (
     <div
       key={track.id}
+      onContextMenu={e => onTrackContextMenu?.(e, track)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -267,7 +272,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
             color: '#fff',
             fontSize: '15px',
             fontWeight: 500,
-            backdropFilter: 'blur(20px)',
+            backdropFilter: 'blur(16px)',
             transition: 'border-color 0.2s, box-shadow 0.2s',
           }}
           onFocus={e => {
@@ -322,43 +327,67 @@ export const SearchView: React.FC<SearchViewProps> = ({
         ))}
       </div>
 
-      {/* Recent Searches Pills (if query is empty) */}
-      {!query && searchHistory.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Recent Searches
-            </span>
-            <button
-              onClick={onClearSearchHistory}
-              style={{ fontSize: '11px', color: 'var(--text-muted)' }}
-            >
-              Clear History
-            </button>
-          </div>
+      {/* Recent Searches & Recently Played (if query is empty) */}
+      {!query && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', marginTop: '16px' }}>
+          {searchHistory.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+                  Recent Searches
+                </span>
+                <button
+                  onClick={onClearSearchHistory}
+                  style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                >
+                  Clear History
+                </button>
+              </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {searchHistory.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleQuerySelect(item)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 14px',
-                  borderRadius: '999px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '13px',
-                }}
-              >
-                <Clock size={13} />
-                <span>{item}</span>
-              </button>
-            ))}
-          </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {searchHistory.slice(0, 15).map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleQuerySelect(item)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 14px',
+                      borderRadius: '20px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '13px',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                  >
+                    <Clock size={13} />
+                    <span>{item}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {recentlyPlayed && recentlyPlayed.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+                Recently Played
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {recentlyPlayed.map((track, idx) => renderTrackItem(track, idx, recentlyPlayed))}
+              </div>
+            </div>
+          )}
+
+          {searchHistory.length === 0 && (!recentlyPlayed || recentlyPlayed.length === 0) && (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+              Search for any song, artist, album...
+            </div>
+          )}
         </div>
       )}
 
@@ -565,3 +594,12 @@ export const SearchView: React.FC<SearchViewProps> = ({
     </div>
   );
 };
+
+
+
+
+
+
+
+
+

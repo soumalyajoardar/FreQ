@@ -10,10 +10,16 @@ export interface DiscordActivityPayload {
     album?: string;
     artworkUrl?: string | null;
     durationSeconds: number;
-  };
+  } | null;
   isPlaying: boolean;
   position: number;
   audioMode: 'NORMAL' | 'SNR' | 'NIGHTCORE';
+  party?: {
+    code: string;
+    size: number;
+    max?: number;
+    isHost?: boolean;
+  };
 }
 
 class DiscordRpcManager {
@@ -27,8 +33,13 @@ class DiscordRpcManager {
   private lastUpdateTimestamp = 0;
   private lastActive = Date.now();
   private lastPlaying = false;
+  private lastTrackId: string | null = null;
+  private lastInParty = false;
+  private lastPartySize = 0;
   private showingAfk = false;
   private afkTimer: NodeJS.Timeout | null = null;
+  private pendingUpdate: DiscordActivityPayload | null = null;
+  private pendingTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.connect();
@@ -174,47 +185,134 @@ class DiscordRpcManager {
     this.showingAfk = false;
     if (!this.isEnabled) return;
 
+    const inParty = !!payload?.party;
+    const currentPartySize = payload?.party?.size || 0;
+    const partyChanged = inParty !== this.lastInParty || currentPartySize !== this.lastPartySize;
+
     if (!payload || !payload.track || !payload.track.title) {
       this.lastPlaying = false;
-      this.showBrowsing();
+      this.lastTrackId = null;
+      if (inParty && payload.party) {
+        this.applyPartyIdle(payload.party);
+      } else {
+        this.lastInParty = false;
+        this.lastPartySize = 0;
+        this.showBrowsing();
+      }
       return;
     }
-    this.lastPlaying = !!payload.isPlaying;
 
     if (!this.isConnected) {
       this.connect();
       return;
     }
 
-    // Rate-limit activity updates to prevent Discord RPC spam (min 1.2s between updates)
+    const prevPlaying = this.lastPlaying;
+    const prevTrackId = this.lastTrackId;
+    const isPlaying = !!payload.isPlaying;
+    const currentTrackId = payload.track?.id || null;
+
+    const playStateChanged = isPlaying !== prevPlaying;
+    const trackChanged = currentTrackId !== prevTrackId;
+    const isSignificantChange = playStateChanged || trackChanged || partyChanged;
+
     const now = Date.now();
-    if (now - this.lastUpdateTimestamp < 1200) {
+    const elapsed = now - this.lastUpdateTimestamp;
+
+    // When a song finishes and transitions to another, or play/pause flips, or party state updates,
+    // we want Discord updated promptly without stale states.
+    // Enforce 300ms minimum for state/song/party transitions, and 1200ms for continuous position updates.
+    const minInterval = isSignificantChange ? 300 : 1200;
+
+    if (elapsed < minInterval) {
+      this.pendingUpdate = payload;
+      if (!this.pendingTimer) {
+        const delay = Math.max(50, minInterval - elapsed);
+        this.pendingTimer = setTimeout(() => {
+          this.pendingTimer = null;
+          const pending = this.pendingUpdate;
+          this.pendingUpdate = null;
+          if (pending) {
+            this.applyActivity(pending);
+          }
+        }, delay);
+      }
       return;
+    }
+
+    // Clear any pending update — this one supersedes it.
+    this.pendingUpdate = null;
+    if (this.pendingTimer) {
+      clearTimeout(this.pendingTimer);
+      this.pendingTimer = null;
     }
 
     this.applyActivity(payload);
   }
 
+  public async applyPartyIdle(party: { code: string; size: number; max?: number }) {
+    if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
+    try {
+      const partySize = party.size || 1;
+      const partyMax = party.max || 5;
+      await this.client.user.setActivity({
+        type: 2, // 2 = LISTENING ("Listening to FreQ")
+        details: `In a song party with ${partySize}/5 people`,
+        state: 'Waiting for song to start',
+        largeImageKey: 'freq_logo',
+        largeImageText: `FreQ Party #${party.code}`,
+        smallImageKey: 'freq_logo',
+        smallImageText: `Party (${partySize}/5)`,
+        partyId: `freq_party_${party.code}`,
+        partySize,
+        partyMax,
+      });
+      this.lastUpdateTimestamp = Date.now();
+      this.lastInParty = true;
+      this.lastPartySize = partySize;
+    } catch (err: any) {
+      console.warn('[Discord RPC] party idle warning:', err.message || err);
+    }
+  }
+
   private async applyActivity(payload: DiscordActivityPayload) {
     if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
 
-    const { track, isPlaying, position, audioMode } = payload;
+    const { track, isPlaying, position, audioMode, party } = payload;
     if (!track || !track.title) {
       this.clearActivity();
       return;
     }
+
+    const inParty = !!party;
+    const partySize = party?.size || 1;
+    const partyMax = party?.max || 5;
 
     // Audio flavor labels
     let flavorLabel = 'FreQ • Studio';
     if (audioMode === 'SNR') flavorLabel = 'FreQ • SnR (Slowed + Reverb)';
     else if (audioMode === 'NIGHTCORE') flavorLabel = 'FreQ • Nightcore (1.2x Pitch)';
 
-    // Exact user layout:
-    // Line 1: Song title only
-    // Line 2: Artists name
+    // Layout:
+    // Line 1: Song title (Which song they are listening to)
+    // Line 2: If in a party: "In a song party with X/5 people"
+    //         Else: Artists name
     // Bottom: Timeline progress bar
     const details = (track.title || 'Unknown Track').trim().slice(0, 128);
-    const state = (track.artist || 'Unknown Artist').trim().slice(0, 128);
+    const partyDesc = `In a song party with ${partySize}/5 people`;
+    const baseState = inParty ? partyDesc : (track.artist || 'Unknown Artist').trim();
+    const state = isPlaying ? baseState.slice(0, 128) : `${baseState} (Paused)`.slice(0, 128);
+
+    const partyConfig = inParty
+      ? {
+          partyId: `freq_party_${party!.code}`,
+          partySize,
+          partyMax,
+        }
+      : {};
+
+    let smallText = inParty ? `Party (${partySize}/5) • ${flavorLabel}` : flavorLabel;
+    if (!isPlaying) smallText = inParty ? `Party (${partySize}/5) • Paused` : 'Paused';
 
     try {
       if (isPlaying) {
@@ -226,26 +324,33 @@ class DiscordRpcManager {
 
         await this.client.user.setActivity({
           type: 2, // 2 = LISTENING ("Listening to FreQ")
-          details, // Listening to {Song name}
-          state, // Artists name
+          details, // Song name
+          state, // "In a song party with X/5 people"
           startTimestamp, // Timeline start
           endTimestamp, // Timeline end (renders live countdown timeline at the bottom)
           largeImageKey: track.artworkUrl || undefined,
           largeImageText: track.title.slice(0, 128),
-          smallImageKey: 'freq_logo', // FreQ app icon (upload in portal Art Assets)
-          smallImageText: flavorLabel.slice(0, 128),
+          smallImageKey: 'freq_logo', // FreQ app icon
+          smallImageText: smallText.slice(0, 128),
+          ...partyConfig,
         });
       } else {
         await this.client.user.setActivity({
           type: 2,
           details,
-          state: `${state} (Paused)`.slice(0, 128),
+          state,
           largeImageKey: track.artworkUrl || undefined,
           largeImageText: track.title.slice(0, 128),
-          smallImageText: 'Paused',
+          smallImageKey: 'freq_logo',
+          smallImageText: smallText.slice(0, 128),
+          ...partyConfig,
         });
       }
 
+      this.lastPlaying = isPlaying;
+      this.lastTrackId = track.id || null;
+      this.lastInParty = inParty;
+      this.lastPartySize = partySize;
       this.lastUpdateTimestamp = Date.now();
     } catch (err: any) {
       console.warn('[Discord RPC] setActivity warning:', err.message || err);
@@ -274,6 +379,11 @@ class DiscordRpcManager {
       clearInterval(this.afkTimer);
       this.afkTimer = null;
     }
+    if (this.pendingTimer) {
+      clearTimeout(this.pendingTimer);
+      this.pendingTimer = null;
+    }
+    this.pendingUpdate = null;
     if (this.client) {
       try {
         this.client.destroy();

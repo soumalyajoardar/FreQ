@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
+  ChevronUp,
   Play,
   Pause,
   SkipBack,
@@ -13,13 +14,18 @@ import {
   PlusCircle,
   X,
   PanelRight,
+  Droplets,
+  Timer,
+  Share2,
 } from 'lucide-react';
 import { LyricsIcon } from './LyricsIcon';
 import { AudioMode, MediaTrack, RepeatMode, TrackLyrics } from '../types';
+import { audioEngine } from '../services/audioEngine';
 import { fetchLyrics } from '../services/lyrics';
 import { formatTime } from './PlayerBar';
 import { FlatScrubber } from './FlatScrubber';
 import { SquareArt } from './SquareArt';
+import { SafeArtwork } from './SafeArtwork';
 import freqIcon from '../assets/freq-icon.png';
 import { useExitTransition } from './useExitTransition';
 
@@ -49,6 +55,13 @@ interface NowPlayingModalProps {
   queueIndex?: number;
   onSelectQueueTrack?: (index: number) => void;
   onRemoveQueueTrack?: (index: number) => void;
+  onMoveQueueTrack?: (from: number, to: number) => void;
+  volume?: number;
+  isMuted?: boolean;
+  sleepMode?: 'off' | 'timer' | 'end';
+  sleepRemainingSec?: number;
+  onSetSleep?: (minutes: number | null | 'end') => void;
+  onShare?: () => void;
 }
 
 export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
@@ -77,13 +90,43 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
   queueIndex = 0,
   onSelectQueueTrack,
   onRemoveQueueTrack,
+  onMoveQueueTrack,
+  volume = 0.85,
+  isMuted = false,
+  sleepMode = 'off',
+  sleepRemainingSec = 0,
+  onSetSleep,
+  onShare,
 }) => {
   const [showLyrics, setShowLyrics] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [showSleep, setShowSleep] = useState(false);
+  // Tint visualizer: white wash whose strength follows the volume.
+  // Persisted so the choice survives restarts.
+  const [tintViz, setTintViz] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('freq_tint_viz') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggleTintViz = () => {
+    setTintViz(v => {
+      const next = !v;
+      try {
+        localStorage.setItem('freq_tint_viz', next ? '1' : '0');
+      } catch {
+        // Ignored.
+      }
+      return next;
+    });
+  };
   const [lyrics, setLyrics] = useState<TrackLyrics | null>(null);
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLDivElement>(null);
+  const lastLyricScrollRef = useRef(-1);
+  const tintRef = useRef<HTMLDivElement>(null);
 
   // Fetch lyrics whenever current track changes
   useEffect(() => {
@@ -110,15 +153,71 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
     };
   }, [currentTrack?.id]);
 
-  // Auto-scroll synced lyrics to active line
+  // Auto-scroll synced lyrics only when the active line changes. The clock
+  // fires 10x/sec, and re-triggering smooth scroll every tick fights itself.
   useEffect(() => {
-    if (showLyrics && activeLyricRef.current && lyricsContainerRef.current) {
+    if (!showLyrics || !lyrics?.synced?.length) {
+      lastLyricScrollRef.current = -1;
+      return;
+    }
+    const ms = position * 1000;
+    let index = -1;
+    for (let i = 0; i < lyrics.synced.length; i++) {
+      if (ms >= lyrics.synced[i].timeMs) index = i;
+      else break;
+    }
+    if (index === lastLyricScrollRef.current) return;
+    lastLyricScrollRef.current = index;
+    if (activeLyricRef.current && lyricsContainerRef.current) {
       activeLyricRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
     }
-  }, [position, showLyrics]);
+  }, [position, showLyrics, lyrics]);
+
+  // Beat-reactive tint: per-frame analyser pulse written straight to the
+  // overlay (no re-renders). Louder volume = stronger flashes.
+  useEffect(() => {
+    if (!tintViz || !isOpen) {
+      if (tintRef.current) tintRef.current.style.opacity = '0';
+      return;
+    }
+    let raf = 0;
+    let last = 0;
+    let running = true;
+    const loop = (t: number) => {
+      // Stop completely while another window (e.g. a game) is focused.
+      if (document.hidden || !document.hasFocus()) {
+        if (tintRef.current) tintRef.current.style.opacity = '0';
+        running = false;
+        return;
+      }
+      // 30 fps is plenty for a tint pulse.
+      if (t - last >= 33) {
+        last = t;
+        const beat = audioEngine.getBeatLevel();
+        const vol = isMuted ? 0 : Math.min(Math.max(volume, 0), 1);
+        const opacity = Math.min(0.8, vol * 0.12 + beat * (0.25 + 0.45 * vol));
+        if (tintRef.current) tintRef.current.style.opacity = opacity.toFixed(3);
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    const resume = () => {
+      if (!running && !document.hidden && document.hasFocus()) {
+        running = true;
+        raf = requestAnimationFrame(loop);
+      }
+    };
+    window.addEventListener('focus', resume);
+    document.addEventListener('visibilitychange', resume);
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('focus', resume);
+      document.removeEventListener('visibilitychange', resume);
+    };
+  }, [tintViz, isOpen, isMuted, volume, currentTrack?.id]);
   const { visible: modalVisible, closing: modalClosing } = useExitTransition(isOpen, 220);
   const { visible: panelVisible, closing: panelClosing } = useExitTransition(showQueue, 240);
   if (!modalVisible || !currentTrack) return null;
@@ -160,7 +259,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
       {/* 1. Dynamic Blurred Artwork Atmospheric Background */}
       {currentTrack.artworkUrl && (
         <div
-          className="ambient-pulse"
+          className="np-atmosphere"
           style={{
             position: 'absolute',
             top: '-20%',
@@ -170,7 +269,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
             backgroundImage: `url(${currentTrack.artworkUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(54px) brightness(0.38) saturate(1.8)',
+            filter: 'blur(38px) brightness(0.45) saturate(1.35)',
             zIndex: 1,
             pointerEvents: 'none',
           }}
@@ -182,10 +281,23 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(9, 10, 15, 0.32)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
+          backgroundColor: 'rgba(9, 10, 15, 0.42)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
           zIndex: 2,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Tint Visualizer: beat-reactive white wash, driven per-frame */}
+      <div
+        ref={tintRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: '#ffffff',
+          opacity: 0,
+          zIndex: 5,
           pointerEvents: 'none',
         }}
       />
@@ -229,10 +341,10 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           </button>
 
           <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Playing from {currentTrack.album || 'Single'}
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.2px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+              Now Playing
             </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>
               FreQ High Fidelity
             </span>
           </div>
@@ -334,6 +446,52 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
             >
               <PanelRight size={19} />
             </button>
+            {onShare && (
+              <button
+                onClick={onShare}
+                title="Save share card"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.10)',
+                  color: '#fff',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+              >
+                <Share2 size={19} />
+              </button>
+            )}
+            <button
+              onClick={toggleTintViz}
+              title={tintViz ? 'Turn tint visualizer off' : 'Turn tint visualizer on'}
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: tintViz ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid ' + (tintViz ? '#f8fafc' : 'rgba(255, 255, 255, 0.10)'),
+                color: tintViz ? '#090A0F' : '#fff',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => { if (!tintViz) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
+              onMouseLeave={e => { if (!tintViz) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+            >
+              <Droplets size={19} />
+            </button>
           </div>
         </div>
 
@@ -422,11 +580,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
               ) : currentTrack.artworkUrl ? (
                 <>
                   {/* Blurred ambience fill: covers any aspect-ratio gaps */}
-                  <img
-                    src={currentTrack.artworkUrl}
-                    alt=""
-                    aria-hidden="true"
-                    style={{
+                  <SafeArtwork src={currentTrack.artworkUrl} videoId={currentTrack.id} alt="" style={{
                       position: 'absolute',
                       inset: 0,
                       width: '100%',
@@ -435,13 +589,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                       filter: 'blur(28px) brightness(0.65) saturate(1.4)',
                       transform: 'scale(1.25)',
                       pointerEvents: 'none',
-                    }}
-                  />
-                  <img
-                    src={currentTrack.artworkUrl}
-                    alt={currentTrack.title}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                    }} />
+                  <SafeArtwork src={currentTrack.artworkUrl} videoId={currentTrack.id} alt={currentTrack.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                 </>
               ) : (
                 <img
@@ -483,7 +632,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 onClick={onToggleShuffle}
                 title={isShuffle ? 'Shuffle on' : 'Shuffle off'}
                 style={{
-                  color: isShuffle ? '#fff' : 'var(--text-secondary)',
+                  color: isShuffle ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary)',
                   transition: 'color 0.15s, transform 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
@@ -543,7 +692,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 onClick={onToggleRepeat}
                 title={`Repeat: ${repeatMode}`}
                 style={{
-                  color: repeatMode !== 'OFF' ? '#fff' : 'var(--text-secondary)',
+                  color: repeatMode !== 'OFF' ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary)',
                   transition: 'color 0.15s, transform 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
@@ -551,6 +700,86 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
               >
                 {repeatMode === 'ONE' ? <Repeat1 size={21} /> : <Repeat size={21} />}
               </button>
+
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowSleep(v => !v)}
+                  title={sleepMode === 'off' ? 'Sleep timer' : `Sleep: ${sleepMode === 'end' ? 'end of track' : formatTime(sleepRemainingSec) + ' left'}`}
+                  style={{
+                    color: sleepMode !== 'off' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'color 0.15s, transform 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <Timer size={19} />
+                  {sleepMode === 'timer' && sleepRemainingSec > 0 && (
+                    <span style={{ fontSize: '11px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {formatTime(sleepRemainingSec)}
+                    </span>
+                  )}
+                  {sleepMode === 'end' && (
+                    <span style={{ fontSize: '11px', fontWeight: 700 }}>1</span>
+                  )}
+                </button>
+                {showSleep && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 12px)',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'rgba(18, 20, 31, 0.95)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '14px',
+                      padding: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      minWidth: '150px',
+                      boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+                      animation: 'freqRiseIn 0.2s ease',
+                      zIndex: 30,
+                    }}
+                  >
+                    {[
+                      { label: 'Off', value: null as number | null | 'end' },
+                      { label: '15 min', value: 15 as number | null | 'end' },
+                      { label: '30 min', value: 30 as number | null | 'end' },
+                      { label: '45 min', value: 45 as number | null | 'end' },
+                      { label: '60 min', value: 60 as number | null | 'end' },
+                      { label: 'End of track', value: 'end' as number | null | 'end' },
+                    ].map(opt => {
+                      const active = (opt.value === null && sleepMode === 'off') ||
+                        (opt.value === 'end' && sleepMode === 'end');
+                      return (
+                        <button
+                          key={opt.label}
+                          onClick={() => { onSetSleep?.(opt.value); setShowSleep(false); }}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '9px',
+                            fontSize: '13px',
+                            fontWeight: active ? 800 : 500,
+                            color: active ? '#090A0F' : 'var(--text-primary)',
+                            backgroundColor: active ? '#f8fafc' : 'transparent',
+                            textAlign: 'left',
+                          }}
+                          onMouseEnter={e => { if (!active) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
+                          onMouseLeave={e => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Audio Flavor Pills */}
@@ -608,21 +837,23 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
             </div>
           </div>
 
-          {/* Right: Up Next panel, slides in from the right */}
-          {panelVisible && (
-          <div
-            className="np-queue glass-floating liquid-panel"
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 20,
-              backgroundColor: 'rgba(18, 20, 31, 0.66)',
-              backdropFilter: 'blur(26px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(26px) saturate(160%)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
-              boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+                  </div>
+
+        {/* Right: Up Next panel, fixed to right edge */}
+        {panelVisible && (
+        <div
+          className="np-queue glass-floating liquid-panel"
+          style={{
+            position: 'absolute',
+            right: '24px',
+            top: '110px',
+            bottom: '4vh',
+            zIndex: 20,
+            backgroundColor: 'rgba(18, 20, 31, 0.66)',
+            backdropFilter: 'blur(16px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
               borderRadius: '24px',
               padding: '18px',
               display: 'flex',
@@ -644,6 +875,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 0, paddingRight: '2px' }}>
                   {upcoming.map((track, i) => {
                     const actualIndex = queueIndex + 1 + i;
+                    const isFirst = i === 0;
+                    const isLast = i === upcoming.length - 1;
                     return (
                       <div
                         key={`${track.id}_${actualIndex}`}
@@ -668,6 +901,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                           src={track.artworkUrl || freqIcon}
                           videoId={track.id}
                           alt={track.title}
+                          fit="cover"
                           style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0 }}
                         />
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -681,6 +915,30 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
                           {formatTime(track.durationSeconds)}
                         </span>
+                        {onMoveQueueTrack && (
+                          <>
+                            <button
+                              onClick={e => { e.stopPropagation(); if (!isFirst) onMoveQueueTrack(actualIndex, actualIndex - 1); }}
+                              disabled={isFirst}
+                              title="Move up"
+                              style={{ color: isFirst ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: '4px', flexShrink: 0 }}
+                              onMouseEnter={e => { if (!isFirst) e.currentTarget.style.color = '#fff'; }}
+                              onMouseLeave={e => { e.currentTarget.style.color = isFirst ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)'; }}
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); if (!isLast) onMoveQueueTrack(actualIndex, actualIndex + 1); }}
+                              disabled={isLast}
+                              title="Move down"
+                              style={{ color: isLast ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: '4px', flexShrink: 0 }}
+                              onMouseEnter={e => { if (!isLast) e.currentTarget.style.color = '#fff'; }}
+                              onMouseLeave={e => { e.currentTarget.style.color = isLast ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)'; }}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </>
+                        )}
                         {onRemoveQueueTrack && (
                           <button
                             onClick={e => { e.stopPropagation(); onRemoveQueueTrack(actualIndex); }}
@@ -703,12 +961,18 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                     }}>
                       Queue is empty.<br />Vibe autoplay will fill Up Next.
                     </div>
-                  )}
-                </div>
+                  )}                </div>
           </div>
           )}
-        </div>
       </div>
     </div>
   );
 };
+
+
+
+
+
+
+
+

@@ -1,6 +1,6 @@
 {
   "name": "freq-desktop",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "FreQ - Windows Desktop Music Player with Liquid Glass UI and Audio Flavors",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -26,7 +26,9 @@
   "license": "GPL-3.0",
   "dependencies": {
     "@xhayper/discord-rpc": "^1.5.1",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^1.16.0",
+    "mqtt": "^5.16.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

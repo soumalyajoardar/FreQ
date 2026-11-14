@@ -11,7 +11,9 @@ import {
   VolumeX,
   Heart,
   Maximize2,
+  Pin,
   X,
+  Radio,
 } from 'lucide-react';
 import { LyricsIcon } from './LyricsIcon';
 import { AudioMode, MediaTrack, RepeatMode } from '../types';
@@ -45,6 +47,11 @@ interface PlayerBarProps {
   onOpenNowPlaying: () => void;
   onToggleLyrics?: () => void;
   isLyricsActive?: boolean;
+  alwaysOnTop?: boolean;
+  onToggleAlwaysOnTop?: () => void;
+  onOpenParty?: () => void;
+  isInParty?: boolean;
+  partyMembersCount?: number;
 }
 
 export function formatTime(seconds: number): string {
@@ -80,6 +87,11 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   onOpenNowPlaying,
   onToggleLyrics,
   isLyricsActive = false,
+  alwaysOnTop = false,
+  onToggleAlwaysOnTop,
+  onOpenParty,
+  isInParty = false,
+  partyMembersCount = 0,
 }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekVal, setSeekVal] = useState(0);
@@ -96,11 +108,11 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     <footer
       className="liquid-bar"
       style={{
-        height: 'var(--playerbar-height)',
-        backgroundColor: 'rgba(14, 16, 24, 0.72)',
-        backdropFilter: 'blur(30px) saturate(160%)',
-        WebkitBackdropFilter: 'blur(30px) saturate(160%)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.10)',
+        height: 'var(--playerbar-height, 88px)',
+        backgroundColor: 'rgba(8, 9, 14, 0.92)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.07)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -108,25 +120,26 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         position: 'relative',
         zIndex: 50,
         animation: 'freqSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+        userSelect: 'none',
       }}
     >
       {/* Left: Track Info & Like */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '30%', minWidth: '220px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '28%', minWidth: '220px' }}>
         {currentTrack ? (
           <>
             <div
               onClick={onOpenNowPlaying}
               style={{
-                width: '52px',
-                height: '52px',
-                borderRadius: '10px',
+                width: '54px',
+                height: '54px',
+                borderRadius: '8px',
                 overflow: 'hidden',
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 cursor: 'pointer',
                 flexShrink: 0,
                 position: 'relative',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
               }}
             >
               {currentTrack.artworkUrl ? (
@@ -145,18 +158,19 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
               <span
                 onClick={onOpenNowPlaying}
                 title={currentTrack.title}
                 style={{
-                  fontSize: '14px',
+                  fontSize: '13.5px',
                   fontWeight: 600,
-                  color: 'var(--text-primary)',
+                  color: '#f0f2f5',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   cursor: 'pointer',
+                  letterSpacing: '0.1px',
                 }}
               >
                 {currentTrack.title}
@@ -164,11 +178,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               <span
                 title={currentTrack.artist}
                 style={{
-                  fontSize: '12px',
-                  color: 'var(--text-secondary)',
+                  fontSize: '11.5px',
+                  color: 'var(--text-secondary, #8b93a6)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
+                  marginTop: '1px',
                 }}
               >
                 {currentTrack.artist}
@@ -185,27 +200,29 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: isLiked ? '#ec4899' : 'var(--text-secondary)',
-                transition: 'transform 0.15s, color 0.15s',
+                color: isLiked ? '#ec4899' : 'var(--text-secondary, #8b93a6)',
+                transition: 'transform 0.15s ease, color 0.15s ease',
+                flexShrink: 0,
+                marginLeft: '2px',
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
-              <Heart size={18} fill={isLiked ? '#ec4899' : 'transparent'} />
+              <Heart size={18} fill={isLiked ? '#ec4899' : 'transparent'} strokeWidth={isLiked ? 0 : 2} />
             </button>
           </>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '50px',
-                height: '50px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
+                width: '52px',
+                height: '52px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
               }}
             />
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No track playing</span>
+            <span style={{ fontSize: '12.5px', color: 'var(--text-muted, #5c6478)' }}>Ready to play</span>
           </div>
         )}
       </div>
@@ -216,9 +233,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '6px',
-          width: '40%',
-          maxWidth: '560px',
+          gap: '7px',
+          width: '44%',
+          maxWidth: '580px',
         }}
       >
         {/* Playback Button Row */}
@@ -227,9 +244,13 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             onClick={onToggleShuffle}
             title={isShuffle ? 'Shuffle enabled' : 'Shuffle disabled'}
             style={{
-              color: isShuffle ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-              transition: 'color 0.15s',
+              color: isShuffle ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)',
+              transition: 'color 0.15s ease, transform 0.1s ease',
+              display: 'flex',
+              alignItems: 'center',
             }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             <Shuffle size={16} />
           </button>
@@ -238,43 +259,47 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             onClick={onPrev}
             title="Previous track"
             style={{
-              color: 'var(--text-primary)',
-              transition: 'transform 0.1s',
+              color: '#f0f2f5',
+              transition: 'transform 0.1s ease',
+              display: 'flex',
+              alignItems: 'center',
             }}
             onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
             onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            <SkipBack size={20} fill="currentColor" />
+            <SkipBack size={19} fill="currentColor" />
           </button>
 
           <button
             onClick={onPlayPause}
             title={isPlaying ? 'Pause' : 'Play'}
             style={{
-              width: '42px',
-              height: '42px',
+              width: '40px',
+              height: '40px',
               borderRadius: '50%',
-              backgroundColor: '#f8fafc',
-              color: '#090A0F',
+              backgroundColor: '#fff',
+              color: '#07080c',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
-              transition: 'transform 0.15s',
+              boxShadow: '0 2px 12px rgba(255, 255, 255, 0.25)',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
             }}
             onMouseEnter={e => {
               e.currentTarget.style.transform = 'scale(1.06)';
+              e.currentTarget.style.boxShadow = '0 3px 16px rgba(255, 255, 255, 0.4)';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 2px 12px rgba(255, 255, 255, 0.25)';
             }}
           >
             {isLoading ? (
-              <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2.5px solid rgba(9, 10, 15, 0.25)', borderTopColor: '#090A0F', animation: 'freqSpin 0.8s linear infinite' }} />
+              <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid rgba(7, 8, 12, 0.25)', borderTopColor: '#07080c', animation: 'freqSpin 0.8s linear infinite' }} />
             ) : isPlaying ? (
-              <Pause size={20} fill="#090A0F" />
+              <Pause size={18} fill="#07080c" />
             ) : (
-              <Play size={20} fill="#090A0F" style={{ marginLeft: '2px' }} />
+              <Play size={18} fill="#07080c" style={{ marginLeft: '2px' }} />
             )}
           </button>
 
@@ -282,45 +307,51 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             onClick={onNext}
             title="Next track"
             style={{
-              color: 'var(--text-primary)',
-              transition: 'transform 0.1s',
+              color: '#f0f2f5',
+              transition: 'transform 0.1s ease',
+              display: 'flex',
+              alignItems: 'center',
             }}
             onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
             onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            <SkipForward size={20} fill="currentColor" />
-          </button>
-
-          <button
-            onClick={onStop}
-            title="Stop and close player"
-            style={{
-              color: 'var(--text-secondary)',
-              transition: 'color 0.15s, transform 0.15s',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.transform = 'scale(1.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'scale(1)'; }}
-          >
-            <X size={17} strokeWidth={2.5} />
+            <SkipForward size={19} fill="currentColor" />
           </button>
 
           <button
             onClick={onToggleRepeat}
             title={`Repeat mode: ${repeatMode}`}
             style={{
-              color: repeatMode !== 'OFF' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-              transition: 'color 0.15s',
+              color: repeatMode !== 'OFF' ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)',
+              transition: 'color 0.15s ease, transform 0.1s ease',
+              display: 'flex',
+              alignItems: 'center',
             }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             {repeatMode === 'ONE' ? <Repeat1 size={17} /> : <Repeat size={17} />}
+          </button>
+
+          <button
+            onClick={onStop}
+            title="Stop playback"
+            style={{
+              color: 'var(--text-muted, #5c6478)',
+              transition: 'color 0.15s ease, transform 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #5c6478)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            <X size={15} strokeWidth={2.2} />
           </button>
         </div>
 
         {/* Scrubber Timeline */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '36px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary, #8b93a6)', width: '38px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
             {formatTime(displayPosition)}
           </span>
 
@@ -334,43 +365,43 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             onScrubEnd={v => { setIsSeeking(false); onSeek(v); }}
           />
 
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '36px', textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary, #8b93a6)', width: '38px', textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
             {formatTime(duration)}
           </span>
         </div>
       </div>
 
-      {/* Right: Audio Flavor Pill, Lyrics, Queue, Volume, Fullscreen */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '30%', justifyContent: 'flex-end' }}>
+      {/* Right: Audio Flavor Pill, Lyrics, Volume, Fullscreen, Pin */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '28%', justifyContent: 'flex-end' }}>
         {/* Audio Flavor Pill Switcher */}
         <button
           onClick={cycleFlavor}
           title={`Click to cycle flavor. Current: ${audioMode}`}
           style={{
-            padding: '4px 10px',
+            padding: '3px 8px',
             borderRadius: '999px',
-            fontSize: '11px',
+            fontSize: '10.5px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.6px',
             background:
               audioMode === 'SNR'
-                ? 'rgba(139, 92, 246, 0.2)'
+                ? 'rgba(139, 92, 246, 0.18)'
                 : audioMode === 'NIGHTCORE'
-                ? 'rgba(236, 72, 153, 0.2)'
-                : 'rgba(255, 255, 255, 0.15)',
+                ? 'rgba(236, 72, 153, 0.18)'
+                : 'rgba(30, 215, 96, 0.18)',
             border:
               audioMode === 'SNR'
-                ? '1px solid rgba(139, 92, 246, 0.4)'
+                ? '1px solid rgba(139, 92, 246, 0.35)'
                 : audioMode === 'NIGHTCORE'
-                ? '1px solid rgba(236, 72, 153, 0.4)'
-                : '1px solid rgba(255, 255, 255, 0.3)',
+                ? '1px solid rgba(236, 72, 153, 0.35)'
+                : '1px solid rgba(30, 215, 96, 0.35)',
             color:
               audioMode === 'SNR'
-                ? 'var(--accent-violet)'
+                ? 'var(--accent-violet, #8b5cf6)'
                 : audioMode === 'NIGHTCORE'
-                ? 'var(--accent-pink)'
-                : 'var(--accent-cyan)',
+                ? 'var(--accent-pink, #ec4899)'
+                : 'var(--accent-cyan, #1ed760)',
             transition: 'all 0.15s ease',
           }}
         >
@@ -380,39 +411,74 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         {/* Lyrics Button */}
         <button
           onClick={() => (onToggleLyrics ? onToggleLyrics() : onOpenNowPlaying())}
-          title="Lyrics"
+          title="Synced Lyrics"
           style={{
-            color: isLyricsActive ? '#fff' : 'var(--text-secondary)',
-            transition: 'color 0.15s',
+            color: isLyricsActive ? '#fff' : 'var(--text-secondary, #8b93a6)',
+            transition: 'color 0.15s ease',
+            display: 'flex',
+            alignItems: 'center',
           }}
           onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = isLyricsActive ? '#fff' : 'var(--text-secondary)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = isLyricsActive ? '#fff' : 'var(--text-secondary, #8b93a6)'; }}
         >
           <LyricsIcon
-            size={18}
+            size={17}
             style={isLyricsActive ? { filter: 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.9))' } : undefined}
           />
         </button>
 
+        {/* Listen Together Party Button */}
+        {onOpenParty && (
+          <button
+            onClick={onOpenParty}
+            title={isInParty ? `Party active (${partyMembersCount}/5 listeners)` : 'Listen Together (Party)'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              color: isInParty ? '#1ed760' : 'var(--text-secondary, #8b93a6)',
+              padding: isInParty ? '3px 8px' : '4px',
+              borderRadius: '999px',
+              backgroundColor: isInParty ? 'rgba(30, 215, 96, 0.15)' : 'transparent',
+              border: isInParty ? '1px solid rgba(30, 215, 96, 0.35)' : 'none',
+              transition: 'all 0.15s ease',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              if (!isInParty) e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={e => {
+              if (!isInParty) e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
+            }}
+          >
+            <Radio size={16} color={isInParty ? '#1ed760' : 'currentColor'} strokeWidth={isInParty ? 2.5 : 1.8} />
+            {isInParty && (
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#1ed760' }}>
+                {partyMembersCount}/5
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Volume Slider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
           <button
             onClick={onToggleMute}
-            style={{ color: 'var(--text-secondary)', transition: 'color 0.15s' }}
+            style={{ color: 'var(--text-secondary, #8b93a6)', transition: 'color 0.15s ease', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)'; }}
           >
-            {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            {isMuted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
           </button>
-          <div style={{ width: '132px' }}>
-          <FlatScrubber
-            value={isMuted ? 0 : volume}
-            max={1}
-            step={0.02}
-            height={5}
-            ariaLabel="Volume"
-            onSeek={onVolumeChange}
-          />
+          <div style={{ width: '92px' }}>
+            <FlatScrubber
+              value={isMuted ? 0 : volume}
+              max={1}
+              step={0.02}
+              height={4}
+              ariaLabel="Volume"
+              onSeek={onVolumeChange}
+            />
           </div>
         </div>
 
@@ -421,14 +487,34 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           onClick={onOpenNowPlaying}
           title="Full Screen Player"
           style={{
-            color: 'var(--text-secondary)',
-            transition: 'color 0.15s',
+            color: 'var(--text-secondary, #8b93a6)',
+            transition: 'color 0.15s ease, transform 0.1s ease',
+            display: 'flex',
+            alignItems: 'center',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)'; e.currentTarget.style.transform = 'scale(1)'; }}
         >
-          <Maximize2 size={18} />
+          <Maximize2 size={16} />
         </button>
+
+        {/* Always-on-top pin */}
+        {onToggleAlwaysOnTop && (
+          <button
+            onClick={onToggleAlwaysOnTop}
+            title={alwaysOnTop ? 'Unpin window (always on top off)' : 'Pin window always on top'}
+            style={{
+              color: alwaysOnTop ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)',
+              transition: 'color 0.15s ease, transform 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = alwaysOnTop ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            <Pin size={16} fill={alwaysOnTop ? 'var(--accent-cyan, #1ed760)' : 'transparent'} />
+          </button>
+        )}
       </div>
     </footer>
   );

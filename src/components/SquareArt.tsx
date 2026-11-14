@@ -7,12 +7,14 @@ interface SquareArtProps {
   alt: string;
   /** Outer box: size, radius, borders, shadows. Position/overflow/bg managed internally. */
   style?: React.CSSProperties;
+  /** 'contain' shows the whole image (large art); 'cover' fills the cube edge-to-edge (small thumbs). */
+  fit?: 'contain' | 'cover';
 }
 
-// Every song thumbnail renders through here: the full image is always
-// visible (contain, never cropped) with a blurred ambience fill behind it,
-// so any source aspect fits any square/circle box with no bars or cuts.
-export const SquareArt: React.FC<SquareArtProps> = ({ src, videoId, alt, style }) => (
+// Every song thumbnail renders through here: 'cover' fills the cube
+// edge-to-edge (default); 'contain' shows the whole image with a blurred
+// ambience fill behind it (large artwork).
+export const SquareArt: React.FC<SquareArtProps> = ({ src, videoId, alt, style, fit = 'cover' }) => (
   <div
     style={{
       position: 'relative',
@@ -23,14 +25,7 @@ export const SquareArt: React.FC<SquareArtProps> = ({ src, videoId, alt, style }
     }}
   >
     {src ? (
-      <img
-        src={src}
-        alt=""
-        aria-hidden="true"
-        onError={e => {
-          e.currentTarget.style.display = 'none';
-        }}
-        style={{
+      <SafeArtwork src={src} videoId={videoId} alt="" style={{
           position: 'absolute',
           inset: 0,
           width: '100%',
@@ -39,8 +34,7 @@ export const SquareArt: React.FC<SquareArtProps> = ({ src, videoId, alt, style }
           filter: 'blur(20px) brightness(0.6) saturate(1.3)',
           transform: 'scale(1.2)',
           pointerEvents: 'none',
-        }}
-      />
+        }} />
     ) : null}
     <SafeArtwork
       src={src}
@@ -51,8 +45,9 @@ export const SquareArt: React.FC<SquareArtProps> = ({ src, videoId, alt, style }
         inset: 0,
         width: '100%',
         height: '100%',
-        objectFit: 'contain',
+        objectFit: fit,
       }}
     />
   </div>
 );
+

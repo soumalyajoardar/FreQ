@@ -12,6 +12,7 @@ interface AlbumDetailViewProps {
   onShufflePlay: (tracks: MediaTrack[]) => void;
   onToggleLike: (track: MediaTrack) => void;
   isLiked: (trackId: string) => boolean;
+  onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
 }
 
 export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
@@ -21,6 +22,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   onShufflePlay,
   onToggleLike,
   isLiked,
+  onTrackContextMenu,
 }) => {
   const [album, setAlbum] = useState<AlbumDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -209,3 +211,4 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
     </div>
   );
 };
+

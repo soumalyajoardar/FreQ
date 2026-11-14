@@ -19,6 +19,7 @@ interface PlaylistDetailViewProps {
   onMoveTrack?: (fromIndex: number, toIndex: number) => void;
   onPlayNext?: (track: MediaTrack) => void;
   isLikedView?: boolean;
+  onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
 }
 
 export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
@@ -35,6 +36,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   onMoveTrack,
   onPlayNext,
   isLikedView = false,
+  onTrackContextMenu,
 }) => {
   const totalSeconds = tracks.reduce((acc, t) => acc + (t.durationSeconds || 0), 0);
   const totalDurationStr = formatTime(totalSeconds);
@@ -84,8 +86,8 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                 width: '100%',
                 height: '100%',
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(18px)',
-                WebkitBackdropFilter: 'blur(18px)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -202,7 +204,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
             </span>
 
             <div
-              onClick={() => onPlayTrack(track, tracks)}
+              onClick={() => onPlayTrack(track, tracks)} onContextMenu={e => onTrackContextMenu?.(e, track)}
               style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, cursor: 'pointer', overflow: 'hidden' }}
             >
               <SquareArt
@@ -291,3 +293,5 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
     </div>
   );
 };
+
+

@@ -1,35 +1,71 @@
 :root {
   /* FreQ Dark Foundation Palette */
   --bg-primary: #090a0f;
-  --bg-elevated: #0e1018;
-  --surface-primary: #12141f;
-  --surface-elevated: #1b1e2e;
-  --surface-floating: rgba(27, 30, 46, 0.65);
-  
-  /* Monochrome accents (cyan/teal/blue neutralized to white) */
-  --accent-cyan: #f8fafc;
+  --bg-elevated: #0d0f17;
+  --surface-primary: #111320;
+  --surface-elevated: #181b2a;
+  --surface-floating: rgba(24, 27, 42, 0.72);
+
+  /* Accent System — signature green with supporting colors */
+  --accent-cyan: #1ed760;
   --accent-violet: #8b5cf6;
-  --accent-teal: #f8fafc;
+  --accent-teal: #1ed760;
   --accent-pink: #ec4899;
-  --accent-glow: rgba(255, 255, 255, 0.35);
-  
+  --accent-glow: rgba(30, 215, 96, 0.25);
+
   /* Typography Colors */
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #75859c;
-  
-  /* Glass Tokens */
-  --glass-subtle: rgba(255, 255, 255, 0.04);
-  --glass-standard: rgba(255, 255, 255, 0.07);
-  --glass-strong: rgba(255, 255, 255, 0.12);
-  --glass-floating: rgba(20, 24, 38, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-border-strong: rgba(255, 255, 255, 0.2);
-  --glass-highlight: rgba(255, 255, 255, 0.15);
-  --glass-blur: 24px;
-  
+  --text-primary: #f0f2f5;
+  --text-secondary: #8b93a6;
+  --text-muted: #5c6478;
+
+  /* Glass Tokens — refined, subtle */
+  --glass-subtle: rgba(255, 255, 255, 0.03);
+  --glass-standard: rgba(255, 255, 255, 0.05);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --glass-floating: rgba(17, 19, 32, 0.80);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-border-strong: rgba(255, 255, 255, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-blur: 12px;
+
+  /* Interactive State Tokens */
+  --hover-overlay: rgba(255, 255, 255, 0.05);
+  --active-overlay: rgba(255, 255, 255, 0.08);
+  --focus-ring: 0 0 0 2px rgba(30, 215, 96, 0.4);
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* Typography Scale */
+  --text-micro: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
   /* Layout Dimensions */
-  --titlebar-height: 42px;
+  --titlebar-height: 38px;
   --playerbar-height: 88px;
   --sidebar-width: 250px;
 }
@@ -50,53 +86,55 @@ body {
   height: 100vh;
   width: 100vw;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Custom Sleek Scrollbar */
+/* Custom Sleek Scrollbar — thin and quiet */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.20);
 }
 
-/* Glassmorphism Surface Utility */
+/* Glassmorphism Surface Utility — subtle, used on overlays only */
 .glass-surface {
   background: var(--glass-standard);
-  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.3);
 }
 
 .glass-floating {
   background: var(--glass-floating);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   border: 1px solid var(--glass-border-strong);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--glass-highlight);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--glass-highlight);
 }
 
 .glass-pill {
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border);
   background: var(--glass-standard);
-  backdrop-filter: blur(16px);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(10px);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .glass-pill:hover {
   background: var(--glass-strong);
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 15px var(--accent-glow);
+  border-color: rgba(30, 215, 96, 0.3);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 /* 3D Flip Card Container */
@@ -123,7 +161,7 @@ body {
   height: 100%;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -131,24 +169,27 @@ body {
   transform: rotateY(180deg);
 }
 
-/* Atmospheric Glow Pulse Animation */
-@keyframes atmosphericPulse {
-  0% {
-    opacity: 0.75;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.95;
-    transform: scale(1.04);
-  }
-  100% {
-    opacity: 0.75;
-    transform: scale(1);
-  }
+/* Performance: when the app loses focus (e.g. a fullscreen game), stop
+   compositing blur layers and pause decorative animations. Chromium keeps
+   painting an occluded Electron window otherwise, stealing GPU time. */
+body.app-idle *,
+body.app-idle *::before,
+body.app-idle *::after {
+  /* `none` (not paused) so entrance animations settle at their final frame
+     instead of freezing at opacity: 0. */
+  animation: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-.ambient-pulse {
-  animation: atmosphericPulse 12s ease-in-out infinite;
+body.app-idle .glass-surface,
+body.app-idle .glass-floating,
+body.app-idle .glass-pill {
+  background: var(--surface-primary);
+}
+
+body.app-idle .np-atmosphere {
+  filter: brightness(0.45) !important;
 }
 
 /* Button & Interactive states */
@@ -161,11 +202,19 @@ button {
   background: transparent;
 }
 
+button:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
 input {
   outline: none;
   border: none;
   font-family: inherit;
   color: inherit;
+}
+
+input:focus-visible {
+  box-shadow: var(--focus-ring);
 }
 
 /* Flat brand accents (gradients removed — solid colors only) */
@@ -174,7 +223,7 @@ input {
 }
 
 .text-gradient {
-  color: #f8fafc;
+  color: #f0f2f5;
 }
 
 .text-gradient-cyan {
@@ -187,7 +236,7 @@ input {
 }
 
 @keyframes freqPopIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -197,46 +246,46 @@ input {
 }
 
 @keyframes freqSlideUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes freqSlideInRight {
-  from { opacity: 0; transform: translateX(48px); }
+  from { opacity: 0; transform: translateX(40px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes freqSlideOutRight {
   from { opacity: 1; transform: translateX(0); }
-  to { opacity: 0; transform: translateX(48px); }
+  to { opacity: 0; transform: translateX(40px); }
 }
 
 @keyframes freqSlideDownOut {
   from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(24px); }
+  to { opacity: 0; transform: translateY(20px); }
 }
 
 @keyframes freqFadeScaleOut {
   from { opacity: 1; transform: translateY(0) scale(1); }
-  to { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
 }
 
 /* View navigation: every screen slides in on mount */
 @keyframes freqViewSlide {
-  from { opacity: 0; transform: translateX(28px); }
+  from { opacity: 0; transform: translateX(24px); }
   to { opacity: 1; transform: translateX(0); }
 }
 .view-enter {
-  animation: freqViewSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: freqViewSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes freqRiseIn {
-  from { opacity: 0; transform: translateY(18px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes freqArtIn {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
@@ -279,7 +328,7 @@ input {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 2%;
-  gap: 56px;
+  gap: 48px;
 }
 .np-left {
   display: flex;
@@ -288,16 +337,15 @@ input {
   justify-content: center;
   width: min(480px, 100%);
   min-height: 0;
-  gap: 22px;
+  gap: 20px;
 }
 .np-queue {
   width: 340px;
   flex-shrink: 0;
   min-height: 0;
-  align-self: flex-start;
+  align-self: stretch;
   max-height: 100%;
-  margin-left: auto;
-}
+  }
 @media (max-width: 940px) {
   .np-queue { display: none; }
 }
@@ -311,10 +359,10 @@ input {
   content: '';
   position: absolute;
   top: 0;
-  left: 8%;
-  right: 8%;
+  left: 10%;
+  right: 10%;
   height: 1px;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
   pointer-events: none;
 }
 /* Specular sheen for dialog panels */
@@ -326,6 +374,6 @@ input {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 24% 0%, rgba(255, 255, 255, 0.14), transparent 50%);
+  background: radial-gradient(circle at 24% 0%, rgba(255, 255, 255, 0.08), transparent 50%);
   pointer-events: none;
 }

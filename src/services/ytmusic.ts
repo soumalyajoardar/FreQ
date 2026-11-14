@@ -1,4 +1,5 @@
 import { AlbumDetails, ArtistDetails, CatalogItem, CatalogSection, MediaTrack } from '../types';
+import { regionDef } from './regions';
 
 const BASE_URL = 'https://freq-api.vercel.app';
 
@@ -6,7 +7,8 @@ const BASE_URL = 'https://freq-api.vercel.app';
 export function upgradeArtworkUrl(url: string | null | undefined, videoId?: string): string | null {
   if (!url || url === 'null') {
     if (videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId)) {
-      return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      // mqdefault is bar-less 16:9 (hqdefault bakes black bars for widescreen).
+      return `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
     }
     return null;
   }
@@ -213,31 +215,26 @@ class YtMusicService {
       return null;
     }
   }
-  // Curated Indian home: mood/genre/popular rails built from Indian
-  // queries only (no foreign content). Cached 10 min. Each rail holds songs.
-  private indianHomeCache: { at: number; sections: CatalogSection[] } = { at: 0, sections: [] };
+  // Regional home: curated rails per listening country (India default).
+  // Cached 10 min per region. Each rail holds songs.
+  private regionalHomeCache: { at: number; region: string; sections: CatalogSection[] } = { at: 0, region: '', sections: [] };
 
-  async getIndianHome(): Promise<{ sections: CatalogSection[] }> {
-    if (Date.now() - this.indianHomeCache.at < 10 * 60 * 1000 && this.indianHomeCache.sections.length > 0) {
-      return { sections: this.indianHomeCache.sections };
+  async getRegionalHome(regionCode: string): Promise<{ sections: CatalogSection[] }> {
+    const def = regionDef(regionCode);
+    if (
+      Date.now() - this.regionalHomeCache.at < 10 * 60 * 1000 &&
+      this.regionalHomeCache.region === def.code &&
+      this.regionalHomeCache.sections.length > 0
+    ) {
+      return { sections: this.regionalHomeCache.sections };
     }
-    const defs = [
-      { title: 'Trending Hindi Hits', query: 'trending hindi songs 2024' },
-      { title: 'Sad Songs', query: 'sad hindi songs' },
-      { title: 'Happy Vibes', query: 'happy hindi songs' },
-      { title: 'Punjabi Party', query: 'punjabi party songs' },
-      { title: 'Romantic Hits', query: 'romantic hindi songs' },
-      { title: '90s Bollywood Gold', query: '90s hindi hit songs' },
-      { title: 'Tamil Hits', query: 'tamil hit songs' },
-      { title: 'Telugu Hits', query: 'telugu hit songs' },
-    ];
     const results: (CatalogSection | null)[] = await Promise.all(
-      defs.map(async d => {
+      def.rails.map(async rail => {
         try {
-          const tracks = (await this.search(d.query)).slice(0, 12);
+          const tracks = (await this.search(rail.query)).slice(0, 12);
           if (tracks.length === 0) return null;
           return {
-            title: d.title,
+            title: rail.title,
             items: tracks.map(t => ({
               type: 'song' as const,
               id: t.id,
@@ -256,11 +253,12 @@ class YtMusicService {
       })
     );
     const sections = results.filter((s): s is CatalogSection => s !== null);
-    if (sections.length > 0) this.indianHomeCache = { at: Date.now(), sections };
+    if (sections.length > 0) this.regionalHomeCache = { at: Date.now(), region: def.code, sections };
     return { sections };
   }
 
-  async getWatch(trackId: string, limit = 25): Promise<MediaTrack[]> {    if (!trackId) return [];
+  async getWatch(trackId: string, limit = 25): Promise<MediaTrack[]> {
+    if (!trackId) return [];
     try {
       const res = await fetch(`${BASE_URL}/api/watch/${encodeURIComponent(trackId)}?limit=${Math.min(Math.max(limit, 1), 50)}`);
       if (!res.ok) return [];
@@ -271,6 +269,28 @@ class YtMusicService {
       console.warn('getWatch failed, falling back to local autoplay:', err);
       return [];
     }
+  }
+
+  // Playlist link import: scrape a YouTube / YT Music playlist URL
+  // into a titled track list (metadata only, capped at 200).
+  async importPlaylistLink(url: string): Promise<{ title: string; tracks: MediaTrack[] } | null> {
+    if (!window.electronAPI?.importPlaylistLink) return null;
+    const data = await window.electronAPI.importPlaylistLink(url);
+    if (!data) return null;
+    const tracks = (data.tracks || [])
+      .map((raw: any) => normalizeTrack({
+        id: raw.id,
+        title: raw.title,
+        artist: raw.artist,
+        duration: raw.durationSeconds,
+        thumbnails: raw.thumbnails,
+      }))
+      .filter(t => t.id);
+    if (tracks.length === 0) return null;
+    const title = typeof data.title === 'string' && data.title.trim()
+      ? data.title.trim()
+      : 'Imported Playlist';
+    return { title, tracks };
   }
 }
 

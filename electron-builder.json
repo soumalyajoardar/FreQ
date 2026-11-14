@@ -6,6 +6,13 @@
     "output": "release",
     "buildResources": "build"
   },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "soumalyajoardar",
+      "repo": "FreQ"
+    }
+  ],
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
@@ -35,7 +42,8 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "FreQ"
+    "shortcutName": "FreQ",
+    "artifactName": "FreQ.Setup.${version}.${ext}"
   },
   "portable": {
     "artifactName": "${productName}-Portable-${version}.${ext}"

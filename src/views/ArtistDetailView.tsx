@@ -11,6 +11,7 @@ interface ArtistDetailViewProps {
   onBack: () => void;
   onPlayTrack: (track: MediaTrack, playlist: MediaTrack[]) => void;
   onOpenAlbum: (albumId: string) => void;
+  onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
 }
 
 export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
@@ -18,6 +19,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   onBack,
   onPlayTrack,
   onOpenAlbum,
+  onTrackContextMenu,
 }) => {
   const [artist, setArtist] = useState<ArtistDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,3 +208,4 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
     </div>
   );
 };
+

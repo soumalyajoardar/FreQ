@@ -32,6 +32,20 @@ export interface UserPlaylist {
   artworkUrl?: string | null;
 }
 
+export interface SmartMix {
+  id: string;
+  title: string;
+  description: string;
+  tracks: MediaTrack[];
+}
+
+export interface DuplicateGroup {
+  key: string;
+  title: string;
+  artist: string;
+  copies: number;
+}
+
 export interface CatalogItem {
   type: 'song' | 'album' | 'playlist' | 'artist';
   id: string;
@@ -69,17 +83,3 @@ export interface AlbumDetails {
   tracks: MediaTrack[];
 }
 
-export interface PlaybackState {
-  currentTrack: MediaTrack | null;
-  isPlaying: boolean;
-  position: number;
-  duration: number;
-  volume: number;
-  isMuted: boolean;
-  audioMode: AudioMode;
-  isShuffle: boolean;
-  repeatMode: RepeatMode;
-  queue: MediaTrack[];
-  queueIndex: number;
-  bufferedPosition: number;
-}

@@ -46,7 +46,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
         bottom: 'var(--playerbar-height)',
         width: '400px',
         backgroundColor: 'rgba(13, 15, 24, 0.92)',
-        backdropFilter: 'blur(36px)',
+        backdropFilter: 'blur(16px)',
         borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
         zIndex: 8000,
         display: 'flex',
@@ -140,6 +140,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                 src={currentTrack.artworkUrl}
                 videoId={currentTrack.id}
                 alt={currentTrack.title}
+                fit="cover"
                 style={{ width: '44px', height: '44px', borderRadius: '10px', objectFit: 'cover' }}
               />
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -194,6 +195,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                 >
                   <SquareArt
                     src={track.artworkUrl}
+                    fit="cover"
                     videoId={track.id}
                     alt={track.title}
                     style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}

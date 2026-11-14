@@ -8,21 +8,8 @@ interface TitleBarProps {
 
 export const TitleBar: React.FC<TitleBarProps> = () => {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [greeting, setGreeting] = useState('');
 
   useEffect(() => {
-    // Dynamic time-of-day greeting
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) {
-      setGreeting('Good morning');
-    } else if (hour >= 12 && hour < 17) {
-      setGreeting('Good afternoon');
-    } else if (hour >= 17 && hour < 22) {
-      setGreeting('Good evening');
-    } else {
-      setGreeting('Good night');
-    }
-
     if (window.electronAPI) {
       window.electronAPI.isWindowMaximized().then(setIsMaximized);
       const unsubscribe = window.electronAPI.onWindowMaximizedChange(setIsMaximized);
@@ -43,95 +30,60 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
   };
 
   return (
-    <div
+    <header
       className="liquid-bar"
       style={{
-        height: 'var(--titlebar-height)',
+        height: 'var(--titlebar-height, 38px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 12px 0 16px',
-        backgroundColor: 'rgba(9, 10, 15, 0.85)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        padding: '0 10px 0 16px',
+        backgroundColor: 'rgba(7, 8, 12, 0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
         ...( { WebkitAppRegion: 'drag' } as any ),
         zIndex: 9999,
         position: 'relative',
       }}
     >
-      {/* FreQ Logo & Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* FreQ Logo & Brand Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
         <img
           src={freqIcon}
           alt="FreQ"
           style={{
-            width: '26px',
-            height: '26px',
-            borderRadius: '8px',
+            width: '20px',
+            height: '20px',
+            borderRadius: '6px',
             objectFit: 'cover',
-            boxShadow: '0 0 12px rgba(0, 0, 0, 0.5)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
           }}
         />
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                fontWeight: 800,
-                fontSize: '14px',
-                letterSpacing: '0.6px',
-                color: '#f8fafc',
-                fontFamily: 'Inter, sans-serif',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              FreQ
-            </span>
-            <span
-              style={{
-                fontSize: '10px',
-                fontWeight: 800,
-                letterSpacing: '1px',
-                padding: '3px 10px',
-                borderRadius: '999px',
-                backgroundColor: 'rgba(255, 255, 255, 0.10)',
-                border: '1px solid rgba(255, 255, 255, 0.22)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                color: '#fff',
-                whiteSpace: 'nowrap',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.18)',
-              }}
-            >
-              Desktop
-            </span>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span
             style={{
-              fontSize: '9px',
               fontWeight: 700,
-              letterSpacing: '2px',
-              color: 'var(--text-muted)',
+              fontSize: '13px',
+              letterSpacing: '0.4px',
+              color: '#f0f2f5',
+              fontFamily: 'Inter, -apple-system, sans-serif',
               whiteSpace: 'nowrap',
             }}
           >
-            BY GRESSEY
+            FreQ
+          </span>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #5c6478)',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Desktop • v2.0.0 (Stable)
           </span>
         </div>
-      </div>
-
-      {/* Center Editorial Greeting */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: 'var(--text-secondary)',
-          fontSize: '12px',
-          fontWeight: 500,
-        }}
-      >
-        <span>{greeting} • Music for your day</span>
       </div>
 
       {/* Windows Window Controls */}
@@ -139,7 +91,7 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '4px',
+          gap: '2px',
           ...( { WebkitAppRegion: 'no-drag' } as any ),
         }}
       >
@@ -147,14 +99,14 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
           onClick={handleMinimize}
           title="Minimize"
           style={{
-            width: '34px',
+            width: '36px',
             height: '28px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '6px',
-            color: 'var(--text-secondary)',
-            transition: 'background 0.15s, color 0.15s',
+            color: 'var(--text-secondary, #8b93a6)',
+            transition: 'background-color 0.15s ease, color 0.15s ease',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
@@ -162,24 +114,24 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
           }}
           onMouseLeave={e => {
             e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-secondary)';
+            e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
           }}
         >
-          <Minus size={14} />
+          <Minus size={13} />
         </button>
 
         <button
           onClick={handleMaximize}
           title={isMaximized ? 'Restore' : 'Maximize'}
           style={{
-            width: '34px',
+            width: '36px',
             height: '28px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '6px',
-            color: 'var(--text-secondary)',
-            transition: 'background 0.15s, color 0.15s',
+            color: 'var(--text-secondary, #8b93a6)',
+            transition: 'background-color 0.15s ease, color 0.15s ease',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
@@ -187,37 +139,37 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
           }}
           onMouseLeave={e => {
             e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-secondary)';
+            e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
           }}
         >
-          {isMaximized ? <Copy size={13} /> : <Square size={13} />}
+          {isMaximized ? <Copy size={12} /> : <Square size={12} />}
         </button>
 
         <button
           onClick={handleClose}
           title="Close"
           style={{
-            width: '34px',
+            width: '36px',
             height: '28px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '6px',
-            color: 'var(--text-secondary)',
-            transition: 'background 0.15s, color 0.15s',
+            color: 'var(--text-secondary, #8b93a6)',
+            transition: 'background-color 0.15s ease, color 0.15s ease',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.backgroundColor = '#ef4444';
+            e.currentTarget.style.backgroundColor = '#e11d48';
             e.currentTarget.style.color = '#fff';
           }}
           onMouseLeave={e => {
             e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-secondary)';
+            e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
           }}
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       </div>
-    </div>
+    </header>
   );
 };

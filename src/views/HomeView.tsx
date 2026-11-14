@@ -3,10 +3,12 @@ import { Play, Heart, Clock, Search, Disc3, Shuffle, Sun, Coffee, Sunrise, Music
 import type { LucideIcon } from 'lucide-react';
 import { CatalogSection, MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
+import { regionDef } from '../services/regions';
 import { formatTime } from '../components/PlayerBar';
 import { useExitTransition } from '../components/useExitTransition';
 import { SafeArtwork } from '../components/SafeArtwork';
 import { SquareArt } from '../components/SquareArt';
+import { shuffle } from '../utils/shuffle';
 
 import bgMorning from '../assets/backgrounds/app_background_morning.jpg';
 import bgAfternoon from '../assets/backgrounds/app_background_afternoon.jpg';
@@ -25,6 +27,8 @@ interface HomeViewProps {
   currentTrackId?: string | null;
   isPlaying?: boolean;
   onOpenPlayer?: () => void;
+  onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
+  region?: string;
 }
 
 interface MoodLine {
@@ -33,34 +37,15 @@ interface MoodLine {
   query: string;
 }
 
-const MOODS: Record<'morning' | 'afternoon' | 'evening' | 'night', MoodLine[]> = {
-  morning: [
-    { text: 'Morning songs?', Icon: Sun, query: 'morning hindi songs' },
-    { text: 'Chai aur gaane?', Icon: Coffee, query: 'fresh morning hindi songs' },
-    { text: 'Fresh start vibes?', Icon: Sunrise, query: 'peaceful morning songs hindi' },
-    { text: 'Wake up singing?', Icon: Music, query: 'upbeat morning hindi songs' },
-  ],
-  afternoon: [
-    { text: 'Afternoon beats?', Icon: Headphones, query: 'hindi peppy songs' },
-    { text: 'Lunch break tunes?', Icon: Coffee, query: 'feel good hindi songs' },
-    { text: 'Midday energy?', Icon: Zap, query: 'energetic hindi songs' },
-    { text: 'Sunny day songs?', Icon: Sun, query: 'happy hindi songs' },
-  ],
-  evening: [
-    { text: 'Evening melodies?', Icon: Sunset, query: 'evening hindi songs' },
-    { text: 'Sunset songs?', Icon: Sun, query: 'romantic sunset hindi songs' },
-    { text: 'Golden hour hits?', Icon: Sparkles, query: 'soulful hindi songs' },
-    { text: 'Unwind o’clock?', Icon: Music, query: 'relaxing hindi songs' },
-  ],
-  night: [
-    { text: 'Late night vibes?', Icon: Moon, query: 'late night hindi songs' },
-    { text: '2 AM loops?', Icon: Headphones, query: 'lofi hindi songs' },
-    { text: 'Midnight melodies?', Icon: Star, query: 'sad romantic hindi songs' },
-    { text: 'Dreams in music?', Icon: Moon, query: 'soft night hindi songs' },
-  ],
+// Icon slots stay positional; text + query come from the region def.
+const MOOD_ICONS: Record<'morning' | 'afternoon' | 'evening' | 'night', LucideIcon[]> = {
+  morning: [Sun, Coffee, Sunrise, Music],
+  afternoon: [Headphones, Coffee, Zap, Sun],
+  evening: [Sunset, Sun, Sparkles, Music],
+  night: [Moon, Headphones, Star, Moon],
 };
 
-function daypart(): keyof typeof MOODS {
+function daypart(): keyof typeof MOOD_ICONS {
   const h = new Date().getHours();
   if (h >= 5 && h < 12) return 'morning';
   if (h >= 12 && h < 17) return 'afternoon';
@@ -77,6 +62,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   currentTrackId,
   isPlaying = false,
   onOpenPlayer,
+  onTrackContextMenu,
+  region = 'IN',
 }) => {
   const [sections, setSections] = useState<CatalogSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +84,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    ytMusicService.getIndianHome().then(res => {
+    setIsLoading(true);
+    ytMusicService.getRegionalHome(region).then(res => {
       if (isMounted) {
         setSections(res.sections);
         setIsLoading(false);
@@ -106,7 +94,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [region]);
 
   // Live suggestions dropdown (debounced song/artist matches)
   useEffect(() => {
@@ -146,7 +134,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return () => clearInterval(t);
   }, []);
 
-  const mood = MOODS[daypart()][moodIdx % 4];
+  const part = daypart();
+  const defLines = regionDef(region).moods[part];
+  const line = defLines[moodIdx % defLines.length];
+  const mood: MoodLine = { text: line.text, query: line.query, Icon: MOOD_ICONS[part][moodIdx % MOOD_ICONS[part].length] };
 
   // Albums aggregated from every rail (real YT Music album metadata)
   const allTracks = sections.flatMap(s =>
@@ -201,7 +192,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       />
 
       {/* 0. Search Bar (sticky nav — stays put while rails scroll) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'sticky', top: 0, zIndex: 25, margin: '-24px -32px 0', padding: '16px 32px', backgroundColor: 'rgba(9, 10, 15, 0.82)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'sticky', top: 0, zIndex: 25, margin: '-24px -32px 0', padding: '16px 32px', backgroundColor: 'rgba(9, 10, 15, 0.86)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
       <form
         onSubmit={e => {
           e.preventDefault();
@@ -210,7 +201,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onSearchSubmit(homeQuery.trim());
           }
         }}
-        style={{ position: 'relative', flex: 1, minWidth: 0, maxWidth: '640px' }}
+        style={{ position: 'relative', flex: '0 1 640px', width: '100%', minWidth: 0 }}
       >
         <div style={{ position: 'absolute', left: '8px', top: '25px', transform: 'translateY(-50%)', width: '34px', height: '34px', borderRadius: '10px', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.10)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 1 }}>
           <Search size={17} strokeWidth={2.5} />
@@ -231,8 +222,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
             backgroundColor: 'rgba(255, 255, 255, 0.06)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
             borderBottom: suggestOpen && homeQuery.trim().length >= 2 ? '1px solid transparent' : '1px solid rgba(255, 255, 255, 0.12)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
             color: '#fff',
             fontSize: '14px',
             fontWeight: 500,
@@ -271,8 +262,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
               right: 0,
               borderRadius: '0 0 16px 16px',
               backgroundColor: 'rgba(16, 18, 28, 0.94)',
-              backdropFilter: 'blur(24px)',
-              WebkitBackdropFilter: 'blur(24px)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderTop: '1px solid rgba(255, 255, 255, 0.06)',
               boxShadow: '0 24px 48px rgba(0, 0, 0, 0.55)',
@@ -362,45 +353,55 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         )}
       </form>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', flexShrink: 0, userSelect: 'none' }}>
-          <span style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '2.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Powered by
-          </span>
-          <span style={{ fontSize: '17px', fontWeight: 900, fontStyle: 'italic', letterSpacing: '1.5px', color: '#f8fafc', textShadow: '0 2px 18px rgba(255, 255, 255, 0.25)' }}>
-            ORIGIN SOUNDS
-          </span>
-        </div>
       </div>
 
-      {/* 1. Dynamic Mood Banner */}
-      <div
+            {/* 1. Stunning Hero Banner */}
+      <div 
+        onClick={() => onSearchSubmit(mood.query)}
         style={{
+          marginTop: '16px',
           position: 'relative',
           zIndex: 1,
+          background: 'linear-gradient(135deg, rgba(248,250,252,0.30) 0%, rgba(139,92,246,0.65) 52%, rgba(6,182,212,0.45) 100%)',
+          borderRadius: '24px',
+          padding: '2px', // Thin colorful border effect
+          cursor: 'pointer',
+          transition: 'transform 0.2s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.01)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+      >
+        <div style={{
+          background: 'rgba(18, 20, 31, 0.84)',
+          backdropFilter: 'blur(16px)',
+          borderRadius: '22px',
+          padding: '32px 36px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '22px 28px',
-          borderRadius: '22px',
-          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.10)',
-          backdropFilter: 'blur(22px)',
-          WebkitBackdropFilter: 'blur(22px)',
-          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.35)',
-          width: '100%',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span key={mood.text} style={{ fontSize: '26px', fontWeight: 900, color: '#fff', animation: 'freqRiseIn 0.4s ease' }}>
-            {mood.text}
-          </span>
-          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Fresh picks for your {daypart()}
-          </span>
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Decorative glowing orbs */}
+          <div style={{ position: 'absolute', top: '-50%', left: '-10%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(139,92,246,0.16) 0%, transparent 70%)', filter: 'blur(32px)' }} />
+          <div style={{ position: 'absolute', bottom: '-50%', right: '-10%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%)', filter: 'blur(32px)' }} />
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', zIndex: 2 }}>
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '2px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>
+              Made For You
+            </span>
+            <span key={mood.text} style={{ fontSize: '40px', fontWeight: 900, color: '#fff', letterSpacing: '-1px', animation: 'freqRiseIn 0.4s ease' }}>
+              {mood.text}
+            </span>
+            <span style={{ fontSize: '15px', fontWeight: 500, color: 'rgba(255,255,255,0.6)' }}>
+              Jump into a custom mix based on your mood.
+            </span>
+          </div>
+
+          <div key={mood.text + '-icon'} style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', animation: 'freqPopIn 0.4s ease' }}>
+            <mood.Icon size={36} color="#fff" strokeWidth={1.5} />
+          </div>
         </div>
-        <span key={mood.text + '-icon'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '18px', backgroundColor: 'rgba(255, 255, 255, 0.07)', border: '1px solid rgba(255, 255, 255, 0.10)', animation: 'freqPopIn 0.4s ease' }}>
-          <mood.Icon size={30} color="#fff" strokeWidth={1.8} />
-        </span>
       </div>
 
       {/* 2. Recently Played Rail */}
@@ -420,12 +421,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               gap: '16px',
             }}
           >
-            {recentlyPlayed.slice(0, 8).map(track => {
+            {recentlyPlayed.slice(0, 4).map(track => {
               const isCurrent = !!currentTrackId && track.id === currentTrackId;
               return (
               <div
                 key={track.id}
-                onClick={() => { if (isCurrent) onOpenPlayer?.(); else onPlayTrack(track); }}
+                onClick={() => { if (isCurrent) onOpenPlayer?.(); else onPlayTrack(track); }} onContextMenu={e => onTrackContextMenu?.(e, track)}
                 style={{
                   padding: '12px',
                   borderRadius: '16px',
@@ -607,7 +608,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 {songs.length > 0 && (
                   <button
                     onClick={() => {
-                      const shuffled = [...songs].sort(() => Math.random() - 0.5);
+                      const shuffled = shuffle(songs);
                       onPlayTrack(shuffled[0], shuffled);
                     }}
                     title={`Shuffle ${section.title}`}
@@ -653,7 +654,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   return (
                     <div
                       key={iIdx}
-                      onClick={() => onPlayTrack(trackObj, songs)}
+                      onClick={() => onPlayTrack(trackObj)} onContextMenu={e => onTrackContextMenu?.(e, trackObj)}
                       style={{
                         width: '170px',
                         flexShrink: 0,
@@ -734,3 +735,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
     </div>
   );
 };
+
+
+
+
+
+
+
+
+
+

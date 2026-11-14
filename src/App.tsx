@@ -1,31 +1,129 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { NowPlayingModal } from './components/NowPlayingModal';
+import { PartyModal } from './components/PartyModal';
 import { QueueDrawer } from './components/QueueDrawer';
 import { AddToPlaylistModal } from './components/AddToPlaylistModal';
+import { TrackContextMenu } from './components/TrackContextMenu';
 
 import { HomeView } from './views/HomeView';
 import { SearchView } from './views/SearchView';
 import { LibraryView } from './views/LibraryView';
+import { StatsView } from './views/StatsView';
 import { PlaylistDetailView } from './views/PlaylistDetailView';
 import { ArtistDetailView } from './views/ArtistDetailView';
 import { AlbumDetailView } from './views/AlbumDetailView';
 import { SettingsView } from './views/SettingsView';
 
-import { AudioMode, MediaTrack, RepeatMode, UserPlaylist } from './types';
+import { AudioMode, DuplicateGroup, MediaTrack, RepeatMode, SmartMix, UserPlaylist } from './types';
 import { audioEngine } from './services/audioEngine';
-import { libraryStore } from './services/libraryStore';
+import { partyService } from './services/partyService';
+import { DownloadedTrack, libraryStore, LibraryStore, PlayStatEntry } from './services/libraryStore';
+import { formatBytes, withLocalFile } from './services/downloads';
 import { AutoplayEngine } from './services/autoplayEngine';
 import { ytMusicService } from './services/ytmusic';
 import { buildContinuationQueue, CONTINUATION_LIMIT } from './services/continuationQueue';
 import { isSameSong, shouldUseContinuation } from './services/vibeMatch';
+import { regionFromLocale } from './services/regions';
+import { playbackManager } from './services/playbackManager';
+import { isPlayableSource, sourceUrlOf } from './services/playbackSource';
+import { clampQueueIndex, cycleRepeatMode } from './services/playbackQueueLogic';
 import { ConfirmDialog, CreatePlaylistDialog, ToastItem, ToastStack } from './components/FreqDialogs';
-import { HomeQueueRail } from './components/HomeQueueRail';
 import { HomeLyricsRail } from './components/HomeLyricsRail';
 
+import { downloadBlob, renderShareCard } from './services/shareCard';
+import { shuffle } from './utils/shuffle';
+
 export const App: React.FC = () => {
+  // Updater State
+  const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
+  const [updateIgnored, setUpdateIgnored] = useState<boolean>(false);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [updateChecking, setUpdateChecking] = useState<boolean>(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateDownloading, setUpdateDownloading] = useState<boolean>(false);
+  const [updateProgress, setUpdateProgress] = useState<number>(0);
+  const [updateReady, setUpdateReady] = useState<boolean>(false);
+
+  // Auto-Updater Hook (GitHub Releases via electron-updater)
+  useEffect(() => {
+    if (!window.electronAPI?.onUpdaterEvent) return;
+
+    const cleanup = window.electronAPI.onUpdaterEvent((data: any) => {
+      switch (data?.type) {
+        case 'checking-for-update':
+          setUpdateChecking(true);
+          setUpdateError(null);
+          break;
+        case 'update-available':
+          setUpdateChecking(false);
+          setUpdateError(null);
+          setUpdateIgnored(false);
+          setUpdateInfo(data.info);
+          setUpdateAvailable(true);
+          break;
+        case 'update-not-available':
+          setUpdateChecking(false);
+          setUpdateAvailable(false);
+          break;
+        case 'download-progress':
+          setUpdateDownloading(true);
+          setUpdateProgress(data.progress || 0);
+          break;
+        case 'update-downloaded':
+          setUpdateDownloading(false);
+          setUpdateProgress(100);
+          setUpdateReady(true);
+          break;
+        case 'error':
+          setUpdateChecking(false);
+          setUpdateDownloading(false);
+          setUpdateError(data.error || 'Update check failed');
+          break;
+      }
+    });
+
+    // Check once on startup.
+    setUpdateChecking(true);
+    window.electronAPI.checkForUpdates().catch(err => {
+      setUpdateChecking(false);
+      setUpdateError(String(err));
+    });
+
+    return cleanup;
+  }, []);
+
+  const updateVisible = updateAvailable && !updateIgnored;
+
+  const handleCheckForUpdates = () => {
+    if (!window.electronAPI?.checkForUpdates) return;
+    setUpdateIgnored(false);
+    setUpdateError(null);
+    setUpdateChecking(true);
+    window.electronAPI.checkForUpdates().catch(err => {
+      setUpdateChecking(false);
+      setUpdateError(String(err));
+    });
+  };
+
+  const handleDownloadUpdate = () => {
+    if (!window.electronAPI?.downloadUpdate) return;
+    setUpdateError(null);
+    window.electronAPI.downloadUpdate().catch(err => {
+      setUpdateDownloading(false);
+      setUpdateError(String(err));
+    });
+  };
+
+  const handleInstallUpdate = () => {
+    if (!window.electronAPI?.installUpdate) return;
+    window.electronAPI.installUpdate().catch(err => {
+      setUpdateError(String(err));
+    });
+  };
+
   // Navigation State
   const [currentView, setCurrentView] = useState<string>('home');
   const [activeParam, setActiveParam] = useState<string | undefined>(undefined);
@@ -44,9 +142,79 @@ export const App: React.FC = () => {
   const [queueIndex, setQueueIndex] = useState<number>(0);
   const [isTrackLoading, setIsTrackLoading] = useState<boolean>(false);
 
+  // Sleep timer: countdown stop, or stop at end of current track.
+  type SleepMode = 'off' | 'timer' | 'end';
+  const [sleepMode, setSleepMode] = useState<SleepMode>('off');
+  const [sleepRemaining, setSleepRemaining] = useState<number>(0);
+  const sleepRef = useRef<{ mode: SleepMode }>({ mode: 'off' });
+  const sleepEndsAtRef = useRef<number | null>(null);
+  useEffect(() => { sleepRef.current.mode = sleepMode; }, [sleepMode]);
+
+  // Wake-up alarm (in-app): time + playlist, fires while the app is open.
+  const [alarm, setAlarm] = useState(() => {
+    try {
+      const raw = localStorage.getItem('freq_alarm');
+      if (raw) {
+        const p = JSON.parse(raw);
+        return {
+          enabled: !!p.enabled,
+          time: typeof p.time === 'string' && /^\d{2}:\d{2}$/.test(p.time) ? p.time : '07:00',
+          playlistId: typeof p.playlistId === 'string' ? p.playlistId : 'liked',
+          firedDate: typeof p.firedDate === 'string' ? p.firedDate : '',
+        };
+      }
+    } catch {
+      // Defaults below.
+    }
+    return { enabled: false, time: '07:00', playlistId: 'liked', firedDate: '' };
+  });
+  const alarmRef = useRef(alarm);
+  useEffect(() => {
+    alarmRef.current = alarm;
+    try {
+      localStorage.setItem('freq_alarm', JSON.stringify(alarm));
+    } catch {
+      // Ignored.
+    }
+  }, [alarm]);
+
+  const [discoveryLoading, setDiscoveryLoading] = useState<boolean>(false);
+
+  // Mini-player pin: window stays above all others.
+  const [alwaysOnTop, setAlwaysOnTop] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('freq_always_on_top') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleAlwaysOnTop = () => {
+    setAlwaysOnTop(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('freq_always_on_top', next ? '1' : '0');
+      } catch {
+        // Ignored.
+      }
+      window.electronAPI?.setAlwaysOnTop(next).catch(() => {});
+      return next;
+    });
+  };
+
+  // Apply the persisted pin on launch (after the window exists).
+  useEffect(() => {
+    if (alwaysOnTop) window.electronAPI?.setAlwaysOnTop(true).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Modal / Drawer Toggles
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState<boolean>(false);
+  const [isPartyOpen, setIsPartyOpen] = useState<boolean>(false);
+  const [isInParty, setIsInParty] = useState<boolean>(() => partyService.isInParty());
+  const [partyMembersCount, setPartyMembersCount] = useState<number>(() => partyService.getMembers().length);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, track: MediaTrack } | null>(null);
   const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState<boolean>(false);
   const [trackForPlaylist, setTrackForPlaylist] = useState<MediaTrack | null>(null);
   const [isHomeLyricsOpen, setIsHomeLyricsOpen] = useState<boolean>(false);
@@ -67,6 +235,15 @@ export const App: React.FC = () => {
   const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>(libraryStore.getUserPlaylists());
   const [recentlyPlayed, setRecentlyPlayed] = useState<MediaTrack[]>(libraryStore.getRecentlyPlayed());
   const [searchHistory, setSearchHistory] = useState<string[]>(libraryStore.getSearchHistory());
+  const [playStats, setPlayStats] = useState<PlayStatEntry[]>(libraryStore.getPlayStats());
+  const [downloads, setDownloads] = useState<DownloadedTrack[]>(libraryStore.getDownloaded());
+  // Listening region (auto-detected from the OS locale, editable in Settings).
+  const [region, setRegion] = useState<string>(libraryStore.getRegion());
+  const [privateMode, setPrivateMode] = useState<boolean>(libraryStore.isPrivateMode());
+  const regionAutoPickedRef = useRef(false);
+  // Active download progress by track id (menu shows the % live).
+  const [dlProgress, setDlProgress] = useState<Record<string, number>>({});
+  const [confirmCleanDup, setConfirmCleanDup] = useState<boolean>(false);
 
   // Subscribe to library store changes
   useEffect(() => {
@@ -75,16 +252,56 @@ export const App: React.FC = () => {
       setUserPlaylists(libraryStore.getUserPlaylists());
       setRecentlyPlayed(libraryStore.getRecentlyPlayed());
       setSearchHistory(libraryStore.getSearchHistory());
+      setPlayStats(libraryStore.getPlayStats());
+      setDownloads(libraryStore.getDownloaded());
+      setRegion(libraryStore.getRegion());
+      setPrivateMode(libraryStore.isPrivateMode());
+      // First load only: silently pick a region from the OS locale instead of
+      // blocking the app with a country modal on every launch.
+      if (!regionAutoPickedRef.current) {
+        regionAutoPickedRef.current = true;
+        if (!libraryStore.isRegionPicked()) {
+          const detected = regionFromLocale(navigator.language || 'en-IN');
+          setTimeout(() => libraryStore.setRegion(detected), 0);
+        }
+      }
       // Keep the live DSP in sync with persisted flavor settings.
       audioEngine.setSnrRate(libraryStore.getSnrRate());
       audioEngine.setSnrReverb(libraryStore.getSnrReverb());
       audioEngine.setNightcoreRate(libraryStore.getNightcoreRate());
       audioEngine.setBassBoost(libraryStore.getBassBoost());
+      audioEngine.setEqGains(libraryStore.getEqGains());
+      audioEngine.setBalance(libraryStore.getBalance());
+      audioEngine.setAutoLevel(libraryStore.getAutoLevel());
+      audioEngine.setTrackTrims(libraryStore.getTrackTrims());
       const storedMode = libraryStore.getAudioMode();
       setAudioMode(storedMode);
       audioEngine.setAudioMode(storedMode);
     });
     return unsub;
+  }, []);
+
+  // Drop expensive compositing (backdrop blur, infinite animations) while the
+  // window is unfocused or hidden — keeps GPU headroom for fullscreen games.
+  useEffect(() => {
+    const syncActivity = () => {
+      const idle = document.hidden || !document.hasFocus();
+      document.body.classList.toggle('app-idle', idle);
+      if (!idle) {
+        setPosition(audioEngine.getCurrentTime());
+        setDuration(audioEngine.getDuration());
+      }
+    };
+    window.addEventListener('focus', syncActivity);
+    window.addEventListener('blur', syncActivity);
+    document.addEventListener('visibilitychange', syncActivity);
+    syncActivity();
+    return () => {
+      window.removeEventListener('focus', syncActivity);
+      window.removeEventListener('blur', syncActivity);
+      document.removeEventListener('visibilitychange', syncActivity);
+      document.body.classList.remove('app-idle');
+    };
   }, []);
 
   // Refs to avoid stale closures in audio callbacks (parity with Android token guards)
@@ -100,25 +317,73 @@ export const App: React.FC = () => {
   // stretch of dead uploads can't spin the queue forever.
   const resolveFailRef = useRef<number>(0);
   const loadingRef = useRef<boolean>(false);
+  const isTransitioningRef = useRef<boolean>(false);
   const repeatModeRef = useRef<RepeatMode>('OFF');
   const shuffleRef = useRef<boolean>(false);
   const currentTrackRef = useRef<MediaTrack | null>(null);
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { queueIndexRef.current = queueIndex; }, [queueIndex]);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
+  // Live position mirror for session persistence inside mount-once listeners.
+  const positionRef = useRef<number>(0);
+  useEffect(() => { positionRef.current = position; }, [position]);
+  const isPlayingRef = useRef<boolean>(false);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  // True once the current media element holds a loaded source. Restored
+  // sessions set a track without loading it — first play loads instead.
+  const sourceLoadedRef = useRef<boolean>(false);
+  // Saved position of a restored session, consumed by the first play.
+  const pendingPositionRef = useRef<number>(0);
+  const lastPersistAtRef = useRef<number>(0);
   useEffect(() => { shuffleRef.current = isShuffle; }, [isShuffle]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+
+  // Listened-minutes bookkeeping: mark = position at last bank. Banking
+  // is idempotent (mark advances), so pause/skip/end can all bank safely.
+  const listenMarkRef = useRef<{ id: string | null; atSec: number }>({ id: null, atSec: 0 });
+  const bankListenedMs = () => {
+    const t = currentTrackRef.current;
+    const mark = listenMarkRef.current;
+    if (!t || mark.id !== t.id) return;
+    const ms = (positionRef.current - mark.atSec) * 1000;
+    if (ms > 2000) libraryStore.recordListenMs(t.id, ms);
+    mark.atSec = positionRef.current;
+  };
+
+  // Writes the resumable session snapshot (Android PlaybackPersistence
+  // parity). Ref-only so mount-once listeners can call it safely.
+  const persistSessionNow = () => {
+    bankListenedMs();
+    const track = currentTrackRef.current;
+    const q = queueRef.current;
+    if (!track || q.length === 0) return;
+    playbackManager.saveSession({
+      queue: q,
+      queueIndex: queueIndexRef.current,
+      trackId: track.id,
+      positionMs: Math.round(positionRef.current * 1000),
+      shuffle: shuffleRef.current,
+      repeatMode: repeatModeRef.current,
+    });
+  };
 
   // Setup Audio Engine Event Handlers — subscribe once with cleanup (fixes listener leak)
   useEffect(() => {
     const offPlay = audioEngine.onPlay(() => {
+      isTransitioningRef.current = false;
       setIsPlaying(true);
       // A track that starts rendering is healthy — reset its failure count.
       const id = currentTrackRef.current?.id;
       if (id) failRef.current = { id, count: 0 };
     });
-    const offPause = audioEngine.onPause(() => setIsPlaying(false));
+    const offPause = audioEngine.onPause(() => {
+      setIsPlaying(false);
+      persistSessionNow();
+    });
     const offTime = audioEngine.onTimeUpdate((pos, dur) => {
+      partyService.updateLocalPlaybackStatus(pos, isPlayingRef.current, currentTrackRef.current);
+      // No React churn while the app is in the background (game in focus).
+      if (document.hidden || !document.hasFocus()) return;
       setPosition(pos);
       setDuration(dur);
     });
@@ -135,34 +400,40 @@ export const App: React.FC = () => {
       } else {
         failRef.current = { id: badId, count: 1 };
         // First failure for this URL: the cached stream may be poisoned
-        // (expired/blocked googlevideo URL) — evict it so the retry
-        // re-extracts a fresh URL instead of failing instantly again.
+        // (expired/blocked googlevideo URL) — evict it on both sides so the
+        // retry re-extracts a fresh URL instead of failing instantly again.
+        playbackManager.invalidateCachedSource(badId || '');
         if (badId && window.electronAPI?.invalidateStreamUrl) {
           window.electronAPI.invalidateStreamUrl(badId).catch(() => {});
         }
       }
-      if (badId && failRef.current.count >= 3) {
-        // Same track failed 3x in a row — drop it so the queue can't
-        // spin on one bad stream, then continue.
-        failRef.current = { id: null, count: 0 };
-        pushToast('Skipping unplayable track', 'danger');
-        setQueue(prev => {
-          const idx = prev.findIndex(t => t.id === badId);
-          if (idx === -1) return prev;
-          const next = prev.filter((_, i) => i !== idx);
-          setQueueIndex(cur => {
-            if (idx < cur) return Math.max(0, cur - 1);
-            if (idx === cur) return Math.min(cur, Math.max(next.length - 1, 0));
-            return cur;
+              if (badId && failRef.current.count < 3) {
+          pushToast(`Stream broken. Retrying... (${failRef.current.count}/3)`, 'info');
+          setTimeout(() => {
+            const tr = currentTrackRef.current;
+            const q = queueRef.current.length ? queueRef.current : queue;
+            if (tr) handlePlayTrackRef.current(tr, q, true);
+          }, 1500);
+          return;
+        } else if (badId && failRef.current.count >= 3) {
+          failRef.current = { id: null, count: 0 };
+          pushToast('Skipping unplayable track', 'danger');
+          setQueue(prev => {
+            const idx = prev.findIndex(t => t.id === badId);
+            if (idx === -1) return prev;
+            const next = prev.filter((_, i) => i !== idx);
+            setQueueIndex(cur => {
+              if (idx < cur) return Math.max(0, cur - 1);
+              if (idx === cur) return Math.min(cur, Math.max(next.length - 1, 0));
+              return cur;
+            });
+            return next;
           });
-          return next;
-        });
-        setTimeout(() => handleNextRef.current(), 300);
-        return;
-      }
-      // Recovery: try next track (parity with Android 1-retry recovery)
-      handleNextRef.current();
-    });
+          setTimeout(() => handleNextRef.current(), 300);
+          return;
+        }
+        handleNextRef.current();
+      });
 
     audioEngine.setMediaSessionActionHandlers({
       onPlay: () => handlePlayPauseRef.current(),
@@ -174,28 +445,74 @@ export const App: React.FC = () => {
     return () => { offPlay(); offPause(); offTime(); offEnd(); offErr(); };
   }, []);
 
-  // Global Keyboard Shortcuts
+  // Session restore (Android PlaybackPersistence parity): one-shot on
+  // mount, restored paused — the first play resumes at the saved position.
+  useEffect(() => {
+    const snap = playbackManager.loadSession();
+    if (!snap || snap.queue.length === 0) return;
+    const idx = clampQueueIndex(snap.queueIndex, snap.queue.length);
+    const track = snap.queue[idx] || null;
+    setQueue(snap.queue);
+    setQueueIndex(idx);
+    setCurrentTrack(track);
+    const posSec = snap.positionMs / 1000;
+    pendingPositionRef.current = posSec;
+    setPosition(posSec);
+    if (track) setDuration(track.durationSeconds || 0);
+    setIsShuffle(snap.shuffle);
+    setRepeatMode(snap.repeatMode);
+    sourceLoadedRef.current = false;
+  }, []);
+
+  // Throttled session persist while playing (10s) — pause/track edits
+  // persist immediately via persistSessionNow.
+  useEffect(() => {
+    if (!currentTrack || queue.length === 0) return;
+    const now = Date.now();
+    if (now - lastPersistAtRef.current < 10_000) return;
+    lastPersistAtRef.current = now;
+    persistSessionNow();
+  }, [currentTrack, queue, queueIndex, isShuffle, repeatMode, position]);
+
+  // Seamless-transition prefetch (Android maybePrefetchNext parity): warm
+  // the next track's URL as this one nears its end. Ref-only, no UI touch.
+  useEffect(() => {
+    const q = queueRef.current;
+    if (q.length === 0 || duration <= 0) return;
+    playbackManager.maybePrefetchNext(
+      currentTrackRef.current,
+      q[queueIndexRef.current + 1],
+      duration,
+      position,
+    );
+  }, [position, duration]);
+
+  // Global Keyboard Shortcuts (remappable in Settings; Esc closes dialogs)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeTag = (document.activeElement?.tagName || '').toLowerCase();
       if (activeTag === 'input' || activeTag === 'textarea') return;
 
-      if (e.code === 'Space') {
+      const bindings = libraryStore.getShortcuts();
+      const match = (code: string, ctrl: boolean) =>
+        code === e.code && ctrl === !!(e.ctrlKey || e.metaKey);
+
+      if (match(bindings.playPause.code, bindings.playPause.ctrl)) {
         e.preventDefault();
         handlePlayPause();
-      } else if (e.code === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
+      } else if (match(bindings.next.code, bindings.next.ctrl)) {
         e.preventDefault();
         handleNext();
-      } else if (e.code === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
+      } else if (match(bindings.prev.code, bindings.prev.ctrl)) {
         e.preventDefault();
         handlePrev();
-      } else if (e.code === 'ArrowRight') {
+      } else if (match(bindings.seekForward.code, bindings.seekForward.ctrl)) {
         e.preventDefault();
         handleSeek(position + 5);
-      } else if (e.code === 'ArrowLeft') {
+      } else if (match(bindings.seekBack.code, bindings.seekBack.ctrl)) {
         e.preventDefault();
         handleSeek(position - 5);
-      } else if (e.code === 'KeyM') {
+      } else if (match(bindings.mute.code, bindings.mute.ctrl)) {
         handleToggleMute();
       } else if (e.code === 'Escape') {
         if (isCreatePlaylistOpen) setIsCreatePlaylistOpen(false);
@@ -216,15 +533,28 @@ export const App: React.FC = () => {
   // interaction pokes the 5-minute AFK clock (throttled).
   useEffect(() => {
     if (!window.electronAPI) return;
-    if (!currentTrack) {
+    // Private mode: always browsing presence, never the track.
+    if (!currentTrack || privateMode) {
       window.electronAPI.updateDiscordPresence({
         track: null,
         isPlaying: false,
         position: 0,
         audioMode,
+        party: !privateMode && isInParty && partyService.getPartyCode() ? {
+          code: partyService.getPartyCode()!,
+          size: partyMembersCount || 1,
+          max: 5,
+          isHost: partyService.getIsHost(),
+        } : undefined,
       });
       return;
     }
+
+    // During track-loading transitions (auto-advance / queue), isPlaying
+    // briefly flips to false before the next track starts. Suppress the
+    // "Paused" update so Discord never shows a stale state — the next
+    // track will fire a proper "playing" update once it has loaded.
+    if (!isPlaying && (isTrackLoading || isTransitioningRef.current)) return;
 
     window.electronAPI.updateDiscordPresence({
       track: {
@@ -238,8 +568,14 @@ export const App: React.FC = () => {
       isPlaying,
       position,
       audioMode,
+      party: isInParty && partyService.getPartyCode() ? {
+        code: partyService.getPartyCode()!,
+        size: partyMembersCount || 1,
+        max: 5,
+        isHost: partyService.getIsHost(),
+      } : undefined,
     });
-  }, [currentTrack, isPlaying, audioMode]);
+  }, [currentTrack, isPlaying, audioMode, privateMode, isTrackLoading, isInParty, partyMembersCount]);
 
   useEffect(() => {
     if (!window.electronAPI?.pokeDiscordPresence) return;
@@ -273,8 +609,12 @@ export const App: React.FC = () => {
       for (const c of cands) {
         if (token !== loadTokenRef.current) return null;
         try {
-          const s = await window.electronAPI.getStreamUrl(c.id);
-          if (s?.streamUrl) return { track: c, url: s.streamUrl };
+          // Verify through the resolver (cached + validated) before swapping.
+          const src = await playbackManager.resolveSource(c);
+          if (isPlayableSource(src)) {
+            const url = sourceUrlOf(src);
+            if (url) return { track: c, url };
+          }
         } catch {
           // try next upload
         }
@@ -292,9 +632,16 @@ export const App: React.FC = () => {
     return idx;
   };
 
-  const handlePlayTrack = async (track: MediaTrack, playlist?: MediaTrack[], isExplicit?: boolean) => {
+  const handlePlayTrack = async (track: MediaTrack, playlist?: MediaTrack[], isExplicit?: boolean, startAtSec: number = 0) => {
     if (!track?.id) return;
+    loadingRef.current = true;
+    setIsTrackLoading(true);
+    isTransitioningRef.current = true;
+    // Offline first: attach the downloaded file when present and intact.
+    track = await withLocalFile(track);
     const token = ++loadTokenRef.current;
+    // New selection: the next-track prefetch belongs to the old boundary.
+    playbackManager.resetPrefetch();
     // Stop current audio immediately and reset the timeline; the new
     // track starts only after its stream resolves.
     audioEngine.pause();
@@ -315,18 +662,26 @@ export const App: React.FC = () => {
     setQueue(newQueue);
     setQueueIndex(newIndex);
 
-    // Resolve audio stream through local yt-dlp bridge
+    if (!playlist || playlist.length === 0) {
+      ytMusicService.getWatch(track.id, 25).then(vibeQueue => {
+        if (loadTokenRef.current !== token) return;
+        if (vibeQueue && vibeQueue.length > 0) {
+          setQueue(vibeQueue);
+          const vIndex = vibeQueue.findIndex(t => t.id === track.id);
+          setQueueIndex(vIndex !== -1 ? vIndex : 0);
+        }
+      }).catch(err => console.warn('Failed vibe queue', err));
+    }
+
+    // Resolve audio through the ordered source chain (local → yt-dlp
+    // bridge → cloud), with cache + validation handled inside.
     try {
       let activeTrack = track;
-      let streamUrl = '';
+      let streamUrl: string | null = null;
       try {
-        if (window.electronAPI) {
-          const streamData = await window.electronAPI.getStreamUrl(track.id);
-          streamUrl = streamData.streamUrl;
-        } else {
-          // Fallback for browser preview
-          streamUrl = `https://freq-api.vercel.app/api/stream/${track.id}`;
-        }
+        const resolved = await playbackManager.resolveSource(track);
+        streamUrl = isPlayableSource(resolved) ? sourceUrlOf(resolved) : null;
+        if (!streamUrl) throw new Error(`No playable source for ${track.id}`);
       } catch (resolveErr) {
         // Primary upload is dead (removed/region-locked) — swap to the
         // same song from a working upload instead of failing outright.
@@ -343,11 +698,23 @@ export const App: React.FC = () => {
       if (token !== loadTokenRef.current) return;
 
       await audioEngine.loadAndPlay(streamUrl, activeTrack);
+      sourceLoadedRef.current = true;
+      libraryStore.recordTrackStart(activeTrack);
+      listenMarkRef.current = { id: activeTrack.id, atSec: startAtSec };
+      if (startAtSec > 0) {
+        audioEngine.seek(startAtSec);
+        setPosition(startAtSec);
+      }
       if (token !== loadTokenRef.current) {
         audioEngine.pause();
         return;
       }
       resolveFailRef.current = 0;
+
+      // Broadcast to Listen Together party if we are the Host
+      if (partyService.getIsHost() && partyService.isInParty()) {
+        partyService.broadcastTrackChange(activeTrack, startAtSec, true);
+      }
 
       // Autoplay only for single-track taps (parity: isAutoplaySafeToGenerate).
       // Explicit album/playlist queues stay verbatim.
@@ -419,10 +786,26 @@ export const App: React.FC = () => {
 
   const handlePlayPause = () => {
     if (!currentTrack || loadingRef.current) return;
+    if (!sourceLoadedRef.current) {
+      // Restored session: a track is set but no media was ever loaded —
+      // load it now, resuming at the saved position.
+      const q = queueRef.current.length ? queueRef.current : queue;
+      const at = pendingPositionRef.current;
+      pendingPositionRef.current = 0;
+      handlePlayTrack(currentTrack, q, true, at);
+      return;
+    }
     if (isPlaying) {
       audioEngine.pause();
+      if (partyService.getIsHost() && partyService.isInParty()) {
+        partyService.broadcastPlayState(false, position);
+      }
     } else {
-      audioEngine.play().catch((e: any) => {
+      audioEngine.play().then(() => {
+        if (partyService.getIsHost() && partyService.isInParty()) {
+          partyService.broadcastPlayState(true, position);
+        }
+      }).catch((e: any) => {
         console.error('Play toggle failed:', e);
         pushToast('Playback failed — trying next track', 'danger');
         handleNextRef.current();
@@ -432,9 +815,12 @@ export const App: React.FC = () => {
 
   const handleStop = () => {
     if (!currentTrack) return;
+    bankListenedMs();
     // Cross: stop audio, cancel any pending load, reset and close the bar.
     ++loadTokenRef.current;
     loadingRef.current = false;
+    isTransitioningRef.current = false;
+    sourceLoadedRef.current = false;
     setIsTrackLoading(false);
     audioEngine.pause();
     audioEngine.seek(0);
@@ -451,6 +837,7 @@ export const App: React.FC = () => {
       return;
     }
     if (q.length === 0) return;
+    bankListenedMs();
     const prevIndex = qi > 0 ? qi - 1 : q.length - 1;
     setQueueIndex(prevIndex);
     handlePlayTrack(q[prevIndex], q, true);
@@ -460,6 +847,7 @@ export const App: React.FC = () => {
     const q = queueRef.current.length ? queueRef.current : queue;
     const qi = queueRef.current.length ? queueIndexRef.current : queueIndex;
     if (q.length === 0) return;
+    bankListenedMs();
     const shuffleOn = shuffleRef.current || isShuffle;
     const nextIndex = shuffleOn
       ? pickRandomIndex(q, qi)
@@ -468,7 +856,36 @@ export const App: React.FC = () => {
     handlePlayTrack(q[nextIndex], q, true);
   };
 
+  const handleSetSleep = (v: number | null | 'end') => {
+    if (v === null) {
+      sleepRef.current.mode = 'off';
+      sleepEndsAtRef.current = null;
+      setSleepMode('off');
+      setSleepRemaining(0);
+      pushToast('Sleep timer off', 'info');
+    } else if (v === 'end') {
+      sleepEndsAtRef.current = null;
+      sleepRef.current.mode = 'end';
+      setSleepMode('end');
+      pushToast('Will stop at end of track', 'info');
+    } else {
+      sleepEndsAtRef.current = Date.now() + v * 60000;
+      sleepRef.current.mode = 'timer';
+      setSleepMode('timer');
+      setSleepRemaining(v * 60);
+      pushToast(`Sleep in ${v} min`, 'info');
+    }
+  };
+
   const handleTrackEnd = () => {
+    bankListenedMs();
+    if (sleepRef.current.mode === 'end') {
+      sleepRef.current.mode = 'off';
+      setSleepMode('off');
+      audioEngine.pause();
+      pushToast('Sleep timer ended', 'info');
+      return;
+    };
     const q = queueRef.current;
     const qi = queueIndexRef.current;
     const rm = repeatModeRef.current;
@@ -491,6 +908,7 @@ export const App: React.FC = () => {
         if (q[0]) handlePlayTrack(q[0], q, true);
       } else {
         // OFF: stop at end (parity with Android repeat Off)
+        isTransitioningRef.current = false;
         audioEngine.pause();
       }
     } else {
@@ -503,7 +921,10 @@ export const App: React.FC = () => {
   const handleSeek = (sec: number) => {
     audioEngine.seek(sec);
     setPosition(sec);
-    if (window.electronAPI && currentTrack) {
+    if (partyService.getIsHost() && partyService.isInParty()) {
+      partyService.broadcastSeek(sec);
+    }
+    if (window.electronAPI && currentTrack && !privateMode) {
       window.electronAPI.updateDiscordPresence({
         track: {
           id: currentTrack.id,
@@ -516,6 +937,12 @@ export const App: React.FC = () => {
         isPlaying,
         position: sec,
         audioMode,
+        party: isInParty && partyService.getPartyCode() ? {
+          code: partyService.getPartyCode()!,
+          size: partyMembersCount || 1,
+          max: 5,
+          isHost: partyService.getIsHost(),
+        } : undefined,
       });
     }
   };
@@ -551,9 +978,7 @@ export const App: React.FC = () => {
   };
 
   const handleToggleRepeat = () => {
-    if (repeatMode === 'OFF') setRepeatMode('ALL');
-    else if (repeatMode === 'ALL') setRepeatMode('ONE');
-    else setRepeatMode('OFF');
+    setRepeatMode(cycleRepeatMode(repeatMode));
   };
 
   const handleToggleLike = (track?: MediaTrack) => {
@@ -593,6 +1018,283 @@ export const App: React.FC = () => {
     pushToast('Will play next', 'info');
   };
 
+  // Smart Mixes: auto-built from taste (Replay = most played, Liked = reshuffled).
+  const smartMixes: SmartMix[] = useMemo(() => {
+    const mixes: SmartMix[] = [];
+    const top = playStats.slice(0, 25);
+    if (top.length >= 5) {
+      mixes.push({
+        id: 'mix-replay',
+        title: 'Replay Mix',
+        description: `${top.length} most-played songs`,
+        tracks: top.map(s => s.track),
+      });
+    }
+    if (likedTracks.length >= 5) {
+      const shuffled = shuffle(likedTracks);
+      mixes.push({
+        id: 'mix-liked',
+        title: 'Liked Shuffle',
+        description: `${likedTracks.length} liked songs, reshuffled`,
+        tracks: shuffled,
+      });
+    }
+    return mixes;
+  }, [playStats, likedTracks]);
+
+  const handlePlayMix = (mix: SmartMix) => {
+    if (mix.tracks.length === 0) return;
+    handlePlayTrack(mix.tracks[0], mix.tracks, true);
+  };
+
+  // Discovery Mix: fresh songs from the most-played artist.
+  const handlePlayDiscoveryMix = async () => {
+    if (discoveryLoading) return;
+    const seedArtist = playStats.length > 0
+      ? (playStats[0].track.artist || '').split(',')[0].trim()
+      : '';
+    if (!seedArtist || seedArtist === 'Unknown Artist') {
+      pushToast('Play more songs to unlock Discovery Mix', 'info');
+      return;
+    }
+    setDiscoveryLoading(true);
+    try {
+      const tracks = (await ytMusicService.search(seedArtist)).filter(t => t.id).slice(0, 25);
+      if (tracks.length === 0) {
+        pushToast('No discovery tracks found', 'danger');
+        return;
+      }
+      handlePlayTrack(tracks[0], tracks, true);
+    } catch {
+      pushToast('Discovery Mix failed', 'danger');
+    } finally {
+      setDiscoveryLoading(false);
+    }
+  };
+
+  // Alarm fire: start the chosen playlist.
+  const fireAlarm = () => {
+    const a = alarmRef.current;
+    const tracks = a.playlistId === 'liked'
+      ? libraryStore.getLikedTracks()
+      : libraryStore.getUserPlaylists().find(p => p.id === a.playlistId)?.tracks || [];
+    if (tracks.length === 0) {
+      pushToast('Alarm playlist is empty', 'danger');
+      return;
+    }
+    pushToast(`Good morning — playing “${a.playlistId === 'liked' ? 'Liked Songs' : 'your playlist'}”`, 'info');
+    handlePlayTrackRef.current(tracks[0], tracks, true);
+  };
+
+  const handleAlarmChange = (a: { enabled: boolean; time: string; playlistId: string }) => {
+    setAlarm(prev => ({ ...a, firedDate: prev.firedDate }));
+    if (a.enabled) pushToast(`Alarm set for ${a.time}`, 'success');
+  };
+
+  // Download progress listener (main process streams yt-dlp % here).
+  useEffect(() => {
+    if (!window.electronAPI?.onDownloadProgress) return;
+    return window.electronAPI.onDownloadProgress(({ videoId, pct }) => {
+      setDlProgress(prev => ({ ...prev, [videoId]: pct }));
+    });
+  }, []);
+
+  const handleDownloadTrack = async (track: MediaTrack) => {
+    if (!track?.id) return;
+    if (!window.electronAPI?.downloadTrack) {
+      pushToast('Downloads need the desktop app', 'danger');
+      return;
+    }
+    if (dlProgress[track.id] != null || libraryStore.isDownloaded(track.id)) {
+      pushToast('Already downloaded', 'info');
+      return;
+    }
+    setDlProgress(prev => ({ ...prev, [track.id]: 0 }));
+    try {
+      const res = await window.electronAPI.downloadTrack(track.id);
+      libraryStore.recordDownloaded(track, res.path, res.sizeBytes);
+      pushToast(`Downloaded “${track.title}” (${formatBytes(res.sizeBytes)})`, 'success');
+    } catch {
+      pushToast(`Download failed`, 'danger');
+    } finally {
+      setDlProgress(prev => {
+        const next = { ...prev };
+        delete next[track.id];
+        return next;
+      });
+    }
+  };
+
+  const handleRemoveDownload = async (trackId: string) => {
+    const filePath = libraryStore.removeDownloaded(trackId);
+    if (filePath && window.electronAPI?.deleteDownloadedFile) {
+      try {
+        await window.electronAPI.deleteDownloadedFile(filePath);
+      } catch {
+        // Record already dropped; file may be gone.
+      }
+    }
+    pushToast('Download removed', 'info');
+  };
+
+  // Smart Playlists: rule-based virtual lists (auto-refresh with taste).
+  const smartPlaylists: SmartMix[] = useMemo(() => {
+    const out: SmartMix[] = [];
+    const byCount = [...playStats].sort((a, b) => b.count - a.count);
+    if (byCount.length >= 5) {
+      out.push({
+        id: 'sp-rotation',
+        title: 'Heavy Rotation',
+        description: `${Math.min(byCount.length, 25)} most-played tracks`,
+        tracks: byCount.slice(0, 25).map(s => s.track),
+      });
+    }
+    const playedIds = new Set(playStats.map(s => s.track.id));
+    const gems = likedTracks.filter(t => !playedIds.has(t.id)).slice(0, 25);
+    if (gems.length >= 3) {
+      out.push({
+        id: 'sp-gems',
+        title: 'Unplayed Gems',
+        description: `${gems.length} liked but never played`,
+        tracks: gems,
+      });
+    }
+    const pool = new Map<string, MediaTrack>();
+    for (const t of [...likedTracks, ...userPlaylists.flatMap(p => p.tracks)]) {
+      if (!pool.has(t.id)) pool.set(t.id, t);
+    }
+    const marathon = [...pool.values()].filter(t => (t.durationSeconds || 0) >= 360).slice(0, 25);
+    if (marathon.length >= 3) {
+      out.push({
+        id: 'sp-marathon',
+        title: 'Marathon',
+        description: `${marathon.length} songs over 6 minutes`,
+        tracks: marathon,
+      });
+    }
+    return out;
+  }, [playStats, likedTracks, userPlaylists]);
+
+  // Duplicate groups across liked + playlists, for the cleanup tool.
+  const duplicateGroups: DuplicateGroup[] = useMemo(() => {
+    const counts = new Map<string, { title: string; artist: string; copies: number }>();
+    const all = [...likedTracks, ...userPlaylists.flatMap(p => p.tracks)];
+    for (const t of all) {
+      const key = LibraryStore.duplicateKey(t);
+      const cur = counts.get(key);
+      if (cur) cur.copies += 1;
+      else counts.set(key, { title: t.title, artist: t.artist, copies: 1 });
+    }
+    return [...counts.entries()]
+      .filter(([, v]) => v.copies > 1)
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => b.copies - a.copies)
+      .slice(0, 50);
+  }, [likedTracks, userPlaylists]);
+
+  const downloadTextFile = (name: string, text: string, mime: string) => {
+    const blob = new Blob([text], { type: `${mime};charset=utf-8` });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+
+  const handleExportJSON = () => {
+    downloadTextFile('freq-library.json', libraryStore.exportLibraryJSON(), 'application/json');
+    pushToast('Library exported (JSON)', 'success');
+  };
+
+  const handleExportM3U = () => {
+    downloadTextFile('freq-library.m3u', libraryStore.exportLibraryM3U(), 'audio/x-mpegurl');
+    pushToast('Library exported (M3U)', 'success');
+  };
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      if (/^\s*#EXTM3U/i.test(text) || text.includes('#EXTINF')) {
+        const tracks = LibraryStore.parseM3UTracks(text);
+        if (tracks.length === 0) {
+          pushToast('No YouTube tracks found in M3U', 'danger');
+          return;
+        }
+        const base = file.name.replace(/\.[^.]+$/, '') || 'Imported Playlist';
+        const res = libraryStore.importM3UTracks(base, tracks);
+        pushToast(`Imported ${res.tracks} tracks into “${res.playlist}”`, 'success');
+      } else {
+        const res = libraryStore.importLibraryJSON(text);
+        pushToast(`Imported ${res.tracks} tracks in ${res.playlists} playlists${res.skipped > 0 ? ` (${res.skipped} skipped)` : ''}`, 'success');
+      }
+    } catch {
+      pushToast('Import failed — unreadable file', 'danger');
+    }
+  };
+
+  // Region pick (Settings): persists, marks picked, Home refetches.
+  const handleRegionPick = (code: string) => {
+    libraryStore.setRegion(code);
+    setRegion(code);
+  };
+
+  // Share card: render + save PNG for the current track.
+  const handleShareTrack = async () => {
+    const t = currentTrackRef.current;
+    if (!t) return;
+    try {
+      const blob = await renderShareCard(t);
+      downloadBlob(blob, `freq-${t.id}.png`);
+      pushToast('Share card saved', 'success');
+    } catch {
+      pushToast('Share card failed', 'danger');
+    }
+  };
+
+  // Playlist link import: scrape songs into a same-named playlist.
+  const handleImportPlaylistLink = async (url: string): Promise<{ title: string; count: number } | null> => {
+    const scraped = await ytMusicService.importPlaylistLink(url);
+    if (!scraped || scraped.tracks.length === 0) return null;
+    const created = libraryStore.createPlaylist(scraped.title);
+    const added = libraryStore.addTracksToPlaylist(created.id, scraped.tracks);
+    pushToast(`Saved ${added} songs to “${created.title}”`, 'success');
+    return { title: created.title, count: added };
+  };
+
+  // 1s ticker: sleep countdown + alarm check. Ref-only, mount once.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (sleepRef.current.mode === 'timer' && sleepEndsAtRef.current) {
+        const left = Math.ceil((sleepEndsAtRef.current - Date.now()) / 1000);
+        if (left <= 0) {
+          sleepRef.current.mode = 'off';
+          sleepEndsAtRef.current = null;
+          setSleepMode('off');
+          setSleepRemaining(0);
+          audioEngine.pause();
+        } else {
+          setSleepRemaining(left);
+        }
+      }
+      const a = alarmRef.current;
+      if (a.enabled) {
+        const now = new Date();
+        const hh = `${now.getHours()}`.padStart(2, '0');
+        const mm = `${now.getMinutes()}`.padStart(2, '0');
+        const today = now.toDateString();
+        if (`${hh}:${mm}` === a.time && a.firedDate !== today) {
+          const next = { ...a, firedDate: today };
+          alarmRef.current = next;
+          setAlarm(next);
+          fireAlarm();
+        }
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const handlePlayNextTrack = (track: MediaTrack) => {
     if (!track?.id) return;
     setQueue(prev => {
@@ -615,16 +1317,121 @@ export const App: React.FC = () => {
   // Latest-handler refs for audio callbacks registered once
   const handleTrackEndRef = useRef(handleTrackEnd);
   const handleNextRef = useRef(handleNext);
+  const handlePlayTrackRef = useRef(handlePlayTrack);
   const handlePrevRef = useRef(handlePrev);
   const handlePlayPauseRef = useRef(handlePlayPause);
   const handleSeekRef = useRef(handleSeek);
   useEffect(() => {
     handleTrackEndRef.current = handleTrackEnd;
     handleNextRef.current = handleNext;
+    handlePlayTrackRef.current = handlePlayTrack;
     handlePrevRef.current = handlePrev;
     handlePlayPauseRef.current = handlePlayPause;
     handleSeekRef.current = handleSeek;
   });
+
+  // Listen Together Party Sync Listener (Guests mirror Host playback & timeline in real-time)
+  useEffect(() => {
+    const unsubSync = partyService.onSyncEvent(ev => {
+      // Host broadcasts, so ignore our own sync events
+      if (partyService.getIsHost()) return;
+
+      switch (ev.type) {
+        case 'track': {
+          if (!ev.track) return;
+          const current = currentTrackRef.current;
+          if (!current || current.id !== ev.track.id) {
+            handlePlayTrackRef.current(ev.track, [ev.track], true, ev.position || 0);
+          } else if (ev.position !== undefined) {
+            const diff = Math.abs(positionRef.current - ev.position);
+            if (diff > 1.2) {
+              audioEngine.seek(ev.position);
+              setPosition(ev.position);
+            }
+          }
+          if (ev.isPlaying !== undefined) {
+            if (ev.isPlaying && !isPlayingRef.current) {
+              audioEngine.play().catch(() => {});
+            } else if (!ev.isPlaying && isPlayingRef.current) {
+              audioEngine.pause();
+            }
+          }
+          break;
+        }
+
+        case 'playState': {
+          if (ev.isPlaying !== undefined) {
+            if (ev.isPlaying && !isPlayingRef.current) {
+              if (ev.position !== undefined && Math.abs(positionRef.current - ev.position) > 1.2) {
+                audioEngine.seek(ev.position);
+                setPosition(ev.position);
+              }
+              audioEngine.play().catch(() => {});
+            } else if (!ev.isPlaying && isPlayingRef.current) {
+              audioEngine.pause();
+              if (ev.position !== undefined) {
+                audioEngine.seek(ev.position);
+                setPosition(ev.position);
+              }
+            }
+          }
+          break;
+        }
+
+        case 'seek': {
+          if (ev.position !== undefined) {
+            const diff = Math.abs(positionRef.current - ev.position);
+            if (diff > 1.2) {
+              audioEngine.seek(ev.position);
+              setPosition(ev.position);
+            }
+          }
+          if (ev.isPlaying !== undefined) {
+            if (ev.isPlaying && !isPlayingRef.current) {
+              audioEngine.play().catch(() => {});
+            } else if (!ev.isPlaying && isPlayingRef.current) {
+              audioEngine.pause();
+            }
+          }
+          break;
+        }
+
+        case 'memberJoined': {
+          if (ev.member) {
+            pushToast(`${ev.member.name} joined the party! 🎉`, 'success');
+          }
+          break;
+        }
+
+        case 'memberLeft': {
+          if (ev.member) {
+            pushToast(`${ev.member.name} left the party.`, 'info');
+          }
+          break;
+        }
+
+        case 'kicked': {
+          pushToast(ev.reason || 'You have been removed from the party.', 'danger');
+          break;
+        }
+
+        case 'hostEnded': {
+          pushToast(ev.reason || 'The host ended the party.', 'info');
+          break;
+        }
+      }
+    });
+
+    const unsubParty = partyService.subscribe(() => {
+      setIsInParty(partyService.isInParty());
+      setPartyMembersCount(partyService.getMembers().length);
+    });
+
+    return () => {
+      unsubSync();
+      unsubParty();
+    };
+  }, []);
 
   const handleNavigate = (view: string, param?: string) => {
     setCurrentView(view);
@@ -694,6 +1501,10 @@ export const App: React.FC = () => {
           playlists={userPlaylists}
           likedCount={likedTracks.length}
           onCreatePlaylist={() => setIsCreatePlaylistOpen(true)}
+          hasUpdate={updateVisible}
+          onOpenParty={() => setIsPartyOpen(true)}
+          isInParty={isInParty}
+          partyMembersCount={partyMembersCount}
         />
 
         <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#090a0f' }}>
@@ -701,7 +1512,7 @@ export const App: React.FC = () => {
             <div style={{ display: 'flex', height: '100%', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
               <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, backgroundColor: '#090a0f' }}>
                 <HomeView
-                  onPlayTrack={handlePlayTrack}
+                  onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
                   onOpenAlbum={id => handleNavigate('album', id)}
                   onOpenArtist={id => handleNavigate('artist', id)}
                   onOpenPlaylist={id => handleNavigate('playlist', id)}
@@ -712,6 +1523,7 @@ export const App: React.FC = () => {
                   currentTrackId={currentTrack?.id ?? null}
                   isPlaying={isPlaying}
                   onOpenPlayer={() => setIsNowPlayingOpen(true)}
+                  region={region}
                 />
               </div>
               <HomeLyricsRail
@@ -721,14 +1533,6 @@ export const App: React.FC = () => {
                 onSeek={handleSeek}
                 onClose={() => setIsHomeLyricsOpen(false)}
               />
-              <HomeQueueRail
-                currentTrack={currentTrack}
-                queue={queue}
-                queueIndex={queueIndex}
-                onSelectTrack={handleQueueSelect}
-                onRemoveTrack={handleQueueRemove}
-                onClearQueue={handleQueueClear}
-              />
             </div>
           )}
 
@@ -736,14 +1540,14 @@ export const App: React.FC = () => {
             <SearchView
               key={activeParam || 'search'}
               initialQuery={activeParam}
-              onPlayTrack={handlePlayTrack}
+              onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
               onToggleLike={handleToggleLike}
               isLiked={id => libraryStore.isLiked(id)}
               onOpenAddToPlaylist={track => {
                 setTrackForPlaylist(track);
                 setIsAddToPlaylistOpen(true);
               }}
-              searchHistory={searchHistory}
+              searchHistory={searchHistory} recentlyPlayed={recentlyPlayed}
               onAddSearchHistory={q => libraryStore.addSearchQuery(q)}
               onClearSearchHistory={() => libraryStore.clearSearchHistory()}
             />
@@ -754,7 +1558,16 @@ export const App: React.FC = () => {
               likedTracks={likedTracks}
               userPlaylists={userPlaylists}
               recentlyPlayed={recentlyPlayed}
-              onPlayTrack={handlePlayTrack}
+              smartMixes={smartMixes}
+              smartPlaylists={smartPlaylists}
+              downloadedTracks={downloads}
+              totalDownloadBytes={downloads.reduce((s, d) => s + (d.sizeBytes || 0), 0)}
+              discoveryLoading={discoveryLoading}
+              onPlayMix={handlePlayMix}
+              onPlayDiscoveryMix={handlePlayDiscoveryMix}
+              onRemoveDownloaded={handleRemoveDownload}
+              onImportPlaylistLink={handleImportPlaylistLink}
+              onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
               onOpenPlaylist={id => handleNavigate('playlist', id)}
               onOpenLiked={() => handleNavigate('liked')}
               onCreatePlaylist={() => setIsCreatePlaylistOpen(true)}
@@ -769,9 +1582,9 @@ export const App: React.FC = () => {
               description="Your curated private favorites, stored strictly on-device."
               tracks={likedTracks}
               onBack={() => handleNavigate('library')}
-              onPlayTrack={handlePlayTrack}
+              onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
               onShufflePlay={tracks => {
-                const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+                const shuffled = shuffle(tracks);
                 handlePlayTrack(shuffled[0], shuffled);
               }}
               onToggleLike={handleToggleLike}
@@ -792,9 +1605,9 @@ export const App: React.FC = () => {
                   artworkUrl={pl.artworkUrl}
                   tracks={pl.tracks}
                   onBack={() => handleNavigate('library')}
-                  onPlayTrack={handlePlayTrack}
+                  onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
                   onShufflePlay={tracks => {
-                    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+                    const shuffled = shuffle(tracks);
                     if (shuffled[0]) handlePlayTrack(shuffled[0], shuffled, true);
                   }}
                   onToggleLike={handleToggleLike}
@@ -817,9 +1630,9 @@ export const App: React.FC = () => {
               key={activeParam}
               albumId={activeParam}
               onBack={() => handleNavigate('home')}
-              onPlayTrack={handlePlayTrack}
+              onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
               onShufflePlay={tracks => {
-                const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+                const shuffled = shuffle(tracks);
                 handlePlayTrack(shuffled[0], shuffled);
               }}
               onToggleLike={handleToggleLike}
@@ -832,7 +1645,7 @@ export const App: React.FC = () => {
               key={activeParam}
               artistId={activeParam}
               onBack={() => handleNavigate('home')}
-              onPlayTrack={handlePlayTrack}
+              onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
               onOpenAlbum={id => handleNavigate('album', id)}
             />
           )}
@@ -845,6 +1658,45 @@ export const App: React.FC = () => {
               playlistCount={userPlaylists.length}
               historyCount={recentlyPlayed.length}
               onClearHistory={() => setConfirmClearHistory(true)}
+              alarm={alarm}
+              alarmPlaylists={[
+                { id: 'liked', title: `Liked Songs (${likedTracks.length})` },
+                ...userPlaylists.map(p => ({ id: p.id, title: `${p.title} (${p.tracks.length})` })),
+              ]}
+              onAlarmChange={handleAlarmChange}
+              duplicates={duplicateGroups}
+              onCleanDuplicates={() => setConfirmCleanDup(true)}
+              onExportJSON={handleExportJSON}
+              onExportM3U={handleExportM3U}
+              onImportFile={handleImportFile}
+              region={region}
+              onRegionChange={handleRegionPick}
+              privateMode={privateMode}
+              onTogglePrivate={() => {
+                const next = !privateMode;
+                libraryStore.setPrivateMode(next);
+                pushToast(next ? 'Private listening on' : 'Private listening off', 'info');
+              }}
+              hasUpdate={updateVisible}
+              updateInfo={updateInfo}
+              updateChecking={updateChecking}
+              updateError={updateError}
+              updateIgnored={updateIgnored && updateAvailable}
+              updateDownloading={updateDownloading}
+              updateProgress={updateProgress}
+              updateReady={updateReady}
+              onCheckUpdate={handleCheckForUpdates}
+              onDownloadUpdate={handleDownloadUpdate}
+              onInstallUpdate={handleInstallUpdate}
+              onIgnoreUpdate={() => setUpdateIgnored(true)}
+            />
+          )}
+
+          {currentView === 'stats' && (
+            <StatsView
+              stats={playStats}
+              totalMs={playStats.reduce((sum, s) => sum + (s.totalMs || 0), 0)}
+              onPlayTrack={(t, q) => handlePlayTrack(t, q)}
             />
           )}
         </main>
@@ -876,6 +1728,8 @@ export const App: React.FC = () => {
         onToggleLike={() => handleToggleLike()}
         onAudioModeChange={handleAudioModeChange}
         onOpenNowPlaying={() => setIsNowPlayingOpen(true)}
+        alwaysOnTop={alwaysOnTop}
+        onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
         isLyricsActive={isHomeLyricsOpen && currentView === 'home'}
         onToggleLyrics={() => {
           if (currentTrack) {
@@ -883,6 +1737,9 @@ export const App: React.FC = () => {
             setIsHomeLyricsOpen(v => !v);
           }
         }}
+        onOpenParty={() => setIsPartyOpen(true)}
+        isInParty={isInParty}
+        partyMembersCount={partyMembersCount}
       />
       )}
 
@@ -920,6 +1777,13 @@ export const App: React.FC = () => {
             handlePlayTrack(queue[idx], queue, true);
           }
         }}
+        onMoveQueueTrack={handleMoveQueueTrack}
+        volume={volume}
+        isMuted={isMuted}
+        sleepMode={sleepMode}
+        sleepRemainingSec={sleepRemaining}
+        onSetSleep={handleSetSleep}
+        onShare={handleShareTrack}
         onRemoveQueueTrack={idx => {
           setQueue(prev => {
             if (idx < 0 || idx >= prev.length) return prev;
@@ -950,6 +1814,16 @@ export const App: React.FC = () => {
         onClearQueue={handleQueueClear}
         onMoveTrack={handleMoveQueueTrack}
         onPlayNext={handlePlayNextInQueue}
+      />
+
+      {/* 5.5 Listen Together Party Modal */}
+      <PartyModal
+        isOpen={isPartyOpen}
+        onClose={() => setIsPartyOpen(false)}
+        currentTrack={currentTrack}
+        isPlaying={isPlaying}
+        position={position}
+        duration={duration}
       />
 
       {/* 6. Add to Playlist Dialog */}
@@ -1015,10 +1889,71 @@ export const App: React.FC = () => {
         onConfirm={() => {
           libraryStore.clearSearchHistory();
           libraryStore.clearRecentlyPlayed();
+          libraryStore.clearPlayStats();
+          setConfirmClearHistory(false);
           pushToast('Listening & search history cleared', 'info');
         }}
       />
+      <ConfirmDialog
+        isOpen={confirmCleanDup}
+        title="Remove duplicates?"
+        message={`This keeps the first copy of ${duplicateGroups.length} duplicated song${duplicateGroups.length === 1 ? '' : 's'} and removes the rest across liked songs and playlists.`}
+        confirmLabel="Remove"
+        onCancel={() => setConfirmCleanDup(false)}
+        onConfirm={() => {
+          const removed = libraryStore.removeDuplicateTracks();
+          setConfirmCleanDup(false);
+          pushToast(`Removed ${removed} duplicate cop${removed === 1 ? 'y' : 'ies'}`, 'success');
+        }}
+      />
+              {contextMenu && (
+          <TrackContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            track={contextMenu.track}
+            isLiked={libraryStore.isLiked(contextMenu.track.id)}
+            trimDb={libraryStore.getTrackTrim(contextMenu.track.id)}
+            onTrimAdjust={d => libraryStore.adjustTrackTrim(contextMenu.track.id, d)}
+            onTrimReset={() => libraryStore.resetTrackTrim(contextMenu.track.id)}
+            isDownloaded={libraryStore.isDownloaded(contextMenu.track.id)}
+            downloadPct={dlProgress[contextMenu.track.id] ?? null}
+            onDownload={() => handleDownloadTrack(contextMenu.track)}
+            onRemoveDownload={() => handleRemoveDownload(contextMenu.track.id)}
+            onClose={() => setContextMenu(null)}
+            onPlay={() => handlePlayTrack(contextMenu.track)}
+            onPlayNext={() => handlePlayNextTrack(contextMenu.track)}
+            onAddToQueue={() => {
+              setQueue(prev => [...prev, contextMenu.track]);
+              pushToast('Added to queue', 'success');
+            }}
+            onAddToPlaylist={() => {
+              setTrackForPlaylist(contextMenu.track);
+              setIsAddToPlaylistOpen(true);
+            }}
+            onToggleLike={() => handleToggleLike(contextMenu.track)}
+          />
+        )}
       <ToastStack toasts={toasts} />
     </div>
   );
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
