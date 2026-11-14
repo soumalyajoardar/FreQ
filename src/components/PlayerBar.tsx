@@ -52,6 +52,7 @@ interface PlayerBarProps {
   onOpenParty?: () => void;
   isInParty?: boolean;
   partyMembersCount?: number;
+  isPartyGuest?: boolean;
 }
 
 export function formatTime(seconds: number): string {
@@ -92,6 +93,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   onOpenParty,
   isInParty = false,
   partyMembersCount = 0,
+  isPartyGuest = false,
 }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekVal, setSeekVal] = useState(0);
@@ -241,57 +243,70 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         {/* Playback Button Row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           <button
-            onClick={onToggleShuffle}
-            title={isShuffle ? 'Shuffle enabled' : 'Shuffle disabled'}
+            onClick={isPartyGuest ? undefined : onToggleShuffle}
+            disabled={isPartyGuest}
+            title={isPartyGuest ? 'Controlled by party host' : (isShuffle ? 'Shuffle enabled' : 'Shuffle disabled')}
             style={{
               color: isShuffle ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)',
+              opacity: isPartyGuest ? 0.35 : 1,
+              cursor: isPartyGuest ? 'not-allowed' : 'pointer',
               transition: 'color 0.15s ease, transform 0.1s ease',
               display: 'flex',
               alignItems: 'center',
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseEnter={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(1)'; }}
           >
             <Shuffle size={16} />
           </button>
 
           <button
-            onClick={onPrev}
-            title="Previous track"
+            onClick={isPartyGuest ? undefined : onPrev}
+            disabled={isPartyGuest}
+            title={isPartyGuest ? 'Controlled by party host' : 'Previous track'}
             style={{
               color: '#f0f2f5',
+              opacity: isPartyGuest ? 0.35 : 1,
+              cursor: isPartyGuest ? 'not-allowed' : 'pointer',
               transition: 'transform 0.1s ease',
               display: 'flex',
               alignItems: 'center',
             }}
-            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
-            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(0.9)'; }}
+            onMouseUp={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(1)'; }}
           >
             <SkipBack size={19} fill="currentColor" />
           </button>
 
           <button
-            onClick={onPlayPause}
-            title={isPlaying ? 'Pause' : 'Play'}
+            onClick={isPartyGuest ? undefined : onPlayPause}
+            disabled={isPartyGuest}
+            title={isPartyGuest ? 'Controlled by party host' : (isPlaying ? 'Pause' : 'Play')}
             style={{
               width: '40px',
               height: '40px',
               borderRadius: '50%',
               backgroundColor: '#fff',
               color: '#07080c',
+              opacity: isPartyGuest ? 0.5 : 1,
+              cursor: isPartyGuest ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 12px rgba(255, 255, 255, 0.25)',
+              boxShadow: isPartyGuest ? 'none' : '0 2px 12px rgba(255, 255, 255, 0.25)',
               transition: 'transform 0.15s ease, box-shadow 0.15s ease',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.transform = 'scale(1.06)';
-              e.currentTarget.style.boxShadow = '0 3px 16px rgba(255, 255, 255, 0.4)';
+              if (!isPartyGuest) {
+                e.currentTarget.style.transform = 'scale(1.06)';
+                e.currentTarget.style.boxShadow = '0 3px 16px rgba(255, 255, 255, 0.4)';
+              }
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 2px 12px rgba(255, 255, 255, 0.25)';
+              if (!isPartyGuest) {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(255, 255, 255, 0.25)';
+              }
             }}
           >
             {isLoading ? (
@@ -304,46 +319,55 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           </button>
 
           <button
-            onClick={onNext}
-            title="Next track"
+            onClick={isPartyGuest ? undefined : onNext}
+            disabled={isPartyGuest}
+            title={isPartyGuest ? 'Controlled by party host' : 'Next track'}
             style={{
               color: '#f0f2f5',
+              opacity: isPartyGuest ? 0.35 : 1,
+              cursor: isPartyGuest ? 'not-allowed' : 'pointer',
               transition: 'transform 0.1s ease',
               display: 'flex',
               alignItems: 'center',
             }}
-            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
-            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(0.9)'; }}
+            onMouseUp={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(1)'; }}
           >
             <SkipForward size={19} fill="currentColor" />
           </button>
 
           <button
-            onClick={onToggleRepeat}
-            title={`Repeat mode: ${repeatMode}`}
+            onClick={isPartyGuest ? undefined : onToggleRepeat}
+            disabled={isPartyGuest}
+            title={isPartyGuest ? 'Controlled by party host' : `Repeat mode: ${repeatMode}`}
             style={{
               color: repeatMode !== 'OFF' ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)',
+              opacity: isPartyGuest ? 0.35 : 1,
+              cursor: isPartyGuest ? 'not-allowed' : 'pointer',
               transition: 'color 0.15s ease, transform 0.1s ease',
               display: 'flex',
               alignItems: 'center',
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseEnter={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { if (!isPartyGuest) e.currentTarget.style.transform = 'scale(1)'; }}
           >
             {repeatMode === 'ONE' ? <Repeat1 size={17} /> : <Repeat size={17} />}
           </button>
 
           <button
-            onClick={onStop}
-            title="Stop playback"
+            onClick={isPartyGuest ? undefined : onStop}
+            disabled={isPartyGuest}
+            title={isPartyGuest ? 'Controlled by party host' : 'Stop playback'}
             style={{
               color: 'var(--text-muted, #5c6478)',
+              opacity: isPartyGuest ? 0.35 : 1,
+              cursor: isPartyGuest ? 'not-allowed' : 'pointer',
               transition: 'color 0.15s ease, transform 0.15s ease',
               display: 'flex',
               alignItems: 'center',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.transform = 'scale(1.1)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #5c6478)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseEnter={e => { if (!isPartyGuest) { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.transform = 'scale(1.1)'; } }}
+            onMouseLeave={e => { if (!isPartyGuest) { e.currentTarget.style.color = 'var(--text-muted, #5c6478)'; e.currentTarget.style.transform = 'scale(1)'; } }}
           >
             <X size={15} strokeWidth={2.2} />
           </button>
@@ -358,11 +382,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           <FlatScrubber
             value={displayPosition}
             max={duration}
+            disabled={isPartyGuest}
             ariaLabel="Seek track position"
-            onSeek={onSeek}
-            onScrub={v => setSeekVal(v)}
-            onScrubStart={() => { setIsSeeking(true); setSeekVal(position); }}
-            onScrubEnd={v => { setIsSeeking(false); onSeek(v); }}
+            onSeek={isPartyGuest ? () => {} : onSeek}
+            onScrub={isPartyGuest ? undefined : v => setSeekVal(v)}
+            onScrubStart={isPartyGuest ? undefined : () => { setIsSeeking(true); setSeekVal(position); }}
+            onScrubEnd={isPartyGuest ? undefined : v => { setIsSeeking(false); onSeek(v); }}
           />
 
           <span style={{ fontSize: '11px', color: 'var(--text-secondary, #8b93a6)', width: '38px', textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>

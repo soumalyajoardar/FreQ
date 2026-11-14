@@ -8,6 +8,7 @@ interface FlatScrubberProps {
   height?: number;
   fillColor?: string;
   ariaLabel?: string;
+  disabled?: boolean;
   onSeek: (v: number) => void;
   onScrub?: (v: number) => void;
   onScrubStart?: () => void;
@@ -22,6 +23,7 @@ export const FlatScrubber: React.FC<FlatScrubberProps> = ({
   height = 4,
   fillColor = 'var(--accent-cyan, #1ed760)',
   ariaLabel = 'Seek',
+  disabled = false,
   onSeek,
   onScrub,
   onScrubStart,
@@ -35,6 +37,7 @@ export const FlatScrubber: React.FC<FlatScrubberProps> = ({
   const barRef = useRef<HTMLDivElement>(null);
 
   const seekFromPointer = (clientX: number) => {
+    if (disabled) return;
     const el = barRef.current;
     if (!el || safeMax <= min) return;
     const rect = el.getBoundingClientRect();
@@ -49,22 +52,23 @@ export const FlatScrubber: React.FC<FlatScrubberProps> = ({
     }
   };
 
-  const showThumb = isHovered || isDragging;
-  const activeHeight = isHovered || isDragging ? height + 2 : height;
+  const showThumb = !disabled && (isHovered || isDragging);
+  const activeHeight = !disabled && (isHovered || isDragging) ? height + 2 : height;
 
   return (
     <div
       ref={barRef}
-      onClick={e => seekFromPointer(e.clientX)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onClick={e => !disabled && seekFromPointer(e.clientX)}
+      onMouseEnter={() => !disabled && setIsHovered(true)}
+      onMouseLeave={() => !disabled && setIsHovered(false)}
       style={{
         position: 'relative',
         flex: 1,
         height: Math.max(height, 20),
         display: 'flex',
         alignItems: 'center',
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.8 : 1,
       }}
     >
       {/* Background Track */}

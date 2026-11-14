@@ -632,8 +632,20 @@ export const App: React.FC = () => {
     return idx;
   };
 
-  const handlePlayTrack = async (track: MediaTrack, playlist?: MediaTrack[], isExplicit?: boolean, startAtSec: number = 0) => {
+  const handlePlayTrack = async (
+    track: MediaTrack,
+    playlist?: MediaTrack[],
+    isExplicit?: boolean,
+    startAtSec: number = 0,
+    fromPartySync: boolean = false,
+  ) => {
     if (!track?.id) return;
+
+    // Party guard: non-host guest cannot play or switch tracks on their own unless they leave the party
+    if (partyService.isInParty() && !partyService.getIsHost() && !fromPartySync) {
+      pushToast('Only the host can choose songs in a party. Leave the party to play your own music.', 'info');
+      return;
+    }
     loadingRef.current = true;
     setIsTrackLoading(true);
     isTransitioningRef.current = true;
@@ -784,6 +796,10 @@ export const App: React.FC = () => {
   };
 
   const handlePlayPause = () => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Playback is controlled by the party host. Leave the party to control playback.', 'info');
+      return;
+    }
     if (!currentTrack || loadingRef.current) return;
     if (!sourceLoadedRef.current) {
       // Restored session: a track is set but no media was ever loaded —
@@ -813,6 +829,10 @@ export const App: React.FC = () => {
   };
 
   const handleStop = () => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Only the host can stop party playback.', 'info');
+      return;
+    }
     if (!currentTrack) return;
     bankListenedMs();
     // Cross: stop audio, cancel any pending load, reset and close the bar.
@@ -829,6 +849,10 @@ export const App: React.FC = () => {
   };
 
   const handlePrev = () => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Only the host can skip tracks in a party.', 'info');
+      return;
+    }
     const q = queueRef.current.length ? queueRef.current : queue;
     const qi = queueRef.current.length ? queueIndexRef.current : queueIndex;
     if (position > 3) {
@@ -843,6 +867,10 @@ export const App: React.FC = () => {
   };
 
   const handleNext = () => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Only the host can skip tracks in a party.', 'info');
+      return;
+    }
     const q = queueRef.current.length ? queueRef.current : queue;
     const qi = queueRef.current.length ? queueIndexRef.current : queueIndex;
     if (q.length === 0) return;
@@ -918,6 +946,10 @@ export const App: React.FC = () => {
   };
 
   const handleSeek = (sec: number) => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Only the host can seek in a party.', 'info');
+      return;
+    }
     audioEngine.seek(sec);
     setPosition(sec);
     if (partyService.getIsHost() && partyService.isInParty()) {
@@ -988,6 +1020,10 @@ export const App: React.FC = () => {
   };
 
   const handleMoveQueueTrack = (fromIndex: number, toIndex: number) => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Queue is managed by the party host.', 'info');
+      return;
+    }
     if (fromIndex === toIndex) return;
     setQueue(prev => {
       if (fromIndex < 0 || fromIndex >= prev.length || toIndex < 0 || toIndex >= prev.length) return prev;
@@ -1002,6 +1038,10 @@ export const App: React.FC = () => {
   };
 
   const handlePlayNextInQueue = (index: number) => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Queue is managed by the party host.', 'info');
+      return;
+    }
     // Parity with Android planPlayNext: dedup later occurrence, insert after current
     setQueue(prev => {
       const cur = queueIndexRef.current;
@@ -1042,12 +1082,20 @@ export const App: React.FC = () => {
   }, [playStats, likedTracks]);
 
   const handlePlayMix = (mix: SmartMix) => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Only the host can choose songs in a party.', 'info');
+      return;
+    }
     if (mix.tracks.length === 0) return;
     handlePlayTrack(mix.tracks[0], mix.tracks, true);
   };
 
   // Discovery Mix: fresh songs from the most-played artist.
   const handlePlayDiscoveryMix = async () => {
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      pushToast('Only the host can choose songs in a party.', 'info');
+      return;
+    }
     if (discoveryLoading) return;
     const seedArtist = playStats.length > 0
       ? (playStats[0].track.artist || '').split(',')[0].trim()
@@ -1340,9 +1388,14 @@ export const App: React.FC = () => {
           if (!ev.track) return;
           const current = currentTrackRef.current;
           if (!current || current.id !== ev.track.id) {
-            handlePlayTrackRef.current(ev.track, [ev.track], true, ev.position || 0);
+            // Pass fromPartySync = true so party guests are allowed to load the host's selected track
+            handlePlayTrackRef.current(ev.track, [ev.track], true, ev.position || 0, true);
           } else if (ev.position !== undefined) {
-            audioEngine.syncDrift(ev.position, false);
+            const curTime = audioEngine.getCurrentTime();
+            if (Math.abs(curTime - ev.position) > 4.0) {
+              audioEngine.seek(ev.position);
+              setPosition(ev.position);
+            }
           }
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
@@ -1358,13 +1411,17 @@ export const App: React.FC = () => {
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
               if (ev.position !== undefined) {
-                audioEngine.syncDrift(ev.position, false);
+                const curTime = audioEngine.getCurrentTime();
+                if (Math.abs(curTime - ev.position) > 3.0) {
+                  audioEngine.seek(ev.position);
+                  setPosition(ev.position);
+                }
               }
               audioEngine.play().catch(() => {});
             } else if (!ev.isPlaying && isPlayingRef.current) {
               audioEngine.pause();
               if (ev.position !== undefined) {
-                audioEngine.syncDrift(ev.position, false);
+                audioEngine.seek(ev.position);
                 setPosition(ev.position);
               }
             }
@@ -1375,7 +1432,7 @@ export const App: React.FC = () => {
         case 'seek': {
           if (ev.position !== undefined) {
             // Explicit host scrubber action: seek immediately
-            audioEngine.syncDrift(ev.position, true);
+            audioEngine.seek(ev.position);
             setPosition(ev.position);
           }
           if (ev.isPlaying !== undefined) {
@@ -1389,9 +1446,14 @@ export const App: React.FC = () => {
         }
 
         case 'timelineSync': {
-          if (ev.position !== undefined) {
-            // Smooth micro-pitch drift synchronization without dumping audio buffers
-            audioEngine.syncDrift(ev.position, false);
+          // Zero-lag sync: Do not interrupt continuous audio playback with frequent seeks.
+          // Both devices run standard audio clock; only intervene if there's massive drift (> 6.0s).
+          if (ev.position !== undefined && isPlayingRef.current) {
+            const curTime = audioEngine.getCurrentTime();
+            if (Math.abs(curTime - ev.position) > 6.0) {
+              audioEngine.seek(ev.position);
+              setPosition(ev.position);
+            }
           }
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
@@ -1747,6 +1809,7 @@ export const App: React.FC = () => {
         onOpenParty={() => setIsPartyOpen(true)}
         isInParty={isInParty}
         partyMembersCount={partyMembersCount}
+        isPartyGuest={isInParty && !partyService.getIsHost()}
       />
       )}
 

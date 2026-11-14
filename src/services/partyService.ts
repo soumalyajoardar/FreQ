@@ -380,10 +380,11 @@ export class PartyService {
   // --- Host Heartbeat & Periodic Sync ---
   private startHostHeartbeat() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    // Infrequent 25s keepalive to maintain MQTT connection and member heartbeat without interrupting playback
     this.heartbeatTimer = window.setInterval(() => {
       if (!this.isHost || !this.partyCode || this.status !== 'connected') return;
       this.publish({
-        type: 'TIMELINE_SYNC',
+        type: 'HEARTBEAT',
         position: this.position,
         isPlaying: this.isPlaying,
         currentTrackId: this.currentTrack?.id || null,
@@ -391,7 +392,7 @@ export class PartyService {
         timestamp: Date.now(),
         senderId: this.myMemberId,
       });
-    }, 3500);
+    }, 25000);
   }
 
   private broadcastStateSync() {
@@ -562,13 +563,12 @@ export class PartyService {
 
         // Initial sync of track & position
         if (payload.currentTrack) {
-          const latency = (Date.now() - (payload.timestamp || Date.now())) / 1000;
-          const adjustedPos = Math.max(0, (payload.position || 0) + (payload.isPlaying ? latency : 0));
+          const directPos = Math.max(0, payload.position || 0);
           this.notifySync({
             type: 'track',
             track: payload.currentTrack,
             isPlaying: !!payload.isPlaying,
-            position: adjustedPos,
+            position: directPos,
           });
         }
         break;
@@ -631,15 +631,14 @@ export class PartyService {
       case 'TRACK_CHANGE': {
         if (this.isHost) return;
         if (payload.track) {
-          const latency = (Date.now() - (payload.timestamp || Date.now())) / 1000;
-          const adjustedPos = Math.max(0, (payload.position || 0) + (payload.isPlaying ? latency : 0));
+          const directPos = Math.max(0, payload.position || 0);
           this.currentTrack = payload.track;
           this.isPlaying = !!payload.isPlaying;
-          this.position = adjustedPos;
+          this.position = directPos;
           this.notifySync({
             type: 'track',
             track: payload.track,
-            position: adjustedPos,
+            position: directPos,
             isPlaying: !!payload.isPlaying,
           });
         }
@@ -648,38 +647,36 @@ export class PartyService {
 
       case 'PLAY_STATE': {
         if (this.isHost) return;
-        const latency = (Date.now() - (payload.timestamp || Date.now())) / 1000;
-        const adjustedPos = Math.max(0, (payload.position || 0) + (payload.isPlaying ? latency : 0));
+        const directPos = Math.max(0, payload.position || 0);
         this.isPlaying = !!payload.isPlaying;
-        this.position = adjustedPos;
+        this.position = directPos;
         this.notifySync({
           type: 'playState',
           isPlaying: !!payload.isPlaying,
-          position: adjustedPos,
+          position: directPos,
         });
         break;
       }
 
       case 'SEEK': {
         if (this.isHost) return;
-        const latency = (Date.now() - (payload.timestamp || Date.now())) / 1000;
-        const adjustedPos = Math.max(0, (payload.position || 0) + (payload.isPlaying ? latency : 0));
-        this.position = adjustedPos;
+        const directPos = Math.max(0, payload.position || 0);
+        this.position = directPos;
         this.notifySync({
           type: 'seek',
-          position: adjustedPos,
+          position: directPos,
           isPlaying: !!payload.isPlaying,
         });
         break;
       }
 
-      case 'TIMELINE_SYNC': {
+      case 'TIMELINE_SYNC':
+      case 'HEARTBEAT': {
         if (this.isHost) return;
-        const latency = (Date.now() - (payload.timestamp || Date.now())) / 1000;
-        const targetPos = Math.max(0, (payload.position || 0) + (payload.isPlaying ? latency : 0));
+        const directPos = Math.max(0, payload.position || 0);
         this.notifySync({
           type: 'timelineSync',
-          position: targetPos,
+          position: directPos,
           isPlaying: !!payload.isPlaying,
         });
         break;
