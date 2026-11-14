@@ -103,22 +103,31 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               padding: '9px 12px',
               borderRadius: '8px',
               fontSize: '13px',
-              fontWeight: isInParty ? 700 : 500,
-              color: isInParty ? '#1ed760' : 'var(--text-secondary, #8b93a6)',
-              backgroundColor: isInParty ? 'rgba(30, 215, 96, 0.12)' : 'transparent',
-              border: isInParty ? '1px solid rgba(30, 215, 96, 0.3)' : '1px solid transparent',
+              fontWeight: currentView === 'party' || isInParty ? 700 : 500,
+              color: currentView === 'party' || isInParty ? '#1ed760' : 'var(--text-secondary, #8b93a6)',
+              backgroundColor: currentView === 'party'
+                ? 'rgba(30, 215, 96, 0.16)'
+                : isInParty
+                ? 'rgba(30, 215, 96, 0.1)'
+                : 'transparent',
+              border: currentView === 'party'
+                ? '1px solid rgba(30, 215, 96, 0.35)'
+                : isInParty
+                ? '1px solid rgba(30, 215, 96, 0.25)'
+                : '1px solid transparent',
+              borderLeft: currentView === 'party' ? '3px solid #1ed760' : undefined,
               transition: 'background-color 0.15s ease, color 0.15s ease',
               marginTop: '4px',
               cursor: 'pointer',
             }}
             onMouseEnter={e => {
-              if (!isInParty) {
+              if (currentView !== 'party' && !isInParty) {
                 e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
                 e.currentTarget.style.color = '#f0f2f5';
               }
             }}
             onMouseLeave={e => {
-              if (!isInParty) {
+              if (currentView !== 'party' && !isInParty) {
                 e.currentTarget.style.backgroundColor = 'transparent';
                 e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
               }

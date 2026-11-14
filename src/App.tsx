@@ -3,7 +3,6 @@ import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { NowPlayingModal } from './components/NowPlayingModal';
-import { PartyModal } from './components/PartyModal';
 import { QueueDrawer } from './components/QueueDrawer';
 import { AddToPlaylistModal } from './components/AddToPlaylistModal';
 import { TrackContextMenu } from './components/TrackContextMenu';
@@ -16,6 +15,7 @@ import { PlaylistDetailView } from './views/PlaylistDetailView';
 import { ArtistDetailView } from './views/ArtistDetailView';
 import { AlbumDetailView } from './views/AlbumDetailView';
 import { SettingsView } from './views/SettingsView';
+import { PartyView } from './views/PartyView';
 
 import { AudioMode, DuplicateGroup, MediaTrack, RepeatMode, SmartMix, UserPlaylist } from './types';
 import { audioEngine } from './services/audioEngine';
@@ -210,7 +210,6 @@ export const App: React.FC = () => {
 
   // Modal / Drawer Toggles
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState<boolean>(false);
-  const [isPartyOpen, setIsPartyOpen] = useState<boolean>(false);
   const [isInParty, setIsInParty] = useState<boolean>(() => partyService.isInParty());
   const [partyMembersCount, setPartyMembersCount] = useState<number>(() => partyService.getMembers().length);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
@@ -270,6 +269,8 @@ export const App: React.FC = () => {
       audioEngine.setSnrReverb(libraryStore.getSnrReverb());
       audioEngine.setNightcoreRate(libraryStore.getNightcoreRate());
       audioEngine.setBassBoost(libraryStore.getBassBoost());
+      audioEngine.setStereoWidth(libraryStore.getStereoWidth());
+      audioEngine.setHdClarity(libraryStore.getHdClarity());
       audioEngine.setEqGains(libraryStore.getEqGains());
       audioEngine.setBalance(libraryStore.getBalance());
       audioEngine.setAutoLevel(libraryStore.getAutoLevel());
@@ -337,6 +338,7 @@ export const App: React.FC = () => {
   const lastPersistAtRef = useRef<number>(0);
   useEffect(() => { shuffleRef.current = isShuffle; }, [isShuffle]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+  const partyPlaybackDesiredRef = useRef<boolean>(true);
 
   // Listened-minutes bookkeeping: mark = position at last bank. Banking
   // is idempotent (mark advances), so pause/skip/end can all bank safely.
@@ -372,6 +374,9 @@ export const App: React.FC = () => {
     const offPlay = audioEngine.onPlay(() => {
       isTransitioningRef.current = false;
       setIsPlaying(true);
+      if (partyService.isInParty() && partyService.getIsHost()) {
+        partyService.broadcastPlayState(true, audioEngine.getCurrentTime());
+      }
       // A track that starts rendering is healthy — reset its failure count.
       const id = currentTrackRef.current?.id;
       if (id) failRef.current = { id, count: 0 };
@@ -379,6 +384,9 @@ export const App: React.FC = () => {
     const offPause = audioEngine.onPause(() => {
       setIsPlaying(false);
       persistSessionNow();
+      if (partyService.isInParty() && partyService.getIsHost()) {
+        partyService.broadcastPlayState(false, audioEngine.getCurrentTime());
+      }
     });
     const offTime = audioEngine.onTimeUpdate((pos, dur) => {
       partyService.updateLocalPlaybackStatus(pos, isPlayingRef.current, currentTrackRef.current);
@@ -710,6 +718,11 @@ export const App: React.FC = () => {
       if (token !== loadTokenRef.current) return;
 
       await audioEngine.loadAndPlay(streamUrl, activeTrack, startAtSec);
+      // Party guard: If host is paused, pause guest audio immediately
+      if (partyService.isInParty() && !partyService.getIsHost() && !partyPlaybackDesiredRef.current) {
+        audioEngine.pause();
+        setIsPlaying(false);
+      }
       sourceLoadedRef.current = true;
       libraryStore.recordTrackStart(activeTrack);
       listenMarkRef.current = { id: activeTrack.id, atSec: startAtSec };
@@ -1386,6 +1399,7 @@ export const App: React.FC = () => {
       switch (ev.type) {
         case 'track': {
           if (!ev.track) return;
+          partyPlaybackDesiredRef.current = ev.isPlaying ?? true;
           const current = currentTrackRef.current;
           if (!current || current.id !== ev.track.id) {
             // Pass fromPartySync = true so party guests are allowed to load the host's selected track
@@ -1400,8 +1414,9 @@ export const App: React.FC = () => {
           if (ev.isPlaying !== undefined) {
             if (ev.isPlaying && !isPlayingRef.current) {
               audioEngine.play().catch(() => {});
-            } else if (!ev.isPlaying && isPlayingRef.current) {
+            } else if (!ev.isPlaying) {
               audioEngine.pause();
+              setIsPlaying(false);
             }
           }
           break;
@@ -1409,17 +1424,22 @@ export const App: React.FC = () => {
 
         case 'playState': {
           if (ev.isPlaying !== undefined) {
-            if (ev.isPlaying && !isPlayingRef.current) {
+            partyPlaybackDesiredRef.current = ev.isPlaying;
+            if (ev.isPlaying) {
               if (ev.position !== undefined) {
                 const curTime = audioEngine.getCurrentTime();
-                if (Math.abs(curTime - ev.position) > 3.0) {
+                if (Math.abs(curTime - ev.position) > 2.5) {
                   audioEngine.seek(ev.position);
                   setPosition(ev.position);
                 }
               }
-              audioEngine.play().catch(() => {});
-            } else if (!ev.isPlaying && isPlayingRef.current) {
+              if (!isPlayingRef.current) {
+                audioEngine.play().catch(() => {});
+              }
+            } else {
+              // Unconditionally pause guest playback and align position
               audioEngine.pause();
+              setIsPlaying(false);
               if (ev.position !== undefined) {
                 audioEngine.seek(ev.position);
                 setPosition(ev.position);
@@ -1436,10 +1456,12 @@ export const App: React.FC = () => {
             setPosition(ev.position);
           }
           if (ev.isPlaying !== undefined) {
+            partyPlaybackDesiredRef.current = ev.isPlaying;
             if (ev.isPlaying && !isPlayingRef.current) {
               audioEngine.play().catch(() => {});
-            } else if (!ev.isPlaying && isPlayingRef.current) {
+            } else if (!ev.isPlaying) {
               audioEngine.pause();
+              setIsPlaying(false);
             }
           }
           break;
@@ -1571,7 +1593,7 @@ export const App: React.FC = () => {
           likedCount={likedTracks.length}
           onCreatePlaylist={() => setIsCreatePlaylistOpen(true)}
           hasUpdate={updateVisible}
-          onOpenParty={() => setIsPartyOpen(true)}
+          onOpenParty={() => handleNavigate('party')}
           isInParty={isInParty}
           partyMembersCount={partyMembersCount}
         />
@@ -1768,6 +1790,16 @@ export const App: React.FC = () => {
               onPlayTrack={(t, q) => handlePlayTrack(t, q)}
             />
           )}
+
+          {currentView === 'party' && (
+            <PartyView
+              currentTrack={currentTrack}
+              isPlaying={isPlaying}
+              position={position}
+              duration={duration}
+              onNavigate={handleNavigate}
+            />
+          )}
         </main>
       </div>
 
@@ -1806,7 +1838,7 @@ export const App: React.FC = () => {
             setIsHomeLyricsOpen(v => !v);
           }
         }}
-        onOpenParty={() => setIsPartyOpen(true)}
+        onOpenParty={() => handleNavigate('party')}
         isInParty={isInParty}
         partyMembersCount={partyMembersCount}
         isPartyGuest={isInParty && !partyService.getIsHost()}
@@ -1884,16 +1916,6 @@ export const App: React.FC = () => {
         onClearQueue={handleQueueClear}
         onMoveTrack={handleMoveQueueTrack}
         onPlayNext={handlePlayNextInQueue}
-      />
-
-      {/* 5.5 Listen Together Party Modal */}
-      <PartyModal
-        isOpen={isPartyOpen}
-        onClose={() => setIsPartyOpen(false)}
-        currentTrack={currentTrack}
-        isPlaying={isPlaying}
-        position={position}
-        duration={duration}
       />
 
       {/* 6. Add to Playlist Dialog */}

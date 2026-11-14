@@ -9,6 +9,13 @@ export interface PartyMember {
   avatarColor: string;
 }
 
+export interface RecentParty {
+  code: string;
+  hostName: string;
+  isHost: boolean;
+  timestamp: number;
+}
+
 export interface PartyReaction {
   id: string;
   emoji: string;
@@ -105,6 +112,52 @@ export class PartyService {
     return [...this.members];
   }
 
+  public getHostMember(): PartyMember | undefined {
+    return this.members.find(m => m.isHost);
+  }
+
+  public getHostName(): string {
+    const host = this.getHostMember();
+    if (host) return host.name;
+    if (this.isHost) return this.myName;
+    return 'Host';
+  }
+
+  public getRecentParties(): RecentParty[] {
+    try {
+      const raw = localStorage.getItem('freq_recent_parties');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  public saveRecentParty(party: RecentParty) {
+    try {
+      const recents = this.getRecentParties().filter(p => p.code !== party.code);
+      recents.unshift(party);
+      localStorage.setItem('freq_recent_parties', JSON.stringify(recents.slice(0, 8)));
+    } catch {}
+    this.notifyState();
+  }
+
+  public removeRecentParty(code: string) {
+    try {
+      const recents = this.getRecentParties().filter(p => p.code !== code);
+      localStorage.setItem('freq_recent_parties', JSON.stringify(recents));
+    } catch {}
+    this.notifyState();
+  }
+
+  public clearRecentParties() {
+    try {
+      localStorage.removeItem('freq_recent_parties');
+    } catch {}
+    this.notifyState();
+  }
+
   public getMyMemberId(): string {
     return this.myMemberId;
   }
@@ -185,6 +238,7 @@ export class PartyService {
       await this.connectMqtt(code);
       this.status = 'connected';
       this.startHostHeartbeat();
+      this.saveRecentParty({ code, hostName: this.myName, isHost: true, timestamp: Date.now() });
       this.notifyState();
       return code;
     } catch (err: any) {
@@ -559,6 +613,13 @@ export class PartyService {
             avatarColor: this.myAvatarColor,
           });
         }
+        const hostMember = this.members.find(m => m.isHost);
+        this.saveRecentParty({
+          code: this.partyCode!,
+          hostName: hostMember?.name || 'Party Host',
+          isHost: false,
+          timestamp: Date.now(),
+        });
         this.notifyState();
 
         // Initial sync of track & position

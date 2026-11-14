@@ -112,6 +112,8 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   const [snrReverb, setSnrReverb] = React.useState(() => audioEngine.getSnrReverb());
   const [nightcoreRate, setNightcoreRate] = React.useState(() => audioEngine.getNightcoreRate());
   const [bassBoost, setBassBoost] = React.useState(() => audioEngine.getBassBoost());
+  const [stereoWidth, setStereoWidth] = React.useState(() => audioEngine.getStereoWidth());
+  const [hdClarity, setHdClarity] = React.useState(() => audioEngine.getHdClarity());
   const [shortcuts, setShortcuts] = React.useState(() => libraryStore.getShortcuts());
   const [recording, setRecording] = React.useState<ShortcutAction | null>(null);
 
@@ -263,18 +265,50 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
             <FlavorSlider
-              label="Bass booster"
-              valueLabel={bassBoost <= 0 ? 'Off' : '+' + Math.round(bassBoost * 12) + ' dB'}
+              label="Bass booster (Sub & Punch)"
+              valueLabel={bassBoost <= 0 ? 'Off' : '+' + Math.round(bassBoost * 24) + ' dB'}
               min={0}
               max={1}
-              step={0.05}
+              step={0.04}
               minLabel="Off"
-              maxLabel="+12 dB"
+              maxLabel="+24 dB"
               value={bassBoost}
               onChange={v => {
                 setBassBoost(v);
                 audioEngine.setBassBoost(v);
                 libraryStore.setBassBoost(v);
+              }}
+            />
+
+            <FlavorSlider
+              label="HD Definition & Clarity"
+              valueLabel={hdClarity <= 0 ? 'Off' : Math.round(hdClarity * 100) + '%'}
+              min={0}
+              max={1}
+              step={0.05}
+              minLabel="Off"
+              maxLabel="Ultra HD"
+              value={hdClarity}
+              onChange={v => {
+                setHdClarity(v);
+                audioEngine.setHdClarity(v);
+                libraryStore.setHdClarity(v);
+              }}
+            />
+
+            <FlavorSlider
+              label="3D Stereo Spatializer"
+              valueLabel={stereoWidth <= 0 ? 'Off' : Math.round(stereoWidth * 100) + '%'}
+              min={0}
+              max={1}
+              step={0.05}
+              minLabel="Normal"
+              maxLabel="Ultra-Wide"
+              value={stereoWidth}
+              onChange={v => {
+                setStereoWidth(v);
+                audioEngine.setStereoWidth(v);
+                libraryStore.setStereoWidth(v);
               }}
             />
 
@@ -326,7 +360,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           </div>
 
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Heard in SnR / Nightcore — Normal always plays pure and unaltered.
+            Bass Booster (up to +24 dB), HD Definition, and 3D Stereo spatialization enhance playback across all audio modes with zero-distortion limiter protection.
           </span>
         </div>
       </section>

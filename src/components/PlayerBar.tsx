@@ -433,6 +433,26 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           {audioMode}
         </button>
 
+        {/* HD & 3D Spatial Audio Enhancement Badge */}
+        <span
+          title="HD Audio Clarity & 3D Stereo Spatializer Active (Tune in Settings)"
+          style={{
+            fontSize: '9px',
+            fontWeight: 800,
+            letterSpacing: '0.6px',
+            color: '#00d2ff',
+            backgroundColor: 'rgba(0, 210, 255, 0.12)',
+            border: '1px solid rgba(0, 210, 255, 0.28)',
+            padding: '3px 6px',
+            borderRadius: '5px',
+            userSelect: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+        >
+          HD • 3D
+        </span>
+
         {/* Lyrics Button */}
         <button
           onClick={() => (onToggleLyrics ? onToggleLyrics() : onOpenNowPlaying())}

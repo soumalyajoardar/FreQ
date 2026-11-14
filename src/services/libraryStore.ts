@@ -48,6 +48,8 @@ interface StoredLibrary {
   snrReverb?: number;
   nightcoreRate?: number;
   bassBoost?: number;
+  stereoWidth?: number;
+  hdClarity?: number;
   playStats?: PlayStatEntry[];
   eqGains?: number[];
   balance?: number;
@@ -99,6 +101,8 @@ export class LibraryStore {
   private snrReverb: number = 0.55;
   private nightcoreRate: number = 1.2;
   private bassBoost: number = 0.4;
+  private stereoWidth: number = 0.35;
+  private hdClarity: number = 0.45;
   private eqGains: number[] = [0, 0, 0, 0, 0];
   private balance: number = 0;
   private autoLevel: boolean = false;
@@ -137,6 +141,12 @@ export class LibraryStore {
             this.bassBoost = Math.min(1, Math.max(0, data.bassBoost));
           } else {
             this.bassBoost = 0.4;
+          }
+          if (typeof (data as any).stereoWidth === 'number') {
+            this.stereoWidth = Math.min(1, Math.max(0, (data as any).stereoWidth));
+          }
+          if (typeof (data as any).hdClarity === 'number') {
+            this.hdClarity = Math.min(1, Math.max(0, (data as any).hdClarity));
           }
           if (Array.isArray((data as any).eqGains)) this.eqGains = [0, 1, 2, 3, 4].map(i => Number.isFinite((data as any).eqGains[i]) ? Math.min(12, Math.max(-12, (data as any).eqGains[i])) : 0);
           if (typeof (data as any).balance === 'number') this.balance = Math.min(1, Math.max(-1, (data as any).balance));
@@ -179,6 +189,12 @@ export class LibraryStore {
           } else {
             this.bassBoost = 0.4;
           }
+          if (typeof (parsed as any).stereoWidth === 'number') {
+            this.stereoWidth = Math.min(1, Math.max(0, (parsed as any).stereoWidth));
+          }
+          if (typeof (parsed as any).hdClarity === 'number') {
+            this.hdClarity = Math.min(1, Math.max(0, (parsed as any).hdClarity));
+          }
           if (Array.isArray(parsed.eqGains)) this.eqGains = [0, 1, 2, 3, 4].map(i => Number.isFinite(parsed.eqGains[i]) ? Math.min(12, Math.max(-12, parsed.eqGains[i])) : 0);
           if (typeof parsed.balance === 'number') this.balance = Math.min(1, Math.max(-1, parsed.balance));
           if (typeof parsed.autoLevel === 'boolean') this.autoLevel = parsed.autoLevel;
@@ -218,6 +234,8 @@ export class LibraryStore {
       snrReverb: this.snrReverb,
       nightcoreRate: this.nightcoreRate,
       bassBoost: this.bassBoost,
+      stereoWidth: this.stereoWidth,
+      hdClarity: this.hdClarity,
       playStats: this.playStats,
       eqGains: this.eqGains,
       balance: this.balance,
@@ -526,6 +544,26 @@ export class LibraryStore {
 
   public setBassBoost(amount: number) {
     this.bassBoost = Math.min(1, Math.max(0, amount));
+    this.persist();
+    this.notify();
+  }
+
+  public getStereoWidth(): number {
+    return this.stereoWidth;
+  }
+
+  public setStereoWidth(amount: number) {
+    this.stereoWidth = Math.min(1, Math.max(0, amount));
+    this.persist();
+    this.notify();
+  }
+
+  public getHdClarity(): number {
+    return this.hdClarity;
+  }
+
+  public setHdClarity(amount: number) {
+    this.hdClarity = Math.min(1, Math.max(0, amount));
     this.persist();
     this.notify();
   }
