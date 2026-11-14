@@ -93,6 +93,7 @@ class AudioEngine {
   // while cutting React reconciliation passes and main thread work by 60%.
   private clockId: number | null = null;
   private syncRateMultiplier: number = 1.0;
+  private targetSyncTime: { hostSec: number; timestamp: number } | null = null;
 
   private emitTime() {
     const pos = this.audio.currentTime || 0;
@@ -102,6 +103,19 @@ class AudioEngine {
     if (isFiniteDur && this.currentTrack && Math.abs((this.currentTrack.durationSeconds || 0) - rawDur) >= 1) {
       this.currentTrack.durationSeconds = Math.round(rawDur);
     }
+
+    // Phase lock check: when nudging playback rate for Listen Together,
+    // smoothly revert to 1.0x as soon as guest reaches phase sync (within 45ms)
+    if (this.syncRateMultiplier !== 1.0 && this.targetSyncTime) {
+      const elapsed = (Date.now() - this.targetSyncTime.timestamp) / 1000;
+      const expectedHostPos = this.targetSyncTime.hostSec + elapsed;
+      const curDiff = expectedHostPos - pos;
+      if (Math.abs(curDiff) <= 0.045) {
+        this.setSyncRateMultiplier(1.0);
+        this.targetSyncTime = null;
+      }
+    }
+
     this.onTimeUpdateListeners.forEach(cb => cb(pos, dur));
     this.updateMediaSessionPosition(pos, dur);
     this.updateLeveling();
@@ -128,6 +142,7 @@ class AudioEngine {
     this.audio = new Audio();
     this.audio.crossOrigin = 'anonymous';
     this.audio.volume = this.volume;
+    this.audio.preservesPitch = true;
 
     this.setupAudioListeners();
   }
@@ -402,6 +417,7 @@ class AudioEngine {
     }
 
     this.currentTrack = track;
+    this.targetSyncTime = null;
     this.syncRateMultiplier = 1.0;
     this.audio.src = streamUrl;
     if (startAtSec > 0) {
@@ -444,35 +460,44 @@ class AudioEngine {
     }
   }
 
-  // Smooth, glitch-free drift correction for Listen Together parties.
-  // Instead of dumping audio buffers with hard currentTime seeks (which causes music stuttering),
-  // small drifts (0.2s - 3.5s) are smoothly caught up via gentle pitch-preserving playbackRate adjustments (±4%).
+  // Smooth, glitch-free drift correction for Listen Together parties (Spotify-grade clock sync).
+  // Instead of dumping audio buffers with hard currentTime seeks (which causes music stuttering and pops),
+  // small drifts (0.045s - 2.0s) are smoothly caught up via gentle pitch-preserving playbackRate adjustments (±3% to ±6%).
   public syncDrift(targetSec: number, isExplicitSeek: boolean = false) {
     if (isNaN(targetSec) || !this.audio.src) return;
     const current = this.audio.currentTime || 0;
-    const diff = targetSec - current;
+    const diff = targetSec - current; // positive: guest is lagging behind; negative: guest is ahead
 
-    if (isExplicitSeek || Math.abs(diff) > 3.5) {
+    // Large drift (> 2.0s) or explicit user seek: instant hard seek to snap into place
+    if (isExplicitSeek || Math.abs(diff) > 2.0) {
       this.seek(targetSec);
       this.setSyncRateMultiplier(1.0);
+      this.targetSyncTime = null;
       return;
     }
 
-    // Already tightly synchronized within 200ms
-    if (Math.abs(diff) < 0.20) {
+    // Already tightly synchronized within 45ms (less than 2 audio frames, inaudible phase alignment)
+    if (Math.abs(diff) <= 0.045) {
       if (this.syncRateMultiplier !== 1.0) {
         this.setSyncRateMultiplier(1.0);
       }
+      this.targetSyncTime = null;
       return;
     }
 
-    // Behind host: gently run 4% faster to close gap without audio interruptions
-    if (diff >= 0.20) {
-      this.setSyncRateMultiplier(1.04);
+    // Register active target for smooth tracking in emitTime()
+    this.targetSyncTime = { hostSec: targetSec, timestamp: Date.now() };
+
+    // Behind host: run faster to close gap without audio interruptions or pitch artifacts
+    if (diff > 0.045) {
+      // If gap is noticeable (> 0.4s), run 6% faster; otherwise 3% micro-catchup
+      const boost = diff > 0.4 ? 1.06 : 1.03;
+      this.setSyncRateMultiplier(boost);
     }
-    // Ahead of host: gently run 4% slower
-    else if (diff <= -0.20) {
-      this.setSyncRateMultiplier(0.96);
+    // Ahead of host: run slower to let host catch up
+    else {
+      const slow = diff < -0.4 ? 0.94 : 0.97;
+      this.setSyncRateMultiplier(slow);
     }
   }
 
@@ -485,6 +510,7 @@ class AudioEngine {
   }
 
   public pause() {
+    this.targetSyncTime = null;
     this.audio.pause();
   }
 
@@ -887,6 +913,10 @@ class AudioEngine {
 
   public getCurrentTime(): number {
     return this.audio.currentTime || 0;
+  }
+
+  public getCurrentTrack(): MediaTrack | null {
+    return this.currentTrack;
   }
 
   public getDuration(): number {

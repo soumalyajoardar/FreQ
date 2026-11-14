@@ -30,6 +30,7 @@ export interface PartySyncEvent {
   track?: MediaTrack;
   isPlaying?: boolean;
   position?: number;
+  timestamp?: number;
   reaction?: PartyReaction;
   member?: PartyMember;
   reason?: string;
@@ -78,6 +79,7 @@ export class PartyService {
   private heartbeatTimer: number | null = null;
   private joinTimeoutTimer: number | null = null;
   private activeBroker: string = PRIMARY_BROKER;
+  private positionGetter: (() => number) | null = null;
 
   constructor() {
     // Try restoring saved display name if present
@@ -183,6 +185,23 @@ export class PartyService {
 
   public isInParty(): boolean {
     return this.status === 'connected' && !!this.partyCode;
+  }
+
+  public setPositionGetter(getter: () => number) {
+    this.positionGetter = getter;
+  }
+
+  public getCurrentPosition(): number {
+    if (this.isHost && this.positionGetter) {
+      try {
+        const live = this.positionGetter();
+        if (typeof live === 'number' && Number.isFinite(live) && live >= 0) {
+          this.position = live;
+          return live;
+        }
+      } catch {}
+    }
+    return this.position;
   }
 
   public subscribe(listener: PartyListener): () => void {
@@ -389,14 +408,15 @@ export class PartyService {
     });
   }
 
-  public broadcastPlayState(isPlaying: boolean, position: number) {
+  public broadcastPlayState(isPlaying: boolean, position?: number) {
     if (!this.isHost || !this.partyCode || this.status !== 'connected') return;
+    const finalPos = typeof position === 'number' ? position : this.getCurrentPosition();
     this.isPlaying = isPlaying;
-    this.position = position;
+    this.position = finalPos;
     this.publish({
       type: 'PLAY_STATE',
       isPlaying,
-      position,
+      position: finalPos,
       timestamp: Date.now(),
       senderId: this.myMemberId,
     });
@@ -434,19 +454,39 @@ export class PartyService {
   // --- Host Heartbeat & Periodic Sync ---
   private startHostHeartbeat() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    // Infrequent 25s keepalive to maintain MQTT connection and member heartbeat without interrupting playback
+    let syncTick = 0;
+    // Continuous 2.0s timeline sync — provides real-time phase alignment with negligible bandwidth (~0.05 KB/s)
     this.heartbeatTimer = window.setInterval(() => {
       if (!this.isHost || !this.partyCode || this.status !== 'connected') return;
-      this.publish({
-        type: 'HEARTBEAT',
-        position: this.position,
-        isPlaying: this.isPlaying,
-        currentTrackId: this.currentTrack?.id || null,
-        membersCount: this.members.length,
-        timestamp: Date.now(),
-        senderId: this.myMemberId,
-      });
-    }, 25000);
+      syncTick++;
+      const now = Date.now();
+      const currentPos = this.getCurrentPosition();
+
+      // When host is playing, broadcast timeline sync every 2.0s
+      if (this.isPlaying) {
+        this.publish({
+          type: 'TIMELINE_SYNC',
+          position: currentPos,
+          isPlaying: true,
+          currentTrackId: this.currentTrack?.id || null,
+          timestamp: now,
+          senderId: this.myMemberId,
+        });
+      }
+
+      // Heartbeat keepalive every 16 seconds (or when paused)
+      if (syncTick % 8 === 0 || !this.isPlaying) {
+        this.publish({
+          type: 'HEARTBEAT',
+          position: currentPos,
+          isPlaying: this.isPlaying,
+          currentTrackId: this.currentTrack?.id || null,
+          membersCount: this.members.length,
+          timestamp: now,
+          senderId: this.myMemberId,
+        });
+      }
+    }, 2000);
   }
 
   private broadcastStateSync() {
@@ -578,13 +618,14 @@ export class PartyService {
         }
 
         // Accept and send current state
+        const livePos = this.getCurrentPosition();
         this.publish({
           type: 'JOIN_ACCEPTED',
           targetMemberId: newMember.id,
           members: this.members,
           currentTrack: this.currentTrack,
           isPlaying: this.isPlaying,
-          position: this.position,
+          position: livePos,
           timestamp: Date.now(),
           senderId: this.myMemberId,
         });
@@ -630,6 +671,7 @@ export class PartyService {
             track: payload.currentTrack,
             isPlaying: !!payload.isPlaying,
             position: directPos,
+            timestamp: payload.timestamp || Date.now(),
           });
         }
         break;
@@ -701,6 +743,7 @@ export class PartyService {
             track: payload.track,
             position: directPos,
             isPlaying: !!payload.isPlaying,
+            timestamp: payload.timestamp || Date.now(),
           });
         }
         break;
@@ -715,6 +758,7 @@ export class PartyService {
           type: 'playState',
           isPlaying: !!payload.isPlaying,
           position: directPos,
+          timestamp: payload.timestamp || Date.now(),
         });
         break;
       }
@@ -727,6 +771,7 @@ export class PartyService {
           type: 'seek',
           position: directPos,
           isPlaying: !!payload.isPlaying,
+          timestamp: payload.timestamp || Date.now(),
         });
         break;
       }
@@ -739,6 +784,7 @@ export class PartyService {
           type: 'timelineSync',
           position: directPos,
           isPlaying: !!payload.isPlaying,
+          timestamp: payload.timestamp || Date.now(),
         });
         break;
       }

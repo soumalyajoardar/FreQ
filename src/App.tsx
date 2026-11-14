@@ -339,6 +339,12 @@ export const App: React.FC = () => {
   useEffect(() => { shuffleRef.current = isShuffle; }, [isShuffle]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
   const partyPlaybackDesiredRef = useRef<boolean>(true);
+  const partyTrackSyncRef = useRef<{
+    trackId: string;
+    hostPos: number;
+    hostTimestamp: number;
+    isPlaying: boolean;
+  } | null>(null);
 
   // Listened-minutes bookkeeping: mark = position at last bank. Banking
   // is idempotent (mark advances), so pause/skip/end can all bank safely.
@@ -371,6 +377,8 @@ export const App: React.FC = () => {
 
   // Setup Audio Engine Event Handlers — subscribe once with cleanup (fixes listener leak)
   useEffect(() => {
+    partyService.setPositionGetter(() => audioEngine.getCurrentTime());
+
     const offPlay = audioEngine.onPlay(() => {
       isTransitioningRef.current = false;
       setIsPlaying(true);
@@ -731,15 +739,29 @@ export const App: React.FC = () => {
       if (token !== loadTokenRef.current) return;
 
       await audioEngine.loadAndPlay(streamUrl, activeTrack, startAtSec);
-      // Party guard: If host is paused, pause guest audio immediately
-      if (partyService.isInParty() && !partyService.getIsHost() && !partyPlaybackDesiredRef.current) {
-        audioEngine.pause();
-        setIsPlaying(false);
+      // Party sync catch-up: Compensate for source resolution & audio buffering time on guest
+      if (partyService.isInParty() && !partyService.getIsHost()) {
+        if (!partyPlaybackDesiredRef.current) {
+          audioEngine.pause();
+          setIsPlaying(false);
+        } else if (partyTrackSyncRef.current && partyTrackSyncRef.current.trackId === activeTrack.id) {
+          const sync = partyTrackSyncRef.current;
+          const now = Date.now();
+          const elapsedSec = Math.max(0, (now - sync.hostTimestamp) / 1000);
+          const expectedHostPos = sync.hostPos + (sync.isPlaying ? elapsedSec : 0);
+          const currentGuestPos = audioEngine.getCurrentTime();
+          const lag = expectedHostPos - currentGuestPos;
+          if (lag > 0.25) {
+            audioEngine.seek(expectedHostPos);
+            setPosition(expectedHostPos);
+          }
+          audioEngine.setSyncRateMultiplier(1.0);
+        }
       }
       sourceLoadedRef.current = true;
       libraryStore.recordTrackStart(activeTrack);
       listenMarkRef.current = { id: activeTrack.id, atSec: startAtSec };
-      if (startAtSec > 0) {
+      if (startAtSec > 0 && !partyService.isInParty()) {
         setPosition(startAtSec);
       }
       if (token !== loadTokenRef.current) {
@@ -932,6 +954,13 @@ export const App: React.FC = () => {
 
   const handleTrackEnd = () => {
     bankListenedMs();
+    if (partyService.isInParty() && !partyService.getIsHost()) {
+      // In party, guest must wait for the host's TRACK_CHANGE broadcast!
+      isTransitioningRef.current = false;
+      audioEngine.pause();
+      setIsPlaying(false);
+      return;
+    }
     if (sleepRef.current.mode === 'end') {
       sleepRef.current.mode = 'off';
       setSleepMode('off');
@@ -1412,25 +1441,33 @@ export const App: React.FC = () => {
       switch (ev.type) {
         case 'track': {
           if (!ev.track) return;
-          partyPlaybackDesiredRef.current = ev.isPlaying ?? true;
+          const now = Date.now();
+          const transitSec = Math.max(0, Math.min(2.0, (now - (ev.timestamp || now)) / 1000));
+          const isPlaying = ev.isPlaying ?? true;
+          partyPlaybackDesiredRef.current = isPlaying;
+          const hostPosNow = (ev.position || 0) + (isPlaying ? transitSec : 0);
+
+          partyTrackSyncRef.current = {
+            trackId: ev.track.id,
+            hostPos: ev.position || 0,
+            hostTimestamp: ev.timestamp || now,
+            isPlaying,
+          };
+
           const current = currentTrackRef.current;
           if (!current || current.id !== ev.track.id) {
             // Pass fromPartySync = true so party guests are allowed to load the host's selected track
-            handlePlayTrackRef.current(ev.track, [ev.track], true, ev.position || 0, true);
+            handlePlayTrackRef.current(ev.track, [ev.track], true, hostPosNow, true);
           } else if (ev.position !== undefined) {
-            const curTime = audioEngine.getCurrentTime();
-            if (Math.abs(curTime - ev.position) > 4.0) {
-              audioEngine.seek(ev.position);
-              setPosition(ev.position);
-            }
+            audioEngine.syncDrift(hostPosNow);
+            setPosition(audioEngine.getCurrentTime());
           }
-          if (ev.isPlaying !== undefined) {
-            if (ev.isPlaying && !isPlayingRef.current) {
-              audioEngine.play().catch(() => {});
-            } else if (!ev.isPlaying) {
-              audioEngine.pause();
-              setIsPlaying(false);
-            }
+          if (isPlaying && !isPlayingRef.current) {
+            audioEngine.play().catch(() => {});
+          } else if (!isPlaying && isPlayingRef.current) {
+            audioEngine.pause();
+            audioEngine.setSyncRateMultiplier(1.0);
+            setIsPlaying(false);
           }
           break;
         }
@@ -1438,24 +1475,26 @@ export const App: React.FC = () => {
         case 'playState': {
           if (ev.isPlaying !== undefined) {
             partyPlaybackDesiredRef.current = ev.isPlaying;
-            if (ev.isPlaying) {
-              if (ev.position !== undefined) {
-                const curTime = audioEngine.getCurrentTime();
-                if (Math.abs(curTime - ev.position) > 2.5) {
-                  audioEngine.seek(ev.position);
-                  setPosition(ev.position);
-                }
-              }
-              if (!isPlayingRef.current) {
-                audioEngine.play().catch(() => {});
-              }
-            } else {
-              // Unconditionally pause guest playback and align position
+            if (!ev.isPlaying) {
+              // Host paused: unconditionally freeze guest audio immediately
               audioEngine.pause();
+              audioEngine.setSyncRateMultiplier(1.0);
               setIsPlaying(false);
               if (ev.position !== undefined) {
                 audioEngine.seek(ev.position);
                 setPosition(ev.position);
+              }
+            } else {
+              // Host resumed: align position with transit latency compensation
+              const now = Date.now();
+              const transitSec = Math.max(0, Math.min(2.0, (now - (ev.timestamp || now)) / 1000));
+              const targetPos = (ev.position || 0) + transitSec;
+              if (Math.abs(audioEngine.getCurrentTime() - targetPos) > 0.4) {
+                audioEngine.seek(targetPos);
+                setPosition(targetPos);
+              }
+              if (!isPlayingRef.current) {
+                audioEngine.play().catch(() => {});
               }
             }
           }
@@ -1464,9 +1503,12 @@ export const App: React.FC = () => {
 
         case 'seek': {
           if (ev.position !== undefined) {
-            // Explicit host scrubber action: seek immediately
-            audioEngine.seek(ev.position);
-            setPosition(ev.position);
+            const now = Date.now();
+            const transitSec = Math.max(0, Math.min(2.0, (now - (ev.timestamp || now)) / 1000));
+            const targetPos = ev.position + (ev.isPlaying ? transitSec : 0);
+            audioEngine.seek(targetPos);
+            setPosition(targetPos);
+            audioEngine.setSyncRateMultiplier(1.0);
           }
           if (ev.isPlaying !== undefined) {
             partyPlaybackDesiredRef.current = ev.isPlaying;
@@ -1481,20 +1523,32 @@ export const App: React.FC = () => {
         }
 
         case 'timelineSync': {
-          // Zero-lag sync: Do not interrupt continuous audio playback with frequent seeks.
-          // Both devices run standard audio clock; only intervene if there's massive drift (> 6.0s).
-          if (ev.position !== undefined && isPlayingRef.current) {
-            const curTime = audioEngine.getCurrentTime();
-            if (Math.abs(curTime - ev.position) > 6.0) {
-              audioEngine.seek(ev.position);
-              setPosition(ev.position);
-            }
+          const now = Date.now();
+          const transitSec = Math.max(0, Math.min(2.0, (now - (ev.timestamp || now)) / 1000));
+          const isPlaying = ev.isPlaying ?? isPlayingRef.current;
+          const targetHostPos = (ev.position || 0) + (isPlaying ? transitSec : 0);
+
+          // Update loading target ref in case guest is currently resolving or buffering
+          if (partyTrackSyncRef.current) {
+            partyTrackSyncRef.current.hostPos = ev.position || 0;
+            partyTrackSyncRef.current.hostTimestamp = ev.timestamp || now;
+            partyTrackSyncRef.current.isPlaying = isPlaying;
           }
+
+          if (isPlayingRef.current && isPlaying && !isTrackLoading) {
+            // High-precision smooth drift sync (Spotify Listen Together algorithm)
+            audioEngine.syncDrift(targetHostPos);
+            setPosition(audioEngine.getCurrentTime());
+          }
+
           if (ev.isPlaying !== undefined) {
-            if (ev.isPlaying && !isPlayingRef.current) {
+            partyPlaybackDesiredRef.current = ev.isPlaying;
+            if (ev.isPlaying && !isPlayingRef.current && !isTrackLoading) {
               audioEngine.play().catch(() => {});
             } else if (!ev.isPlaying && isPlayingRef.current) {
               audioEngine.pause();
+              audioEngine.setSyncRateMultiplier(1.0);
+              setIsPlaying(false);
             }
           }
           break;
