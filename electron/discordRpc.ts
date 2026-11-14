@@ -34,6 +34,9 @@ class DiscordRpcManager {
   private lastActive = Date.now();
   private lastPlaying = false;
   private lastTrackId: string | null = null;
+  private lastDuration = 0;
+  private lastPosition = 0;
+  private lastActivityTimestamp = 0;
   private lastInParty = false;
   private lastPartySize = 0;
   private showingAfk = false;
@@ -211,17 +214,34 @@ class DiscordRpcManager {
     const prevTrackId = this.lastTrackId;
     const isPlaying = !!payload.isPlaying;
     const currentTrackId = payload.track?.id || null;
+    const currentDuration = Math.round(payload.track?.durationSeconds || 0);
 
     const playStateChanged = isPlaying !== prevPlaying;
     const trackChanged = currentTrackId !== prevTrackId;
-    const isSignificantChange = playStateChanged || trackChanged || partyChanged;
+    const durationChanged = currentDuration > 0 && Math.abs(currentDuration - this.lastDuration) >= 1;
+
+    // Check if position was sought manually (jumped by > 2.5s from expected wall-clock progression)
+    const expectedPos = this.lastPlaying && this.lastActivityTimestamp > 0
+      ? this.lastPosition + (Date.now() - this.lastActivityTimestamp) / 1000
+      : this.lastPosition;
+    const seekOccurred = Math.abs((payload.position || 0) - expectedPos) > 2.5;
+
+    const isSignificantChange = playStateChanged || trackChanged || partyChanged || durationChanged || seekOccurred;
+
+    // Skip redundant updates during normal continuous playback — Discord's native client ticks the progress bar smoothly
+    if (!isSignificantChange && isPlaying && prevPlaying && !trackChanged) {
+      return;
+    }
 
     const now = Date.now();
     const elapsed = now - this.lastUpdateTimestamp;
 
     // When a song finishes and transitions to another, or play/pause flips, or party state updates,
     // we want Discord updated promptly without stale states.
-    // Enforce 300ms minimum for state/song/party transitions, and 1200ms for continuous position updates.
+    // Enforce 300ms minimum for state/song/party transitions, and 1200ms for continuous updates.
+    // Timestamp the payload arrival to prevent timeline drift during throttle delays
+    (payload as any).receivedAt = Date.now();
+
     const minInterval = isSignificantChange ? 300 : 1200;
 
     if (elapsed < minInterval) {
@@ -257,7 +277,7 @@ class DiscordRpcManager {
       const partyMax = party.max || 5;
       await this.client.user.setActivity({
         type: 2, // 2 = LISTENING ("Listening to FreQ")
-        details: `In a song party with ${partySize}/5 people`,
+        details: `In a party : ${partySize}/${partyMax}`,
         state: 'Waiting for song to start',
         largeImageKey: 'freq_logo',
         largeImageText: `FreQ Party #${party.code}`,
@@ -332,10 +352,13 @@ class DiscordRpcManager {
     try {
       if (isPlaying) {
         const now = Date.now();
-        const startTimestamp = Math.max(0, Math.floor(now - (position || 0) * 1000));
-        const duration = track.durationSeconds || 194;
-        const remainingSeconds = Math.max(1, duration - (position || 0));
-        const endTimestamp = Math.floor(now + remainingSeconds * 1000);
+        const duration = Math.max(1, Math.round(track.durationSeconds || 194));
+        const pos = Math.max(0, position || 0);
+        const ageSec = (payload as any).receivedAt ? Math.max(0, (now - (payload as any).receivedAt) / 1000) : 0;
+        const effectivePos = pos + ageSec;
+        // Ensure startTimestamp and endTimestamp differ by EXACTLY duration * 1000 without throttle drift
+        const startTimestamp = Math.max(0, Math.floor(now - effectivePos * 1000));
+        const endTimestamp = Math.floor(startTimestamp + duration * 1000);
 
         await this.client.user.setActivity({
           type: 2, // 2 = LISTENING ("Listening to FreQ")
@@ -364,6 +387,9 @@ class DiscordRpcManager {
 
       this.lastPlaying = isPlaying;
       this.lastTrackId = track.id || null;
+      this.lastDuration = Math.max(1, Math.round(track.durationSeconds || 194));
+      this.lastPosition = Math.max(0, position || 0);
+      this.lastActivityTimestamp = Date.now();
       this.lastInParty = inParty;
       this.lastPartySize = partySize;
       this.lastUpdateTimestamp = Date.now();

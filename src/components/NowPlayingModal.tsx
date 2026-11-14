@@ -14,7 +14,6 @@ import {
   PlusCircle,
   X,
   PanelRight,
-  Droplets,
   Timer,
   Share2,
 } from 'lucide-react';
@@ -101,32 +100,11 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
   const [showLyrics, setShowLyrics] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
-  // Tint visualizer: white wash whose strength follows the volume.
-  // Persisted so the choice survives restarts.
-  const [tintViz, setTintViz] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('freq_tint_viz') !== '0';
-    } catch {
-      return true;
-    }
-  });
-  const toggleTintViz = () => {
-    setTintViz(v => {
-      const next = !v;
-      try {
-        localStorage.setItem('freq_tint_viz', next ? '1' : '0');
-      } catch {
-        // Ignored.
-      }
-      return next;
-    });
-  };
   const [lyrics, setLyrics] = useState<TrackLyrics | null>(null);
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLDivElement>(null);
   const lastLyricScrollRef = useRef(-1);
-  const tintRef = useRef<HTMLDivElement>(null);
 
   // Fetch lyrics whenever current track changes
   useEffect(() => {
@@ -176,48 +154,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
     }
   }, [position, showLyrics, lyrics]);
 
-  // Beat-reactive tint: per-frame analyser pulse written straight to the
-  // overlay (no re-renders). Louder volume = stronger flashes.
-  useEffect(() => {
-    if (!tintViz || !isOpen) {
-      if (tintRef.current) tintRef.current.style.opacity = '0';
-      return;
-    }
-    let raf = 0;
-    let last = 0;
-    let running = true;
-    const loop = (t: number) => {
-      // Stop completely while another window (e.g. a game) is focused.
-      if (document.hidden || !document.hasFocus()) {
-        if (tintRef.current) tintRef.current.style.opacity = '0';
-        running = false;
-        return;
-      }
-      // 30 fps is plenty for a tint pulse.
-      if (t - last >= 33) {
-        last = t;
-        const beat = audioEngine.getBeatLevel();
-        const vol = isMuted ? 0 : Math.min(Math.max(volume, 0), 1);
-        const opacity = Math.min(0.8, vol * 0.12 + beat * (0.25 + 0.45 * vol));
-        if (tintRef.current) tintRef.current.style.opacity = opacity.toFixed(3);
-      }
-      raf = requestAnimationFrame(loop);
-    };
-    const resume = () => {
-      if (!running && !document.hidden && document.hasFocus()) {
-        running = true;
-        raf = requestAnimationFrame(loop);
-      }
-    };
-    window.addEventListener('focus', resume);
-    document.addEventListener('visibilitychange', resume);
-    raf = requestAnimationFrame(loop);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('focus', resume);
-      document.removeEventListener('visibilitychange', resume);
-    };
-  }, [tintViz, isOpen, isMuted, volume, currentTrack?.id]);
+
   const { visible: modalVisible, closing: modalClosing } = useExitTransition(isOpen, 220);
   const { visible: panelVisible, closing: panelClosing } = useExitTransition(showQueue, 240);
   if (!modalVisible || !currentTrack) return null;
@@ -285,19 +222,6 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           zIndex: 2,
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Tint Visualizer: beat-reactive white wash, driven per-frame */}
-      <div
-        ref={tintRef}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: '#ffffff',
-          opacity: 0,
-          zIndex: 5,
           pointerEvents: 'none',
         }}
       />
@@ -470,28 +394,6 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 <Share2 size={19} />
               </button>
             )}
-            <button
-              onClick={toggleTintViz}
-              title={tintViz ? 'Turn tint visualizer off' : 'Turn tint visualizer on'}
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: tintViz ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid ' + (tintViz ? '#f8fafc' : 'rgba(255, 255, 255, 0.10)'),
-                color: tintViz ? '#090A0F' : '#fff',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={e => { if (!tintViz) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
-              onMouseLeave={e => { if (!tintViz) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
-            >
-              <Droplets size={19} />
-            </button>
           </div>
         </div>
 

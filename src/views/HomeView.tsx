@@ -214,6 +214,7 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
           onFocus={() => setSuggestOpen(true)}
           onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
           onKeyDown={e => { if (e.key === 'Escape') setSuggestOpen(false); }}
+          className="search-input-field"
           style={{
             width: '100%',
             height: '50px',
@@ -232,6 +233,7 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
         />
         {/* Powered by ORIGIN SOUNDS */}
         <div
+          className="origin-sounds-badge"
           style={{
             position: 'absolute',
             right: '52px',

@@ -88,22 +88,22 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1536,
     height: 864,
-    minWidth: 960,
-    minHeight: 540,
+    minWidth: 700,
+    minHeight: 460,
     frame: false, // Frameless for custom liquid-glass titlebar
     backgroundColor: '#090A0F',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: true,
+      backgroundThrottling: false, // Keep playback, party sync & Discord presence smooth when minimized or gaming
       webSecurity: false, // Allow streaming audio & loading remote thumbnails seamlessly
     },
     show: true,
   });
 
   // Lock aspect ratio to 16:9
-  mainWindow.setAspectRatio(16 / 9);
+  // mainWindow.setAspectRatio(16 / 9); // Unlocked for responsive snapping
 
   mainWindow.webContents.on('did-fail-load', (e, code, desc, url) => {
     log('did-fail-load:', code, desc, url);

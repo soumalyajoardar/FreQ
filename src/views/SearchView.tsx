@@ -262,6 +262,7 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
             }
           }}
           autoFocus
+          className="search-input-field"
           style={{
             width: '100%',
             height: '52px',
@@ -287,6 +288,7 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
 
         {/* Powered by ORIGIN SOUNDS */}
         <div
+          className="origin-sounds-badge"
           style={{
             position: 'absolute',
             right: query ? '46px' : '16px',
@@ -529,7 +531,7 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
       ) : activeFilter === 'ALL' && topResult ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Top Result + Top Songs split layout */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 340px) 1fr', gap: '24px', alignItems: 'start' }}>
+          <div className="search-grid-hero" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 340px) 1fr', gap: '24px', alignItems: 'start' }}>
             {/* Top Result Card */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>

@@ -108,7 +108,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
   return (
     <footer
-      className="liquid-bar"
+      className="liquid-bar playerbar-container"
       style={{
         height: 'var(--playerbar-height, 88px)',
         backgroundColor: 'rgba(8, 9, 14, 0.92)',
@@ -126,11 +126,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       }}
     >
       {/* Left: Track Info & Like */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '28%', minWidth: '220px' }}>
+      <div className="playerbar-left" style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '28%', minWidth: '220px' }}>
         {currentTrack ? (
           <>
             <div
               onClick={onOpenNowPlaying}
+              className="playerbar-art"
               style={{
                 width: '54px',
                 height: '54px',
@@ -231,6 +232,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
       {/* Center: Controls & Scrubber */}
       <div
+        className="playerbar-center"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -397,10 +399,11 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       </div>
 
       {/* Right: Audio Flavor Pill, Lyrics, Volume, Fullscreen, Pin */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '28%', justifyContent: 'flex-end' }}>
+      <div className="playerbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '28%', justifyContent: 'flex-end' }}>
         {/* Audio Flavor Pill Switcher */}
         <button
           onClick={cycleFlavor}
+          className="playerbar-flavor-pill"
           title={`Click to cycle flavor. Current: ${audioMode}`}
           style={{
             padding: '3px 8px',
@@ -435,6 +438,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
         {/* HD & 3D Spatial Audio Enhancement Badge */}
         <span
+          className="playerbar-hd-badge"
           title="HD Audio Clarity & 3D Stereo Spatializer Active (Tune in Settings)"
           style={{
             fontSize: '9px',
@@ -515,7 +519,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           >
             {isMuted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
           </button>
-          <div style={{ width: '92px' }}>
+          <div className="playerbar-volume-slider" style={{ width: '92px' }}>
             <FlatScrubber
               value={isMuted ? 0 : volume}
               max={1}
@@ -530,6 +534,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         {/* Expand Now Playing Button */}
         <button
           onClick={onOpenNowPlaying}
+          className="playerbar-fullscreen-btn"
           title="Full Screen Player"
           style={{
             color: 'var(--text-secondary, #8b93a6)',
@@ -547,6 +552,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         {onToggleAlwaysOnTop && (
           <button
             onClick={onToggleAlwaysOnTop}
+            className="playerbar-pin-btn"
             title={alwaysOnTop ? 'Unpin window (always on top off)' : 'Pin window always on top'}
             style={{
               color: alwaysOnTop ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary, #8b93a6)',

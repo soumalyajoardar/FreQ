@@ -106,7 +106,7 @@ const LibraryViewComponent: React.FC<LibraryViewProps> = ({
       />
 
       {/* Top Grid: Liked Songs Hero Banner & Quick Actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: '20px' }}>
+      <div className="library-grid-hero" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: '20px' }}>
         {/* Liked Songs Hero Tile */}
         <div
           onClick={onOpenLiked}

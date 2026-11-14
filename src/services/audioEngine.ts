@@ -96,7 +96,12 @@ class AudioEngine {
 
   private emitTime() {
     const pos = this.audio.currentTime || 0;
-    const dur = this.audio.duration || 0;
+    const rawDur = this.audio.duration;
+    const isFiniteDur = typeof rawDur === 'number' && Number.isFinite(rawDur) && rawDur > 0;
+    const dur = isFiniteDur ? rawDur : (this.currentTrack?.durationSeconds || 0);
+    if (isFiniteDur && this.currentTrack && Math.abs((this.currentTrack.durationSeconds || 0) - rawDur) >= 1) {
+      this.currentTrack.durationSeconds = Math.round(rawDur);
+    }
     this.onTimeUpdateListeners.forEach(cb => cb(pos, dur));
     this.updateMediaSessionPosition(pos, dur);
     this.updateLeveling();
@@ -362,8 +367,16 @@ class AudioEngine {
       this.emitTime();
     });
 
-    // Metadata / seek landings report exact position immediately.
+    // Metadata / seek landings / duration updates report exact position & length immediately.
     this.audio.addEventListener('loadedmetadata', () => {
+      this.emitTime();
+    });
+
+    this.audio.addEventListener('durationchange', () => {
+      this.emitTime();
+    });
+
+    this.audio.addEventListener('canplay', () => {
       this.emitTime();
     });
 
@@ -877,7 +890,8 @@ class AudioEngine {
   }
 
   public getDuration(): number {
-    return this.audio.duration || 0;
+    const d = this.audio.duration;
+    return typeof d === 'number' && Number.isFinite(d) && d > 0 ? d : (this.currentTrack?.durationSeconds || 0);
   }
 
   public isPaused(): boolean {

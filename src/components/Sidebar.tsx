@@ -31,6 +31,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside
+      className="sidebar-container"
       style={{
         width: 'var(--sidebar-width, 250px)',
         height: '100%',
@@ -60,6 +61,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
+              className="sidebar-btn"
+              title={item.label}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -87,7 +90,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }}
             >
               <Icon size={17} color={isActive ? 'var(--accent-cyan, #1ed760)' : 'currentColor'} strokeWidth={isActive ? 2.3 : 1.8} />
-              <span>{item.label}</span>
+              <span className="sidebar-text">{item.label}</span>
             </button>
           );
         })}
@@ -96,6 +99,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         {onOpenParty && (
           <button
             onClick={onOpenParty}
+            className="sidebar-btn"
+            title={isInParty ? `Listen Together (In Party ${partyMembersCount}/5)` : 'Listen Together (Party)'}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -135,10 +140,11 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <Radio size={17} color={isInParty ? '#1ed760' : 'currentColor'} strokeWidth={isInParty ? 2.4 : 1.8} />
-              <span>Listen Together</span>
+              <span className="sidebar-text">Listen Together</span>
             </div>
             {isInParty ? (
               <span
+                className="sidebar-badge"
                 style={{
                   fontSize: '11px',
                   padding: '2px 7px',
@@ -152,6 +158,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               </span>
             ) : (
               <span
+                className="sidebar-badge"
                 style={{
                   fontSize: '9px',
                   padding: '2px 5px',
@@ -171,6 +178,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 
       {/* Audio Flavors Switcher Card */}
       <div
+        className="sidebar-flavor-card"
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.03)',
           borderRadius: '12px',
@@ -178,13 +186,13 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           border: '1px solid rgba(255, 255, 255, 0.06)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', paddingLeft: '2px' }}>
+        <div className="sidebar-flavor-header" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', paddingLeft: '2px' }}>
           <Sparkles size={13} color="var(--accent-cyan, #1ed760)" />
           <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted, #5c6478)', textTransform: 'uppercase' }}>
             Audio Flavor
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+        <div className="sidebar-flavor-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
           {[
             { id: 'SNR' as AudioMode, label: 'SnR', title: 'SnR: Slowed + Lush Reverb', activeBg: 'var(--accent-violet, #8b5cf6)', glow: 'rgba(139, 92, 246, 0.35)' },
             { id: 'NORMAL' as AudioMode, label: 'Normal', title: 'Normal: Pure 1.0x studio sound', activeBg: 'var(--accent-cyan, #1ed760)', glow: 'rgba(30, 215, 96, 0.35)' },
@@ -195,6 +203,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               <button
                 key={f.id}
                 onClick={() => onAudioModeChange(f.id)}
+                className="sidebar-flavor-btn"
                 title={f.title}
                 style={{
                   padding: '5px 2px',
@@ -216,7 +225,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       </div>
 
       {/* Playlists & Collections */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '6px', minHeight: 0 }}>
+      <div className="sidebar-playlists-section" style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '6px', minHeight: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 4px 4px' }}>
           <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted, #5c6478)', textTransform: 'uppercase' }}>
             Playlists
@@ -334,6 +343,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '10px' }}>
         <button
           onClick={() => onNavigate('settings')}
+          className="sidebar-settings-btn"
+          title="Settings"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -359,7 +370,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           }}
         >
           <Settings size={15} />
-          <span>Settings</span>
+          <span className="sidebar-text">Settings</span>
           {hasUpdate && (
             <span
               title="Update available"

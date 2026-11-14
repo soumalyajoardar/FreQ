@@ -390,10 +390,22 @@ export const App: React.FC = () => {
     });
     const offTime = audioEngine.onTimeUpdate((pos, dur) => {
       partyService.updateLocalPlaybackStatus(pos, isPlayingRef.current, currentTrackRef.current);
-      // No React churn while the app is in the background (game in focus).
+      // Keep duration accurate even when the app is in the background (e.g. user in a game or Discord),
+      // so Discord presence and party sync always show the exact real track length.
+      if (typeof dur === 'number' && Number.isFinite(dur) && dur > 0) {
+        setDuration(prevDur => {
+          if (Math.abs(prevDur - dur) >= 1) {
+            if (currentTrackRef.current && Math.abs((currentTrackRef.current.durationSeconds || 0) - dur) >= 1) {
+              currentTrackRef.current.durationSeconds = Math.round(dur);
+            }
+            return dur;
+          }
+          return prevDur;
+        });
+      }
+      // No React churn for high-frequency position slider while the app is in the background.
       if (document.hidden || !document.hasFocus()) return;
       setPosition(pos);
-      setDuration(dur);
     });
 
     const offEnd = audioEngine.onTrackEnd(() => {
@@ -564,6 +576,7 @@ export const App: React.FC = () => {
     // track will fire a proper "playing" update once it has loaded.
     if (!isPlaying && (isTrackLoading || isTransitioningRef.current)) return;
 
+    const exactDuration = duration > 0 ? Math.round(duration) : (currentTrack.durationSeconds || 194);
     window.electronAPI.updateDiscordPresence({
       track: {
         id: currentTrack.id,
@@ -571,7 +584,7 @@ export const App: React.FC = () => {
         artist: currentTrack.artist,
         album: currentTrack.album,
         artworkUrl: currentTrack.artworkUrl,
-        durationSeconds: currentTrack.durationSeconds || duration || 194,
+        durationSeconds: exactDuration,
       },
       isPlaying,
       position,
@@ -583,7 +596,7 @@ export const App: React.FC = () => {
         isHost: partyService.getIsHost(),
       } : undefined,
     });
-  }, [currentTrack, isPlaying, audioMode, privateMode, isTrackLoading, isInParty, partyMembersCount]);
+  }, [currentTrack, isPlaying, duration, audioMode, privateMode, isTrackLoading, isInParty, partyMembersCount]);
 
   useEffect(() => {
     if (!window.electronAPI?.pokeDiscordPresence) return;
@@ -976,7 +989,7 @@ export const App: React.FC = () => {
           artist: currentTrack.artist,
           album: currentTrack.album,
           artworkUrl: currentTrack.artworkUrl,
-          durationSeconds: currentTrack.durationSeconds || duration || 194,
+          durationSeconds: (duration > 0 && Number.isFinite(duration)) ? Math.round(duration) : (currentTrack.durationSeconds || 194),
         },
         isPlaying,
         position: sec,

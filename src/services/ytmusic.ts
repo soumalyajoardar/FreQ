@@ -43,6 +43,41 @@ export function pickBestThumbnail(list: any): string | null {
   return withUrl[withUrl.length - 1].url;
 }
 
+export function parseDurationToSeconds(val: any): number {
+  if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+    if (val > 10000 && val % 1000 === 0) return Math.round(val / 1000);
+    return Math.round(val);
+  }
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return 0;
+    // Format "PT3M14S" or "PT4M30S" (ISO 8601)
+    if (s.startsWith('PT') || s.startsWith('pt')) {
+      const m = s.match(/(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+      if (m) {
+        const h = parseInt(m[1] || '0', 10);
+        const min = parseInt(m[2] || '0', 10);
+        const sec = parseInt(m[3] || '0', 10);
+        const total = h * 3600 + min * 60 + sec;
+        if (total > 0) return total;
+      }
+    }
+    // Format "HH:MM:SS" or "MM:SS"
+    if (s.includes(':')) {
+      const parts = s.split(':').map(p => parseInt(p.trim(), 10));
+      if (parts.every(p => !isNaN(p))) {
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+    }
+    const parsed = parseFloat(s);
+    if (!isNaN(parsed) && Number.isFinite(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  }
+  return 0;
+}
+
 export function normalizeTrack(raw: any): MediaTrack {
   const id = raw.id || raw.videoId || '';
   const rawTitle = raw.title ?? raw.name ?? '';
@@ -69,14 +104,19 @@ export function normalizeTrack(raw: any): MediaTrack {
     album = raw.album.name;
   }
 
-  let durationSeconds = 194;
-  if (typeof raw.durationSeconds === 'number' && raw.durationSeconds > 0) {
-    durationSeconds = raw.durationSeconds;
-  } else if (typeof raw.durationMs === 'number' && raw.durationMs > 0) {
-    durationSeconds = Math.round(raw.durationMs / 1000);
-  } else if (typeof raw.duration === 'number' && raw.duration > 0) {
-    durationSeconds = raw.duration;
-  }
+  // Robust multi-source duration extraction (seconds, ms, timestamp strings)
+  const parsedDur =
+    parseDurationToSeconds(raw.durationSeconds) ||
+    parseDurationToSeconds(raw.duration_seconds) ||
+    parseDurationToSeconds(raw.durationMs ? Math.round(raw.durationMs / 1000) : null) ||
+    parseDurationToSeconds(raw.duration_ms ? Math.round(raw.duration_ms / 1000) : null) ||
+    parseDurationToSeconds(raw.duration) ||
+    parseDurationToSeconds(raw.duration_string) ||
+    parseDurationToSeconds(raw.lengthSeconds) ||
+    parseDurationToSeconds(raw.length_seconds) ||
+    parseDurationToSeconds(raw.approxDurationMs ? Math.round(raw.approxDurationMs / 1000) : null);
+
+  const durationSeconds = parsedDur > 0 ? parsedDur : 194;
 
   const artworkUrl = upgradeArtworkUrl(
     raw.artworkUrl || raw.thumbnail || pickBestThumbnail(raw.thumbnails),
@@ -155,7 +195,7 @@ class YtMusicService {
             artistId: item.artistId || null,
             album: item.album || null,
             year: item.year || null,
-            durationSeconds: item.durationMs ? Math.round(item.durationMs / 1000) : 194,
+            durationSeconds: parseDurationToSeconds(item.durationSeconds ?? item.durationMs ?? item.duration) || 194,
             artworkUrl: upgradeArtworkUrl(item.artworkUrl, id),
           };
         }),
