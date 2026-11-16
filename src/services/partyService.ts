@@ -25,6 +25,11 @@ export interface PartyReaction {
 
 export type PartyStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
+// Public parties advertise a Discord join secret, so anyone viewing the
+// host's presence can click "Join" and land straight in the room. Private
+// parties omit the secret — the 4-digit code is the only way in.
+export type PartyPrivacy = 'public' | 'private';
+
 export interface PartySyncEvent {
   type: 'track' | 'playState' | 'seek' | 'timelineSync' | 'reaction' | 'memberJoined' | 'memberLeft' | 'kicked' | 'hostEnded';
   track?: MediaTrack;
@@ -73,6 +78,9 @@ export class PartyService {
   private isPlaying: boolean = false;
   private position: number = 0;
 
+  // Remembered between parties — the host's last choice is the default.
+  private privacy: PartyPrivacy = 'private';
+
   private syncListeners: Set<SyncEventListener> = new Set();
   private stateListeners: Set<PartyListener> = new Set();
 
@@ -91,6 +99,13 @@ export class PartyService {
     } catch {
       // Ignore
     }
+    try {
+      if (localStorage.getItem('freq_party_privacy') === 'public') {
+        this.privacy = 'public';
+      }
+    } catch {
+      // Ignore
+    }
   }
 
   // --- Public Getters ---
@@ -100,6 +115,26 @@ export class PartyService {
 
   public getIsHost(): boolean {
     return this.isHost;
+  }
+
+  public getPrivacy(): PartyPrivacy {
+    return this.privacy;
+  }
+
+  // Host-only. Guests follow the host through JOIN_ACCEPTED / PRIVACY_UPDATE.
+  public setPrivacy(privacy: PartyPrivacy) {
+    if (!this.isHost || this.status !== 'connected' || !this.partyCode) return;
+    if (this.privacy === privacy) return;
+    this.privacy = privacy;
+    try {
+      localStorage.setItem('freq_party_privacy', privacy);
+    } catch {}
+    this.publish({
+      type: 'PRIVACY_UPDATE',
+      privacy,
+      senderId: this.myMemberId,
+    });
+    this.notifyState();
   }
 
   public getStatus(): PartyStatus {
@@ -482,6 +517,7 @@ export class PartyService {
           isPlaying: this.isPlaying,
           currentTrackId: this.currentTrack?.id || null,
           membersCount: this.members.length,
+          privacy: this.privacy,
           timestamp: now,
           senderId: this.myMemberId,
         });
@@ -626,6 +662,7 @@ export class PartyService {
           currentTrack: this.currentTrack,
           isPlaying: this.isPlaying,
           position: livePos,
+          privacy: this.privacy,
           timestamp: Date.now(),
           senderId: this.myMemberId,
         });
@@ -643,6 +680,7 @@ export class PartyService {
         }
 
         this.status = 'connected';
+        this.privacy = payload.privacy === 'public' ? 'public' : 'private';
         this.members = Array.isArray(payload.members) ? payload.members : [];
         // Ensure my record is in the members list
         if (!this.members.some(m => m.id === this.myMemberId)) {
@@ -779,6 +817,14 @@ export class PartyService {
       case 'TIMELINE_SYNC':
       case 'HEARTBEAT': {
         if (this.isHost) return;
+        // Host privacy can change mid-party; the heartbeat keeps stragglers
+        // (and anyone who joined before the change) in sync.
+        if (payload.type === 'HEARTBEAT' && (payload.privacy === 'public' || payload.privacy === 'private')) {
+          if (this.privacy !== payload.privacy) {
+            this.privacy = payload.privacy;
+            this.notifyState();
+          }
+        }
         const directPos = Math.max(0, payload.position || 0);
         this.notifySync({
           type: 'timelineSync',
@@ -786,6 +832,13 @@ export class PartyService {
           isPlaying: !!payload.isPlaying,
           timestamp: payload.timestamp || Date.now(),
         });
+        break;
+      }
+
+      case 'PRIVACY_UPDATE': {
+        if (this.isHost) return;
+        this.privacy = payload.privacy === 'public' ? 'public' : 'private';
+        this.notifyState();
         break;
       }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Library, Search, Heart, Plus, Settings, Sparkles, Music2, BarChart3, Radio } from 'lucide-react';
+import { Home, Library, Search, Heart, Plus, Settings, Sparkles, Music2, BarChart3, Radio, DownloadCloud } from 'lucide-react';
 import { AudioMode, UserPlaylist } from '../types';
 
 interface SidebarProps {
@@ -376,14 +376,21 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               title="Update available"
               style={{
                 marginLeft: 'auto',
-                width: '7px',
-                height: '7px',
+                width: '18px',
+                height: '18px',
                 borderRadius: '50%',
-                backgroundColor: '#ef4444',
-                boxShadow: '0 0 8px rgba(239, 68, 68, 0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(56, 189, 248, 0.18)',
+                border: '1px solid rgba(56, 189, 248, 0.55)',
+                boxShadow: '0 0 10px rgba(56, 189, 248, 0.45)',
                 flexShrink: 0,
+                animation: 'updateBadgePulse 2s ease-in-out infinite',
               }}
-            />
+            >
+              <DownloadCloud size={11} color="#38bdf8" />
+            </span>
           )}
         </button>
       </div>

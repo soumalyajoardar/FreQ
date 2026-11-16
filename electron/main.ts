@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Notification } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -18,7 +18,12 @@ function log(...args: any[]) {
 process.on('uncaughtException', err => log('Uncaught Exception:', err));
 process.on('unhandledRejection', err => log('Unhandled Rejection:', err));
 
-let mainWindow: BrowserWindow | null = null;
+let mainWindow: BrowserWindow | null = null;
+
+// Required for Windows toast notifications to attribute correctly.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.freq.music');
+}
 
 // Audio stream cache: videoId -> { url, expiresAt }. Expiry comes from the
 // googlevideo `?expire=` param when present (true URL lifetime), else a
@@ -220,17 +225,18 @@ async function checkGitHubReleasesDirectly(): Promise<boolean> {
 
     if (tag && isNewerVersion(tag, currentVer)) {
       log(`Direct check: update available (latest ${tag} > current ${currentVer})`);
-      sendUpdaterEvent({
-        type: 'update-available',
-        info: {
-          version: tag,
-          releaseName: release.name || `FreQ v${tag}`,
-          releaseNotes: release.body || '',
-          releaseDate: release.published_at,
-          downloadUrl: release.html_url,
-          assets: release.assets,
-        },
-      });
+      sendUpdaterEvent({
+        type: 'update-available',
+        info: {
+          version: tag,
+          releaseName: release.name || `FreQ v${tag}`,
+          releaseNotes: release.body || '',
+          releaseDate: release.published_at,
+          downloadUrl: release.html_url,
+          assets: release.assets,
+        },
+      });
+      showUpdateNotification(tag);
       return true;
     } else {
       log(`Direct check: app is up to date (${currentVer})`);
@@ -246,10 +252,55 @@ async function checkGitHubReleasesDirectly(): Promise<boolean> {
   }
 }
 
-function sendUpdaterEvent(payload: any) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('updater-event', payload);
-  }
+function sendUpdaterEvent(payload: any) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('updater-event', payload);
+  }
+}
+
+// Native Windows toast when a new release is found. Once per version, with a
+// 24h cooldown, so a pending update is announced without nagging on every
+// launch. Clicking the toast focuses FreQ and opens the update card.
+const UPDATE_NOTIFY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+function showUpdateNotification(version: string) {
+  if (!version) return;
+
+  let alreadyNotified = false;
+  try {
+    const file = path.join(app.getPath('userData'), 'freq_update_notified.json');
+    let last: { version?: string; at?: number } = {};
+    try {
+      last = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch {}
+    if (last.version === version && Date.now() - (last.at || 0) < UPDATE_NOTIFY_COOLDOWN_MS) {
+      alreadyNotified = true;
+    } else {
+      fs.writeFileSync(file, JSON.stringify({ version, at: Date.now() }));
+    }
+  } catch {}
+
+  if (alreadyNotified || !Notification.isSupported()) return;
+
+  try {
+    const iconPath = path.join(app.getAppPath(), 'build', 'icon.png');
+    const notification = new Notification({
+      title: 'FreQ update available',
+      body: `Version ${version} is ready to download. Open FreQ Settings to update.`,
+      icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    });
+    notification.on('click', () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('navigate-to-view', 'settings');
+    });
+    notification.show();
+    log('Update notification shown for', version);
+  } catch (err: any) {
+    log('Update notification failed:', err?.message || err);
+  }
 }
 
 function reportUpdaterError(err: unknown) {
@@ -321,8 +372,9 @@ ipcMain.handle('install-update', () => {
 autoUpdater.on('checking-for-update', () => {
   sendUpdaterEvent({ type: 'checking-for-update' });
 });
-autoUpdater.on('update-available', (info) => {
-  sendUpdaterEvent({ type: 'update-available', info });
+autoUpdater.on('update-available', (info) => {
+  sendUpdaterEvent({ type: 'update-available', info });
+  showUpdateNotification(info?.version);
 });
 autoUpdater.on('update-not-available', (info) => {
   sendUpdaterEvent({ type: 'update-not-available', info });
@@ -695,8 +747,17 @@ ipcMain.handle('discord-set-client-id', (_event, clientId: string) => {
   discordRpcManager.setClientId(clientId);
 });
 
-ipcMain.handle('discord-get-status', () => {
-  return discordRpcManager.getStatus();
+ipcMain.handle('discord-get-status', () => {
+  return discordRpcManager.getStatus();
+});
+
+// Discord "Join" from the presence. A friend clicked join (or we approved an
+// Ask to Join) — hand the party code to the renderer, which runs the normal
+// join flow. Public parties only; private ones never advertise a secret.
+discordRpcManager.onJoin((code: string) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('discord-join-party', code);
+  }
 });
 
 

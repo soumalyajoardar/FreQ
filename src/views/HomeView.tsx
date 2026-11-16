@@ -139,8 +139,11 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
   const line = defLines[moodIdx % defLines.length];
   const mood: MoodLine = { text: line.text, query: line.query, Icon: MOOD_ICONS[part][moodIdx % MOOD_ICONS[part].length] };
 
-  // Albums aggregated from every rail (real YT Music album metadata)
-  const allTracks = sections.flatMap(s =>
+  // Albums aggregated from every rail + your own history (real YT Music
+  // album metadata). Singles are kept too — requiring 2+ songs leaves a
+  // normal library with only a handful of groups and a half-empty row.
+  const albumSource: MediaTrack[] = [
+    ...sections.flatMap(s =>
     s.items
       .filter(i => i.type === 'song')
       .map(i => ({
@@ -152,9 +155,11 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
         artworkUrl: i.artworkUrl,
         provider: 'youtube_music',
       } as MediaTrack))
-  );
+    ),
+    ...recentlyPlayed,
+  ];
   const albumGroups = Array.from(
-    allTracks.reduce((map, t) => {
+    albumSource.reduce((map, t) => {
       const key = (t.album || '').trim();
       if (!key || key.toLowerCase() === 'single') return map;
       if (!map.has(key)) map.set(key, { title: key, artist: t.artist, artworkUrl: t.artworkUrl, tracks: [t] });
@@ -166,9 +171,9 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
       return map;
     }, new Map<string, { title: string; artist: string; artworkUrl: string | null; tracks: MediaTrack[] }>()).values()
   )
-    .filter(g => g.tracks.length >= 2)
+    .filter(g => g.tracks.length >= 1 && g.artworkUrl)
     .sort((a, b) => b.tracks.length - a.tracks.length)
-    .slice(0, 10);
+    .slice(0, 14);
 
   return (
     <div style={{ position: 'relative', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }} className="view-enter">
@@ -193,6 +198,28 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
 
       {/* 0. Search Bar (sticky nav — stays put while rails scroll) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'sticky', top: 0, zIndex: 25, margin: '-24px -32px 0', padding: '16px 32px', backgroundColor: 'rgba(9, 10, 15, 0.86)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      {/* FreQ wordmark — sits beside the whole search bar */}
+      <span
+        aria-hidden="true"
+        className="freq-wordmark"
+        style={{
+          marginRight: '18px',
+          flexShrink: 0,
+          fontSize: '32px',
+          fontWeight: 900,
+          letterSpacing: '-0.05em',
+          lineHeight: 1,
+          paddingBottom: '2px',
+          background: 'linear-gradient(135deg, #ffffff 0%, #c9ffe3 38%, #1ed760 100%)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          filter: 'drop-shadow(0 0 16px rgba(30, 215, 96, 0.30))',
+          userSelect: 'none',
+        }}
+      >
+        FreQ
+      </span>
       <form
         onSubmit={e => {
           e.preventDefault();
@@ -452,18 +479,21 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
 
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              display: 'flex',
               gap: '16px',
+              overflowX: 'auto',
+              paddingBottom: '8px',
             }}
           >
-            {recentlyPlayed.slice(0, 4).map(track => {
+            {recentlyPlayed.slice(0, 8).map(track => {
               const isCurrent = !!currentTrackId && track.id === currentTrackId;
               return (
               <div
                 key={track.id}
                 onClick={() => { if (isCurrent) onOpenPlayer?.(); else onPlayTrack(track); }} onContextMenu={e => onTrackContextMenu?.(e, track)}
                 style={{
+                  width: '170px',
+                  flexShrink: 0,
                   padding: '12px',
                   borderRadius: '16px',
                   backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -607,7 +637,7 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
                     {alb.title}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {alb.artist} • {alb.tracks.length} songs
+                    {alb.artist} • {alb.tracks.length} {alb.tracks.length === 1 ? 'song' : 'songs'}
                   </span>
                 </div>
               </div>

@@ -19,6 +19,9 @@ export interface DiscordActivityPayload {
     size: number;
     max?: number;
     isHost?: boolean;
+    // Public parties expose a Discord join secret so friends can join from
+    // the presence itself. Private parties deliberately omit it.
+    privacy?: 'public' | 'private';
   };
 }
 
@@ -34,15 +37,38 @@ class DiscordRpcManager {
   private lastActive = Date.now();
   private lastPlaying = false;
   private lastTrackId: string | null = null;
+  // Requested state, updated synchronously when a payload is accepted. Change
+  // detection must use this, not lastPlaying/lastTrackId (which only move
+  // after the async Discord write resolves) — otherwise a fast pause → play
+  // looks like "no change" and gets skipped, leaving a stale presence.
+  private desiredPlaying = false;
+  private desiredTrackId: string | null = null;
   private lastDuration = 0;
   private lastPosition = 0;
   private lastActivityTimestamp = 0;
   private lastInParty = false;
   private lastPartySize = 0;
+  private lastPartyPrivacy: 'public' | 'private' | null = null;
+  // Latest joinable party (public only). Used to auto-approve "Ask to Join".
+  private joinableParty: { code: string; privacy: 'public' | 'private' } | null = null;
+  private joinListener: ((code: string) => void) | null = null;
+  private joinEventsBound = false;
   private showingAfk = false;
   private afkTimer: NodeJS.Timeout | null = null;
   private pendingUpdate: DiscordActivityPayload | null = null;
   private pendingTimer: NodeJS.Timeout | null = null;
+  // Every setActivity write is serialized. Discord's IPC is async and can
+  // resolve out of order; without a queue an older "Paused" write can land
+  // after the next track's "Playing" write — the wrong-state glitch at
+  // track boundaries. A monotonic seq also lets superseded writes no-op.
+  private writeChain: Promise<void> = Promise.resolve();
+  private activitySeq = 0;
+
+  private enqueueWrite(fn: () => Promise<void>): Promise<void> {
+    const next = this.writeChain.catch(() => {}).then(fn);
+    this.writeChain = next.catch(() => {});
+    return next;
+  }
 
   constructor() {
     this.connect();
@@ -72,18 +98,24 @@ class DiscordRpcManager {
 
   private async applyStaticPresence(details: string, state: string) {
     if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
-    try {
-      await this.client.user.setActivity({
-        type: 0, // PLAYING ("Playing FreQ")
-        details: details.slice(0, 128),
-        state: state.slice(0, 128),
-        largeImageKey: 'freq_logo',
-        largeImageText: 'FreQ Desktop',
-      });
-      this.lastUpdateTimestamp = Date.now();
-    } catch (err: any) {
-      console.warn('[Discord RPC] static presence warning:', err.message || err);
-    }
+    const seq = this.activitySeq;
+    return this.enqueueWrite(async () => {
+      // A newer track/pause write queued while we waited — skip this one.
+      if (seq !== this.activitySeq) return;
+      if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
+      try {
+        await this.client.user.setActivity({
+          type: 0, // PLAYING ("Playing FreQ")
+          details: details.slice(0, 128),
+          state: state.slice(0, 128),
+          largeImageKey: 'freq_logo',
+          largeImageText: 'FreQ Desktop',
+        });
+        this.lastUpdateTimestamp = Date.now();
+      } catch (err: any) {
+        console.warn('[Discord RPC] static presence warning:', err.message || err);
+      }
+    });
   }
 
   // Idle with no song: logo + browsing text (not a cleared presence).
@@ -91,6 +123,11 @@ class DiscordRpcManager {
     if (!this.isEnabled) return;
     this.lastPlaying = false;
     this.showingAfk = false;
+    this.joinableParty = null;
+    this.lastPartyPrivacy = null;
+    // Invalidate any queued/in-flight track write so a late "Playing" can
+    // never repaint over the browsing presence.
+    this.activitySeq += 1;
     if (!this.isConnected) {
       this.connect();
       return;
@@ -105,6 +142,47 @@ class DiscordRpcManager {
       this.clientId = newId;
       this.reconnect();
     }
+  }
+
+  // Renderer callback: a friend joined our presence from Discord. We hand it
+  // the party code so it can run the normal join path.
+  public onJoin(listener: (code: string) => void) {
+    this.joinListener = listener;
+  }
+
+  private bindJoinEvents(client: Client) {
+    if (this.joinEventsBound) return;
+    this.joinEventsBound = true;
+
+    // "Join" clicked on our presence (only public parties publish a secret).
+    client.on('ACTIVITY_JOIN', (data: any) => {
+      const secret = typeof data?.secret === 'string' ? data.secret : '';
+      const code = secret.replace(/\D/g, '');
+      if (code.length === 4) this.joinListener?.(code);
+    });
+
+    // "Ask to Join" clicked. Auto-approve while the party is public so
+    // Discord routes the secret back as an ACTIVITY_JOIN. Private parties
+    // stay code-only, so we leave the request unanswered.
+    client.on('ACTIVITY_JOIN_REQUEST', async (data: any) => {
+      if (!this.joinableParty || this.joinableParty.privacy !== 'public') return;
+      const userId = data?.id || data?.user?.id;
+      if (!userId || !client.user) return;
+      try {
+        await client.user.sendJoinInvite(userId);
+      } catch (err: any) {
+        console.warn('[Discord RPC] join invite warning:', err.message || err);
+      }
+    });
+  }
+
+  private subscribeJoinEvents(client: Client) {
+    client.subscribe('ACTIVITY_JOIN').catch(err => {
+      console.warn('[Discord RPC] subscribe ACTIVITY_JOIN warning:', err?.message || err);
+    });
+    client.subscribe('ACTIVITY_JOIN_REQUEST').catch(err => {
+      console.warn('[Discord RPC] subscribe ACTIVITY_JOIN_REQUEST warning:', err?.message || err);
+    });
   }
 
   public setEnabled(enabled: boolean) {
@@ -130,11 +208,14 @@ class DiscordRpcManager {
 
     try {
       this.client = new Client({ clientId: this.clientId });
+      this.joinEventsBound = false;
+      this.bindJoinEvents(this.client);
 
       this.client.on('ready', () => {
         this.isConnected = true;
         this.isConnecting = false;
         console.log(`[Discord RPC] Connected to Discord as ${this.client?.user?.username || 'user'}`);
+        if (this.client) this.subscribeJoinEvents(this.client);
 
         if (this.lastActivity && this.isEnabled) {
           if (this.lastActivity.track && this.lastActivity.track.title) {
@@ -190,16 +271,26 @@ class DiscordRpcManager {
 
     const inParty = !!payload?.party;
     const currentPartySize = payload?.party?.size || 0;
-    const partyChanged = inParty !== this.lastInParty || currentPartySize !== this.lastPartySize;
+    const currentPrivacy = payload?.party
+      ? (payload.party.privacy === 'public' ? 'public' : 'private')
+      : null;
+    const partyChanged =
+      inParty !== this.lastInParty ||
+      currentPartySize !== this.lastPartySize ||
+      currentPrivacy !== this.lastPartyPrivacy;
 
     if (!payload || !payload.track || !payload.track.title) {
       this.lastPlaying = false;
       this.lastTrackId = null;
+      this.desiredPlaying = false;
+      this.desiredTrackId = null;
       if (inParty && payload.party) {
         this.applyPartyIdle(payload.party);
       } else {
         this.lastInParty = false;
         this.lastPartySize = 0;
+        this.lastPartyPrivacy = null;
+        this.joinableParty = null;
         this.showBrowsing();
       }
       return;
@@ -210,8 +301,8 @@ class DiscordRpcManager {
       return;
     }
 
-    const prevPlaying = this.lastPlaying;
-    const prevTrackId = this.lastTrackId;
+    const prevPlaying = this.desiredPlaying;
+    const prevTrackId = this.desiredTrackId;
     const isPlaying = !!payload.isPlaying;
     const currentTrackId = payload.track?.id || null;
     const currentDuration = Math.round(payload.track?.durationSeconds || 0);
@@ -232,6 +323,10 @@ class DiscordRpcManager {
     if (!isSignificantChange && isPlaying && prevPlaying && !trackChanged) {
       return;
     }
+
+    // This payload is now the authoritative requested state.
+    this.desiredPlaying = isPlaying;
+    this.desiredTrackId = currentTrackId;
 
     const now = Date.now();
     const elapsed = now - this.lastUpdateTimestamp;
@@ -270,29 +365,46 @@ class DiscordRpcManager {
     this.applyActivity(payload);
   }
 
-  public async applyPartyIdle(party: { code: string; size: number; max?: number }) {
+  public async applyPartyIdle(party: { code: string; size: number; max?: number; privacy?: 'public' | 'private' }) {
     if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
-    try {
-      const partySize = party.size || 1;
-      const partyMax = party.max || 5;
-      await this.client.user.setActivity({
-        type: 2, // 2 = LISTENING ("Listening to FreQ")
-        details: `In a party : ${partySize}/${partyMax}`,
-        state: 'Waiting for song to start',
-        largeImageKey: 'freq_logo',
-        largeImageText: `FreQ Party #${party.code}`,
-        smallImageKey: 'freq_logo',
-        smallImageText: `Party (${partySize}/5)`,
-        partyId: `freq_party_${party.code}`,
-        partySize,
-        partyMax,
-      });
-      this.lastUpdateTimestamp = Date.now();
-      this.lastInParty = true;
-      this.lastPartySize = partySize;
-    } catch (err: any) {
-      console.warn('[Discord RPC] party idle warning:', err.message || err);
+    const privacy = party.privacy === 'public' ? 'public' : 'private';
+    const previousPrivacy = this.joinableParty?.code === party.code ? this.joinableParty.privacy : null;
+    // Track this synchronously: "Ask to Join" can arrive before the write.
+    this.joinableParty = { code: party.code, privacy };
+    if (previousPrivacy !== privacy) {
+      console.log(
+        `[Discord RPC] Party #${party.code} is now ${privacy}` +
+          (privacy === 'public' ? ' (joinable from Discord)' : ' (code only)')
+      );
     }
+    const seq = this.activitySeq;
+    return this.enqueueWrite(async () => {
+      if (seq !== this.activitySeq) return;
+      if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
+      try {
+        const partySize = party.size || 1;
+        const partyMax = party.max || 5;
+        await this.client.user.setActivity({
+          type: 2, // 2 = LISTENING ("Listening to FreQ")
+          details: `In a party : ${partySize}/${partyMax}`,
+          state: 'Waiting for song to start',
+          largeImageKey: 'freq_logo',
+          largeImageText: `FreQ Party #${party.code}`,
+          smallImageKey: 'freq_logo',
+          smallImageText: `Party (${partySize}/5)`,
+          partyId: `freq_party_${party.code}`,
+          partySize,
+          partyMax,
+          joinSecret: privacy === 'public' ? party.code : undefined,
+        });
+        this.lastUpdateTimestamp = Date.now();
+        this.lastInParty = true;
+        this.lastPartySize = partySize;
+        this.lastPartyPrivacy = privacy;
+      } catch (err: any) {
+        console.warn('[Discord RPC] party idle warning:', err.message || err);
+      }
+    });
   }
 
   private async applyActivity(payload: DiscordActivityPayload) {
@@ -304,9 +416,21 @@ class DiscordRpcManager {
       return;
     }
 
+    const seq = ++this.activitySeq;
+
     const inParty = !!party;
     const partySize = party?.size || 1;
     const partyMax = party?.max || 5;
+    const partyPrivacy = party?.privacy === 'public' ? 'public' : 'private';
+    // Public parties expose the room code as Discord's join secret, which
+    // turns the presence into a clickable "Join" button.
+    this.joinableParty = inParty ? { code: party!.code, privacy: partyPrivacy } : null;
+    if (inParty && partyPrivacy !== this.lastPartyPrivacy) {
+      console.log(
+        `[Discord RPC] Party #${party!.code} is now ${partyPrivacy}` +
+          (partyPrivacy === 'public' ? ' (joinable from Discord)' : ' (code only)')
+      );
+    }
 
     // Audio flavor labels
     let flavorLabel = 'FreQ • Studio';
@@ -343,72 +467,92 @@ class DiscordRpcManager {
           partyId: `freq_party_${party!.code}`,
           partySize,
           partyMax,
+          joinSecret: partyPrivacy === 'public' ? party!.code : undefined,
         }
       : {};
 
     let smallText = inParty ? `Party (${partySize}/5) • ${flavorLabel}` : flavorLabel;
     if (!isPlaying) smallText = inParty ? `Party (${partySize}/5) • Paused` : 'Paused';
 
-    try {
-      if (isPlaying) {
-        const now = Date.now();
-        const duration = Math.max(1, Math.round(track.durationSeconds || 194));
-        const pos = Math.max(0, position || 0);
-        const ageSec = (payload as any).receivedAt ? Math.max(0, (now - (payload as any).receivedAt) / 1000) : 0;
-        const effectivePos = pos + ageSec;
-        // Ensure startTimestamp and endTimestamp differ by EXACTLY duration * 1000 without throttle drift
-        const startTimestamp = Math.max(0, Math.floor(now - effectivePos * 1000));
-        const endTimestamp = Math.floor(startTimestamp + duration * 1000);
+    return this.enqueueWrite(async () => {
+      // A newer state was queued while this one waited — don't write stale data.
+      if (seq !== this.activitySeq) return;
+      if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
 
-        await this.client.user.setActivity({
-          type: 2, // 2 = LISTENING ("Listening to FreQ")
-          details, // Line 1: Heading ("In a party : X/5" or song title)
-          state, // Line 2: Song title (or artist if solo)
-          startTimestamp, // Timeline start
-          endTimestamp, // Timeline end (renders live countdown timeline at the bottom)
-          largeImageKey: track.artworkUrl || undefined,
-          largeImageText, // Line 3: Artist name (or album if solo)
-          smallImageKey: 'freq_logo', // FreQ app icon
-          smallImageText: smallText.slice(0, 128),
-          ...partyConfig,
-        });
-      } else {
-        await this.client.user.setActivity({
-          type: 2,
-          details,
-          state,
-          largeImageKey: track.artworkUrl || undefined,
-          largeImageText,
-          smallImageKey: 'freq_logo',
-          smallImageText: smallText.slice(0, 128),
-          ...partyConfig,
-        });
+      try {
+        if (isPlaying) {
+          const now = Date.now();
+          const duration = Math.max(1, Math.round(track.durationSeconds || 194));
+          const pos = Math.max(0, position || 0);
+          const ageSec = (payload as any).receivedAt ? Math.max(0, (now - (payload as any).receivedAt) / 1000) : 0;
+          const effectivePos = pos + ageSec;
+          // Ensure startTimestamp and endTimestamp differ by EXACTLY duration * 1000 without throttle drift
+          const startTimestamp = Math.max(0, Math.floor(now - effectivePos * 1000));
+          const endTimestamp = Math.floor(startTimestamp + duration * 1000);
+
+          await this.client.user.setActivity({
+            type: 2, // 2 = LISTENING ("Listening to FreQ")
+            details, // Line 1: Heading ("In a party : X/5" or song title)
+            state, // Line 2: Song title (or artist if solo)
+            startTimestamp, // Timeline start
+            endTimestamp, // Timeline end (renders live countdown timeline at the bottom)
+            largeImageKey: track.artworkUrl || undefined,
+            largeImageText, // Line 3: Artist name (or album if solo)
+            smallImageKey: 'freq_logo', // FreQ app icon
+            smallImageText: smallText.slice(0, 128),
+            ...partyConfig,
+          });
+        } else {
+          await this.client.user.setActivity({
+            type: 2,
+            details,
+            state,
+            largeImageKey: track.artworkUrl || undefined,
+            largeImageText,
+            smallImageKey: 'freq_logo',
+            smallImageText: smallText.slice(0, 128),
+            ...partyConfig,
+          });
+        }
+
+        // Only the newest write owns the tracked state. An older in-flight
+        // write must never flip lastPlaying/lastPosition and poison the next
+        // comparison (which is what caused the "Paused while playing" flash).
+        if (seq !== this.activitySeq) return;
+
+        this.lastPlaying = isPlaying;
+        this.lastTrackId = track.id || null;
+        this.lastDuration = Math.max(1, Math.round(track.durationSeconds || 194));
+        this.lastPosition = Math.max(0, position || 0);
+        this.lastActivityTimestamp = Date.now();
+        this.lastInParty = inParty;
+        this.lastPartySize = partySize;
+        this.lastPartyPrivacy = inParty ? partyPrivacy : null;
+        this.lastUpdateTimestamp = Date.now();
+      } catch (err: any) {
+        console.warn('[Discord RPC] setActivity warning:', err.message || err);
       }
-
-      this.lastPlaying = isPlaying;
-      this.lastTrackId = track.id || null;
-      this.lastDuration = Math.max(1, Math.round(track.durationSeconds || 194));
-      this.lastPosition = Math.max(0, position || 0);
-      this.lastActivityTimestamp = Date.now();
-      this.lastInParty = inParty;
-      this.lastPartySize = partySize;
-      this.lastUpdateTimestamp = Date.now();
-    } catch (err: any) {
-      console.warn('[Discord RPC] setActivity warning:', err.message || err);
-    }
+    });
   }
 
   public async clearActivity() {
     this.lastActivity = null;
     this.lastPlaying = false;
     this.showingAfk = false;
-    if (this.client && this.client.user && this.isConnected) {
-      try {
-        await this.client.user.clearActivity();
-      } catch (e) {
-        // Ignore
+    this.joinableParty = null;
+    this.lastPartyPrivacy = null;
+    // Invalidate any queued/in-flight track write so it cannot repaint after
+    // the presence has been cleared.
+    this.activitySeq += 1;
+    return this.enqueueWrite(async () => {
+      if (this.client && this.client.user && this.isConnected) {
+        try {
+          await this.client.user.clearActivity();
+        } catch (e) {
+          // Ignore
+        }
       }
-    }
+    });
   }
 
   public destroy() {
@@ -433,6 +577,9 @@ class DiscordRpcManager {
     }
     this.isConnected = false;
     this.isConnecting = false;
+    this.joinEventsBound = false;
+    this.joinableParty = null;
+    this.lastPartyPrivacy = null;
   }
 }
 

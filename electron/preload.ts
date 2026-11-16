@@ -23,6 +23,8 @@ export interface ElectronAPI {
   setDiscordEnabled: (enabled: boolean) => Promise<void>;
   setDiscordClientId: (clientId: string) => Promise<void>;
   getDiscordStatus: () => Promise<{ isConnected: boolean; isEnabled: boolean; clientId: string }>;
+  onDiscordJoinParty: (callback: (partyCode: string) => void) => () => void;
+  onNavigateToView: (callback: (view: string) => void) => () => void;
   checkForUpdates: () => Promise<void>;
   downloadUpdate: () => Promise<void>;
   installUpdate: () => Promise<void>;
@@ -64,6 +66,20 @@ const api: ElectronAPI = {
   setDiscordEnabled: (enabled: boolean) => ipcRenderer.invoke('discord-set-enabled', enabled),
   setDiscordClientId: (clientId: string) => ipcRenderer.invoke('discord-set-client-id', clientId),
   getDiscordStatus: () => ipcRenderer.invoke('discord-get-status'),
+  onDiscordJoinParty: (callback: (partyCode: string) => void) => {
+    const subscription = (_event: any, partyCode: string) => callback(partyCode);
+    ipcRenderer.on('discord-join-party', subscription);
+    return () => {
+      ipcRenderer.removeListener('discord-join-party', subscription);
+    };
+  },
+  onNavigateToView: (callback: (view: string) => void) => {
+    const subscription = (_event: any, view: string) => callback(view);
+    ipcRenderer.on('navigate-to-view', subscription);
+    return () => {
+      ipcRenderer.removeListener('navigate-to-view', subscription);
+    };
+  },
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),

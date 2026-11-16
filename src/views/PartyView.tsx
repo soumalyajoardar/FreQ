@@ -15,8 +15,10 @@ import {
   Music,
   Play,
   Pause,
+  Globe,
+  Lock,
 } from 'lucide-react';
-import { partyService, PartyMember, PartyReaction, RecentParty } from '../services/partyService';
+import { partyService, PartyMember, PartyPrivacy, PartyReaction, RecentParty } from '../services/partyService';
 import { MediaTrack } from '../types';
 import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
@@ -48,6 +50,7 @@ export const PartyView: React.FC<PartyViewProps> = ({
   const [partyCode, setPartyCode] = useState<string | null>(() => partyService.getPartyCode());
   const [isHost, setIsHost] = useState<boolean>(() => partyService.getIsHost());
   const [isInParty, setIsInParty] = useState<boolean>(() => partyService.isInParty());
+  const [privacy, setPrivacy] = useState<PartyPrivacy>(() => partyService.getPrivacy());
   const [recentParties, setRecentParties] = useState<RecentParty[]>(() => partyService.getRecentParties());
   const [recentReactions, setRecentReactions] = useState<PartyReaction[]>([]);
 
@@ -57,6 +60,7 @@ export const PartyView: React.FC<PartyViewProps> = ({
       setPartyCode(partyService.getPartyCode());
       setIsHost(partyService.getIsHost());
       setIsInParty(partyService.isInParty());
+      setPrivacy(partyService.getPrivacy());
       setErrorMsg(partyService.getErrorMessage());
       setRecentParties(partyService.getRecentParties());
     });
@@ -123,6 +127,12 @@ export const PartyView: React.FC<PartyViewProps> = ({
   const handleLeave = () => {
     partyService.leaveParty();
     setErrorMsg(null);
+  };
+
+  const handlePrivacyChange = (next: PartyPrivacy) => {
+    if (!isHost) return;
+    partyService.setPrivacy(next);
+    setPrivacy(next);
   };
 
   const handleKick = (memberId: string) => {
@@ -372,6 +382,90 @@ export const PartyView: React.FC<PartyViewProps> = ({
 
               {/* Host & Status Badges */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                {/* Party Status — private = code only, public = join from Discord */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '5px 7px 5px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      color: 'var(--text-secondary, #8b93a6)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.7px',
+                    }}
+                  >
+                    Party Status
+                  </span>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '2px',
+                      padding: '2px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    }}
+                  >
+                    {(['private', 'public'] as PartyPrivacy[]).map(option => {
+                      const active = privacy === option;
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => handlePrivacyChange(option)}
+                          disabled={!isHost}
+                          title={isHost ? undefined : 'Only the host can change party status'}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 9px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: isHost ? 'pointer' : 'default',
+                            backgroundColor: active
+                              ? option === 'public'
+                                ? 'rgba(30, 215, 96, 0.9)'
+                                : 'rgba(255, 255, 255, 0.16)'
+                              : 'transparent',
+                            color: active
+                              ? option === 'public'
+                                ? '#04120a'
+                                : '#f0f2f5'
+                              : '#8b93a6',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {option === 'public' ? <Globe size={12} /> : <Lock size={12} />}
+                          <span>{option === 'public' ? 'Public' : 'Private'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted, #6b7280)',
+                    textAlign: 'right',
+                    maxWidth: '280px',
+                  }}
+                >
+                  {privacy === 'public'
+                    ? 'Anyone can join from your Discord presence.'
+                    : 'Joinable only with the 4-digit code.'}
+                  {!isHost && ' (set by host)'}
+                </div>
+
                 <div
                   style={{
                     display: 'flex',
@@ -438,8 +532,7 @@ export const PartyView: React.FC<PartyViewProps> = ({
                 <SquareArt
                   src={currentTrack?.artworkUrl}
                   alt={currentTrack?.title || 'Party Music'}
-                  size={52}
-                  style={{ borderRadius: '8px' }}
+                  style={{ borderRadius: '8px', width: '52px', height: '52px' }}
                 />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: '#f0f2f5' }}>
@@ -657,7 +750,7 @@ export const PartyView: React.FC<PartyViewProps> = ({
               </div>
 
               <p style={{ fontSize: '13px', color: 'var(--text-secondary, #8b93a6)', margin: 0, lineHeight: 1.6 }}>
-                Create a private listening party up to 5 people. You control track choices, skipping, and seeking. Friends join with a temporary 4-digit code.
+                Create a listening party up to 5 people. You control track choices, skipping, and seeking. Friends join with a 4-digit code — or straight from your Discord presence when the room is Public.
               </p>
 
               <div

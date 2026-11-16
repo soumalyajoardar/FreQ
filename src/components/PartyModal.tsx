@@ -11,8 +11,10 @@ import {
   X,
   Sparkles,
   Volume2,
+  Globe,
+  Lock,
 } from 'lucide-react';
-import { partyService, PartyMember, PartyReaction } from '../services/partyService';
+import { partyService, PartyMember, PartyPrivacy, PartyReaction } from '../services/partyService';
 import { MediaTrack } from '../types';
 
 interface PartyModalProps {
@@ -45,6 +47,7 @@ export const PartyModal: React.FC<PartyModalProps> = ({
   const [partyCode, setPartyCode] = useState<string | null>(() => partyService.getPartyCode());
   const [isHost, setIsHost] = useState<boolean>(() => partyService.getIsHost());
   const [isInParty, setIsInParty] = useState<boolean>(() => partyService.isInParty());
+  const [privacy, setPrivacy] = useState<PartyPrivacy>(() => partyService.getPrivacy());
   const [recentReactions, setRecentReactions] = useState<PartyReaction[]>([]);
 
   // Sync state from partyService
@@ -54,6 +57,7 @@ export const PartyModal: React.FC<PartyModalProps> = ({
       setPartyCode(partyService.getPartyCode());
       setIsHost(partyService.getIsHost());
       setIsInParty(partyService.isInParty());
+      setPrivacy(partyService.getPrivacy());
       setErrorMsg(partyService.getErrorMessage());
     });
 
@@ -121,6 +125,12 @@ export const PartyModal: React.FC<PartyModalProps> = ({
   const handleLeave = () => {
     partyService.leaveParty();
     setErrorMsg(null);
+  };
+
+  const handlePrivacyChange = (next: PartyPrivacy) => {
+    if (!isHost) return;
+    partyService.setPrivacy(next);
+    setPrivacy(next);
   };
 
   const handleKick = (id: string) => {
@@ -552,6 +562,77 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                   <span>{copied ? 'Copied!' : 'Copy Code'}</span>
                 </button>
+              </div>
+
+              {/* Party Status — private = code only, public = join from Discord */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  borderRadius: '14px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>Party Status</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    {privacy === 'public'
+                      ? 'Anyone can join from your Discord presence.'
+                      : 'Joinable only with the 4-digit code.'}
+                    {!isHost && ' (set by host)'}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '2px',
+                    padding: '2px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {(['private', 'public'] as PartyPrivacy[]).map(option => {
+                    const active = privacy === option;
+                    return (
+                      <button
+                        key={option}
+                        onClick={() => handlePrivacyChange(option)}
+                        disabled={!isHost}
+                        title={isHost ? undefined : 'Only the host can change party status'}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: isHost ? 'pointer' : 'default',
+                          backgroundColor: active
+                            ? option === 'public'
+                              ? 'rgba(30, 215, 96, 0.9)'
+                              : 'rgba(255, 255, 255, 0.16)'
+                            : 'transparent',
+                          color: active
+                            ? option === 'public'
+                              ? '#04120a'
+                              : '#fff'
+                            : 'var(--text-muted)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {option === 'public' ? <Globe size={12} /> : <Lock size={12} />}
+                        <span>{option === 'public' ? 'Public' : 'Private'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Members List (Capacity: 5) */}

@@ -36,6 +36,10 @@ class AudioEngine {
   private headroomNode: GainNode | null = null;
   private limiterNode: DynamicsCompressorNode | null = null;
   private finalGainNode: GainNode | null = null;
+  // App volume lives at the very end of the chain (after the limiter) so
+  // raising the slider scales already-clean audio instead of pushing a
+  // hotter signal into the bass/EQ/limiter stages.
+  private volumeNode: GainNode | null = null;
   private isAudioGraphReady = false;
 
   // High Definition (HD) Audio Enhancer & Stereo Spatializer
@@ -50,7 +54,6 @@ class AudioEngine {
   private leftReconstructNode: GainNode | null = null;
   private rightReconstructNode: GainNode | null = null;
   private sideSubtractorNode: GainNode | null = null;
-  private softSaturatorNode: WaveShaperNode | null = null;
 
   // 5-band EQ (series), per-track trim + auto-level, stereo balance.
   private eqNodes: BiquadFilterNode[] = [];
@@ -163,18 +166,19 @@ class AudioEngine {
       this.highpassNode.frequency.value = 24;
       this.highpassNode.Q.value = 0.707;
 
-      // Sub-bass warmth & foundation (55 Hz lowshelf, up to +24 dB)
+      // Sub-bass warmth & foundation (60 Hz lowshelf). Capped at +18 dB so
+      // the limiter always has room to work without smearing the low end.
       this.bassNode = this.audioCtx.createBiquadFilter();
       this.bassNode.type = 'lowshelf';
-      this.bassNode.frequency.value = 55;
+      this.bassNode.frequency.value = 60;
       this.bassNode.Q.value = 0.707;
       this.bassNode.gain.value = 0;
 
-      // Tactile punch & kick-drum chest impact (95 Hz peaking, up to +18 dB)
+      // Tactile punch & kick-drum chest impact (100 Hz peaking, up to +8 dB)
       this.bassPunchNode = this.audioCtx.createBiquadFilter();
       this.bassPunchNode.type = 'peaking';
-      this.bassPunchNode.frequency.value = 95;
-      this.bassPunchNode.Q.value = 1.1;
+      this.bassPunchNode.frequency.value = 100;
+      this.bassPunchNode.Q.value = 0.9;
       this.bassPunchNode.gain.value = 0;
 
       this.masterGainNode = this.audioCtx.createGain();
@@ -305,28 +309,36 @@ class AudioEngine {
       this.headroomNode = this.audioCtx.createGain();
       this.headroomNode.gain.value = 1.0;
 
-      // 2. Analog Soft Saturator (WaveShaper) - eliminates digital square clipping even at +24 dB bass
-      this.softSaturatorNode = this.audioCtx.createWaveShaper();
-      this.softSaturatorNode.curve = this.createSoftSaturationCurve(2048) as any;
-      this.softSaturatorNode.oversample = '2x';
-
-      // 3. Studio Mastering Peak Limiter (fast attack, transparent recovery)
+      // 2. Studio Mastering Peak Limiter — gentle knee, fast catch, slow
+      //    release. No always-on waveshaper: a permanent tanh curve colours
+      //    every sample and is the main source of the "grainy" high-volume
+      //    distortion. Headroom + this limiter keep peaks controlled cleanly.
       this.limiterNode = this.audioCtx.createDynamicsCompressor();
-      this.limiterNode.threshold.value = -1.2;
-      this.limiterNode.knee.value = 16;
+      this.limiterNode.threshold.value = -2.0;
+      this.limiterNode.knee.value = 4;
       this.limiterNode.ratio.value = 20.0;
       this.limiterNode.attack.value = 0.003; // 3ms fast transient catch
-      this.limiterNode.release.value = 0.08; // 80ms release
+      this.limiterNode.release.value = 0.2; // 200ms smooth release (no pumping)
 
-      // 4. True-peak ceiling (-0.26 dBFS) to eliminate DAC intersample clipping
+      // 3. True-peak ceiling (-0.45 dBFS) to eliminate DAC intersample clipping
       this.finalGainNode = this.audioCtx.createGain();
-      this.finalGainNode.gain.value = 0.97;
+      this.finalGainNode.gain.value = 0.95;
+
+      // 4. App volume — post-limiter so the volume knob can never clip or
+      //    re-drive the DSP stages. Max output stays below full scale.
+      this.volumeNode = this.audioCtx.createGain();
+      this.volumeNode.gain.value = this.volume;
 
       outNode.connect(this.headroomNode);
-      this.headroomNode.connect(this.softSaturatorNode);
-      this.softSaturatorNode.connect(this.limiterNode);
+      this.headroomNode.connect(this.limiterNode);
       this.limiterNode.connect(this.finalGainNode);
-      this.finalGainNode.connect(this.audioCtx.destination);
+      this.finalGainNode.connect(this.volumeNode);
+      this.volumeNode.connect(this.audioCtx.destination);
+
+      // The media element now always feeds the graph at unity; loudness is
+      // controlled by the post-limiter volume node only.
+      this.audio.volume = 1;
+      this.applyVolume();
       this.isAudioGraphReady = true;
     } catch (e) {
       console.warn('Web Audio DSP graph initialization fallback:', e);
@@ -348,18 +360,6 @@ class AudioEngine {
       right[i] = (Math.random() * 2 - 1) * factor;
     }
     return impulse;
-  }
-
-  // Generates a musical soft-knee analog saturation curve for distortion-free high-boost bass (+24 dB)
-  private createSoftSaturationCurve(samples = 2048): Float32Array<ArrayBuffer> {
-    const curve = new Float32Array(samples);
-    const k = 1.15;
-    for (let i = 0; i < samples; i++) {
-      const x = (i * 2) / samples - 1;
-      // Gentle tanh curve: completely linear near center, musical analog saturation at high amplitudes
-      curve[i] = Math.tanh(k * x) / Math.tanh(k);
-    }
-    return curve;
   }
 
   private setupAudioListeners() {
@@ -522,7 +522,18 @@ class AudioEngine {
 
   public setVolume(val: number) {
     this.volume = Math.max(0, Math.min(val, 1));
-    this.audio.volume = this.volume;
+    this.applyVolume();
+  }
+
+  // Volume is applied after the limiter when the Web Audio graph is live.
+  // Before that (or if AudioContext is unavailable) fall back to the element.
+  private applyVolume() {
+    if (this.audioCtx && this.volumeNode) {
+      this.audio.volume = 1;
+      this.volumeNode.gain.setTargetAtTime(this.volume, this.audioCtx.currentTime, 0.015);
+    } else {
+      this.audio.volume = this.volume;
+    }
   }
 
   public getVolume(): number {
@@ -643,13 +654,14 @@ class AudioEngine {
     if (!this.audioCtx || !this.masterGainNode) return;
     const t = this.audioCtx.currentTime;
     if (this.bassNode) {
-      // 55 Hz sub-shelf: deep, ground-shaking low-end foundation scaling smoothly up to +24 dB
-      const subGain = this.bassBoost * 24;
+      // 60 Hz sub-shelf: deep low-end foundation, up to +18 dB
+      const subGain = this.bassBoost * 18;
       this.bassNode.gain.setTargetAtTime(subGain, t, 0.05);
     }
     if (this.bassPunchNode) {
-      // 95 Hz tactile punch: chest-hitting kick-drum impact scaling up to +18 dB
-      const punchGain = this.bassBoost * 18;
+      // 100 Hz tactile punch: chest impact, up to +8 dB. Kept lower than the
+      // sub shelf so the low end stays tight instead of turning to mud.
+      const punchGain = this.bassBoost * 8;
       this.bassPunchNode.gain.setTargetAtTime(punchGain, t, 0.05);
     }
     this.masterGainNode.gain.setTargetAtTime(1.0, t, 0.05);
@@ -682,15 +694,16 @@ class AudioEngine {
   // Prevents digital clipping, intermodulation distortion, and pumping, keeping audio clean, punchy, and loud.
   private applyHeadroom() {
     if (!this.audioCtx || !this.headroomNode) return;
-    const bassDb = this.bassBoost * 24;
+    const bassDb = this.bassBoost * 18;
     const hdDb = this.hdClarity * 5.0;
     const eqDb = this.audioMode === 'NORMAL' ? 0 : Math.max(0, ...this.eqGains);
     const trimDb = this.audioMode === 'NORMAL'
       ? 0
       : Math.max(0, this.trackTrims[this.currentTrack?.id || ''] || 0);
     const totalBoost = bassDb + hdDb + eqDb + trimDb;
-    // Dynamic attenuation: smoothly pulls down gain as boost increases, feeding the limiter in its linear sweet spot
-    const reductionDb = -Math.min(9.8, totalBoost * 0.38);
+    // Discreet attenuation that tracks the boost: keeps the limiter in its
+    // linear region, so transients stay punchy instead of clipping.
+    const reductionDb = -Math.min(12, totalBoost * 0.55);
     this.headroomNode.gain.setTargetAtTime(
       Math.pow(10, reductionDb / 20),
       this.audioCtx.currentTime,

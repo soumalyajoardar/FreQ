@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { X, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, Info, DownloadCloud } from 'lucide-react';
 import { useExitTransition } from './useExitTransition';
 
 export interface ToastItem {
   id: number;
   message: string;
-  kind?: 'success' | 'info' | 'danger';
+  kind?: 'success' | 'info' | 'danger' | 'update';
+  onClick?: () => void;
 }
 
 function backdropStyle(): React.CSSProperties {
@@ -221,32 +222,54 @@ export const ToastStack: React.FC<{ toasts: ToastItem[] }> = ({ toasts }) => {
       display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center',
       pointerEvents: 'none',
     }}>
-      {toasts.map(t => (
+      {toasts.map(t => {
+        const isUpdate = t.kind === 'update';
+        return (
         <div
           key={t.id}
+          onClick={t.onClick}
+          role={t.onClick ? 'button' : undefined}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 18px', borderRadius: 999,
-            background: 'rgba(14,16,26,0.92)',
+            background: isUpdate ? 'rgba(8, 32, 52, 0.94)' : 'rgba(14,16,26,0.92)',
             border: t.kind === 'danger'
               ? '1px solid rgba(239,68,68,0.4)'
-              : '1px solid rgba(255,255,255,0.30)',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+              : isUpdate
+                ? '1px solid rgba(56,189,248,0.55)'
+                : '1px solid rgba(255,255,255,0.30)',
+            boxShadow: isUpdate
+              ? '0 12px 32px rgba(0,0,0,0.5), 0 0 18px rgba(56,189,248,0.22)'
+              : '0 12px 32px rgba(0,0,0,0.5)',
             backdropFilter: 'blur(16px)',
             fontSize: 13, fontWeight: 600, color: '#fff',
             animation: 'freqPopIn 0.22s cubic-bezier(0.16,1,0.3,1)',
             maxWidth: 'min(520px, 90vw)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            pointerEvents: t.onClick ? 'auto' : 'none',
+            cursor: t.onClick ? 'pointer' : 'default',
           }}
         >
           {t.kind === 'danger'
             ? <AlertTriangle size={15} color="#ef4444" />
-            : t.kind === 'success'
-              ? <CheckCircle2 size={15} color="#10b981" />
-              : <Info size={15} color="var(--accent-cyan)" />}
+            : isUpdate
+              ? <DownloadCloud size={15} color="#38bdf8" />
+              : t.kind === 'success'
+                ? <CheckCircle2 size={15} color="#10b981" />
+                : <Info size={15} color="var(--accent-cyan)" />}
           <span>{t.message}</span>
+          {isUpdate && (
+            <span style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.6px',
+              color: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.14)',
+              padding: '2px 7px', borderRadius: 999, flexShrink: 0,
+            }}>
+              UPDATE
+            </span>
+          )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

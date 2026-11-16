@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
@@ -19,7 +19,7 @@ import { PartyView } from './views/PartyView';
 
 import { AudioMode, DuplicateGroup, MediaTrack, RepeatMode, SmartMix, UserPlaylist } from './types';
 import { audioEngine } from './services/audioEngine';
-import { partyService } from './services/partyService';
+import { partyService, PartyPrivacy } from './services/partyService';
 import { DownloadedTrack, libraryStore, LibraryStore, PlayStatEntry } from './services/libraryStore';
 import { formatBytes, withLocalFile } from './services/downloads';
 import { AutoplayEngine } from './services/autoplayEngine';
@@ -46,6 +46,9 @@ export const App: React.FC = () => {
   const [updateDownloading, setUpdateDownloading] = useState<boolean>(false);
   const [updateProgress, setUpdateProgress] = useState<number>(0);
   const [updateReady, setUpdateReady] = useState<boolean>(false);
+  // Only toast once per version per app session (the main process also
+  // throttles the native notification to once per version / 24h).
+  const notifiedUpdateRef = useRef<string | null>(null);
 
   // Auto-Updater Hook (GitHub Releases via electron-updater)
   useEffect(() => {
@@ -57,13 +60,19 @@ export const App: React.FC = () => {
           setUpdateChecking(true);
           setUpdateError(null);
           break;
-        case 'update-available':
+        case 'update-available': {
           setUpdateChecking(false);
           setUpdateError(null);
           setUpdateIgnored(false);
           setUpdateInfo(data.info);
           setUpdateAvailable(true);
+          const version = data.info?.version || 'latest';
+          if (notifiedUpdateRef.current !== version) {
+            notifiedUpdateRef.current = version;
+            pushToast(`Update available — FreQ v${version}`, 'update', () => setCurrentView('settings'));
+          }
           break;
+        }
         case 'update-not-available':
           setUpdateChecking(false);
           setUpdateAvailable(false);
@@ -127,6 +136,16 @@ export const App: React.FC = () => {
   // Navigation State
   const [currentView, setCurrentView] = useState<string>('home');
   const [activeParam, setActiveParam] = useState<string | undefined>(undefined);
+
+  // Clicking the native "update available" toast focuses FreQ and opens the
+  // Settings update card.
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onNavigateToView?.(view => {
+      setCurrentView(view);
+      setActiveParam(undefined);
+    });
+    return () => unsubscribe?.();
+  }, []);
 
   // Playback State
   const [currentTrack, setCurrentTrack] = useState<MediaTrack | null>(null);
@@ -212,6 +231,7 @@ export const App: React.FC = () => {
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState<boolean>(false);
   const [isInParty, setIsInParty] = useState<boolean>(() => partyService.isInParty());
   const [partyMembersCount, setPartyMembersCount] = useState<number>(() => partyService.getMembers().length);
+  const [partyPrivacy, setPartyPrivacy] = useState<PartyPrivacy>(() => partyService.getPrivacy());
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, track: MediaTrack } | null>(null);
   const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState<boolean>(false);
@@ -223,10 +243,12 @@ export const App: React.FC = () => {
   const [pendingDeletePlaylistId, setPendingDeletePlaylistId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const pushToast = (message: string, kind: ToastItem['kind'] = 'success') => {
+  const pushToast = (message: string, kind: ToastItem['kind'] = 'success', onClick?: () => void) => {
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev.slice(-2), { id, message, kind }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3200);
+    setToasts(prev => [...prev.slice(-2), { id, message, kind, onClick }]);
+    // Update notices stay up longer so they can be read and clicked.
+    const ttl = kind === 'update' ? 8000 : 3200;
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ttl);
   };
 
   // Local Library State
@@ -283,7 +305,7 @@ export const App: React.FC = () => {
   }, []);
 
   // Drop expensive compositing (backdrop blur, infinite animations) while the
-  // window is unfocused or hidden — keeps GPU headroom for fullscreen games.
+  // window is unfocused or hidden â€” keeps GPU headroom for fullscreen games.
   useEffect(() => {
     const syncActivity = () => {
       const idle = document.hidden || !document.hasFocus();
@@ -331,7 +353,7 @@ export const App: React.FC = () => {
   const isPlayingRef = useRef<boolean>(false);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   // True once the current media element holds a loaded source. Restored
-  // sessions set a track without loading it — first play loads instead.
+  // sessions set a track without loading it â€” first play loads instead.
   const sourceLoadedRef = useRef<boolean>(false);
   // Saved position of a restored session, consumed by the first play.
   const pendingPositionRef = useRef<number>(0);
@@ -375,7 +397,7 @@ export const App: React.FC = () => {
     });
   };
 
-  // Setup Audio Engine Event Handlers — subscribe once with cleanup (fixes listener leak)
+  // Setup Audio Engine Event Handlers â€” subscribe once with cleanup (fixes listener leak)
   useEffect(() => {
     partyService.setPositionGetter(() => audioEngine.getCurrentTime());
 
@@ -385,7 +407,7 @@ export const App: React.FC = () => {
       if (partyService.isInParty() && partyService.getIsHost()) {
         partyService.broadcastPlayState(true, audioEngine.getCurrentTime());
       }
-      // A track that starts rendering is healthy — reset its failure count.
+      // A track that starts rendering is healthy â€” reset its failure count.
       const id = currentTrackRef.current?.id;
       if (id) failRef.current = { id, count: 0 };
     });
@@ -428,7 +450,7 @@ export const App: React.FC = () => {
       } else {
         failRef.current = { id: badId, count: 1 };
         // First failure for this URL: the cached stream may be poisoned
-        // (expired/blocked googlevideo URL) — evict it on both sides so the
+        // (expired/blocked googlevideo URL) â€” evict it on both sides so the
         // retry re-extracts a fresh URL instead of failing instantly again.
         playbackManager.invalidateCachedSource(badId || '');
         if (badId && window.electronAPI?.invalidateStreamUrl) {
@@ -474,7 +496,7 @@ export const App: React.FC = () => {
   }, []);
 
   // Session restore (Android PlaybackPersistence parity): one-shot on
-  // mount, restored paused — the first play resumes at the saved position.
+  // mount, restored paused â€” the first play resumes at the saved position.
   useEffect(() => {
     const snap = playbackManager.loadSession();
     if (!snap || snap.queue.length === 0) return;
@@ -492,7 +514,7 @@ export const App: React.FC = () => {
     sourceLoadedRef.current = false;
   }, []);
 
-  // Throttled session persist while playing (10s) — pause/track edits
+  // Throttled session persist while playing (10s) â€” pause/track edits
   // persist immediately via persistSessionNow.
   useEffect(() => {
     if (!currentTrack || queue.length === 0) return;
@@ -557,13 +579,55 @@ export const App: React.FC = () => {
   }, [isPlaying, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume]);
 
   // Synchronize Discord Rich Presence with current playback state.
-  // No track → browsing presence (handled main-side). Any real
+  // No track â†’ browsing presence (handled main-side). Any real
   // interaction pokes the 5-minute AFK clock (throttled).
+  const pausedRpcTimerRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!window.electronAPI) return;
-    // Private mode: always browsing presence, never the track.
+    const api = window.electronAPI;
+    if (!api) return;
+
+    const clearPausedTimer = () => {
+      if (pausedRpcTimerRef.current !== null) {
+        window.clearTimeout(pausedRpcTimerRef.current);
+        pausedRpcTimerRef.current = null;
+      }
+    };
+
+    // Fresh engine position keeps Discord's timeline aligned with the audio
+    // that is actually audible (React state can lag by up to a clock tick).
+    const sendPresence = (playing: boolean) => {
+      if (!currentTrack || privateMode) return;
+      // Prefer the engine clock (authoritative); fall back to React state for
+      // a restored-but-not-yet-loaded session.
+      const enginePos = audioEngine.getCurrentTime();
+      const reportedPos = enginePos > 0 ? enginePos : position;
+      const exactDuration = duration > 0 ? Math.round(duration) : (currentTrack.durationSeconds || 194);
+      api.updateDiscordPresence({
+        track: {
+          id: currentTrack.id,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          album: currentTrack.album,
+          artworkUrl: currentTrack.artworkUrl,
+          durationSeconds: exactDuration,
+        },
+        isPlaying: playing,
+        position: reportedPos,
+        audioMode,
+        party: isInParty && partyService.getPartyCode() ? {
+          code: partyService.getPartyCode()!,
+          size: partyMembersCount || 1,
+          max: 5,
+          isHost: partyService.getIsHost(),
+          privacy: partyService.getPrivacy(),
+        } : undefined,
+      });
+    };
+
+    // Private mode / stopped: always browsing presence, never the track.
     if (!currentTrack || privateMode) {
-      window.electronAPI.updateDiscordPresence({
+      clearPausedTimer();
+      api.updateDiscordPresence({
         track: null,
         isPlaying: false,
         position: 0,
@@ -573,38 +637,36 @@ export const App: React.FC = () => {
           size: partyMembersCount || 1,
           max: 5,
           isHost: partyService.getIsHost(),
+          privacy: partyService.getPrivacy(),
         } : undefined,
       });
-      return;
+      return clearPausedTimer;
     }
 
-    // During track-loading transitions (auto-advance / queue), isPlaying
-    // briefly flips to false before the next track starts. Suppress the
-    // "Paused" update so Discord never shows a stale state — the next
-    // track will fire a proper "playing" update once it has loaded.
-    if (!isPlaying && (isTrackLoading || isTransitioningRef.current)) return;
+    if (isPlaying) {
+      clearPausedTimer();
+      sendPresence(true);
+      return clearPausedTimer;
+    }
 
-    const exactDuration = duration > 0 ? Math.round(duration) : (currentTrack.durationSeconds || 194);
-    window.electronAPI.updateDiscordPresence({
-      track: {
-        id: currentTrack.id,
-        title: currentTrack.title,
-        artist: currentTrack.artist,
-        album: currentTrack.album,
-        artworkUrl: currentTrack.artworkUrl,
-        durationSeconds: exactDuration,
-      },
-      isPlaying,
-      position,
-      audioMode,
-      party: isInParty && partyService.getPartyCode() ? {
-        code: partyService.getPartyCode()!,
-        size: partyMembersCount || 1,
-        max: 5,
-        isHost: partyService.getIsHost(),
-      } : undefined,
-    });
-  }, [currentTrack, isPlaying, duration, audioMode, privateMode, isTrackLoading, isInParty, partyMembersCount]);
+    // During auto-advance the engine briefly pauses the old source before the
+    // next one starts. Never publish "Paused" for that transient: the next
+    // track's play event sends the accurate state.
+    if (isTrackLoading || isTransitioningRef.current) {
+      clearPausedTimer();
+      return clearPausedTimer;
+    }
+
+    // A real pause (or repeat-off stop). Debounce briefly so a track boundary
+    // can't flash "Paused", then report the exact frozen position.
+    clearPausedTimer();
+    pausedRpcTimerRef.current = window.setTimeout(() => {
+      pausedRpcTimerRef.current = null;
+      sendPresence(false);
+    }, 600);
+
+    return clearPausedTimer;
+  }, [currentTrack, isPlaying, duration, audioMode, privateMode, isTrackLoading, isInParty, partyMembersCount, partyPrivacy]);
 
   useEffect(() => {
     if (!window.electronAPI?.pokeDiscordPresence) return;
@@ -649,7 +711,7 @@ export const App: React.FC = () => {
         }
       }
     } catch {
-      // search itself failed — give up on alternates
+      // search itself failed â€” give up on alternates
     }
     return null;
   };
@@ -714,8 +776,8 @@ export const App: React.FC = () => {
       }).catch(err => console.warn('Failed vibe queue', err));
     }
 
-    // Resolve audio through the ordered source chain (local → yt-dlp
-    // bridge → cloud), with cache + validation handled inside.
+    // Resolve audio through the ordered source chain (local â†’ yt-dlp
+    // bridge â†’ cloud), with cache + validation handled inside.
     try {
       let activeTrack = track;
       let streamUrl: string | null = null;
@@ -724,7 +786,7 @@ export const App: React.FC = () => {
         streamUrl = isPlayableSource(resolved) ? sourceUrlOf(resolved) : null;
         if (!streamUrl) throw new Error(`No playable source for ${track.id}`);
       } catch (resolveErr) {
-        // Primary upload is dead (removed/region-locked) — swap to the
+        // Primary upload is dead (removed/region-locked) â€” swap to the
         // same song from a working upload instead of failing outright.
         const alt = await resolveAlternateUpload(track, token);
         if (!alt || token !== loadTokenRef.current) throw resolveErr;
@@ -733,9 +795,9 @@ export const App: React.FC = () => {
         setQueue(prev => prev.map(t => (t.id === track.id ? alt.track : t)));
         setCurrentTrack(alt.track);
         libraryStore.recordPlayed(alt.track);
-        pushToast(`Playing alternate upload of “${track.title}”`, 'info');
+        pushToast(`Playing alternate upload of â€œ${track.title}â€`, 'info');
       }
-      // A newer tap superseded this load — never start stale audio.
+      // A newer tap superseded this load â€” never start stale audio.
       if (token !== loadTokenRef.current) return;
 
       await audioEngine.loadAndPlay(streamUrl, activeTrack, startAtSec);
@@ -833,12 +895,12 @@ export const App: React.FC = () => {
       if (q.length > 1 && resolveFailRef.current < 2) {
         // Move on to the next track instead of stranding the bar dead.
         resolveFailRef.current += 1;
-        pushToast(`Couldn't play “${track.title}” — skipping`, 'danger');
+        pushToast(`Couldn't play â€œ${track.title}â€ â€” skipping`, 'danger');
         setTimeout(() => {
           if (token === loadTokenRef.current) handleNextRef.current();
         }, 400);
       } else {
-        pushToast(`Couldn't play “${track.title}”`, 'danger');
+        pushToast(`Couldn't play â€œ${track.title}â€`, 'danger');
       }
     }
   };
@@ -850,7 +912,7 @@ export const App: React.FC = () => {
     }
     if (!currentTrack || loadingRef.current) return;
     if (!sourceLoadedRef.current) {
-      // Restored session: a track is set but no media was ever loaded —
+      // Restored session: a track is set but no media was ever loaded â€”
       // load it now, resuming at the saved position.
       const q = queueRef.current.length ? queueRef.current : queue;
       const at = pendingPositionRef.current;
@@ -870,7 +932,7 @@ export const App: React.FC = () => {
         }
       }).catch((e: any) => {
         console.error('Play toggle failed:', e);
-        pushToast('Playback failed — trying next track', 'danger');
+        pushToast('Playback failed â€” trying next track', 'danger');
         handleNextRef.current();
       });
     }
@@ -1028,6 +1090,7 @@ export const App: React.FC = () => {
           size: partyMembersCount || 1,
           max: 5,
           isHost: partyService.getIsHost(),
+          privacy: partyService.getPrivacy(),
         } : undefined,
       });
     }
@@ -1071,7 +1134,7 @@ export const App: React.FC = () => {
     const target = track || currentTrack;
     if (!target) return;
     const nowLiked = libraryStore.toggleLike(target);
-    pushToast(nowLiked ? `Liked “${target.title}”` : `Removed “${target.title}” from Liked`, 'success');
+    pushToast(nowLiked ? `Liked â€œ${target.title}â€` : `Removed â€œ${target.title}â€ from Liked`, 'success');
   };
 
   const handleMoveQueueTrack = (fromIndex: number, toIndex: number) => {
@@ -1184,7 +1247,7 @@ export const App: React.FC = () => {
       pushToast('Alarm playlist is empty', 'danger');
       return;
     }
-    pushToast(`Good morning — playing “${a.playlistId === 'liked' ? 'Liked Songs' : 'your playlist'}”`, 'info');
+    pushToast(`Good morning â€” playing â€œ${a.playlistId === 'liked' ? 'Liked Songs' : 'your playlist'}â€`, 'info');
     handlePlayTrackRef.current(tracks[0], tracks, true);
   };
 
@@ -1215,7 +1278,7 @@ export const App: React.FC = () => {
     try {
       const res = await window.electronAPI.downloadTrack(track.id);
       libraryStore.recordDownloaded(track, res.path, res.sizeBytes);
-      pushToast(`Downloaded “${track.title}” (${formatBytes(res.sizeBytes)})`, 'success');
+      pushToast(`Downloaded â€œ${track.title}â€ (${formatBytes(res.sizeBytes)})`, 'success');
     } catch {
       pushToast(`Download failed`, 'danger');
     } finally {
@@ -1326,13 +1389,13 @@ export const App: React.FC = () => {
         }
         const base = file.name.replace(/\.[^.]+$/, '') || 'Imported Playlist';
         const res = libraryStore.importM3UTracks(base, tracks);
-        pushToast(`Imported ${res.tracks} tracks into “${res.playlist}”`, 'success');
+        pushToast(`Imported ${res.tracks} tracks into â€œ${res.playlist}â€`, 'success');
       } else {
         const res = libraryStore.importLibraryJSON(text);
         pushToast(`Imported ${res.tracks} tracks in ${res.playlists} playlists${res.skipped > 0 ? ` (${res.skipped} skipped)` : ''}`, 'success');
       }
     } catch {
-      pushToast('Import failed — unreadable file', 'danger');
+      pushToast('Import failed â€” unreadable file', 'danger');
     }
   };
 
@@ -1361,7 +1424,7 @@ export const App: React.FC = () => {
     if (!scraped || scraped.tracks.length === 0) return null;
     const created = libraryStore.createPlaylist(scraped.title);
     const added = libraryStore.addTracksToPlaylist(created.id, scraped.tracks);
-    pushToast(`Saved ${added} songs to “${created.title}”`, 'success');
+    pushToast(`Saved ${added} songs to â€œ${created.title}â€`, 'success');
     return { title: created.title, count: added };
   };
 
@@ -1413,7 +1476,7 @@ export const App: React.FC = () => {
       filtered.splice(insertPos, 0, track);
       return filtered;
     });
-    pushToast(`Queued “${track.title}” next`, 'info');
+    pushToast(`Queued â€œ${track.title}â€ next`, 'info');
   };
 
   // Latest-handler refs for audio callbacks registered once
@@ -1556,7 +1619,7 @@ export const App: React.FC = () => {
 
         case 'memberJoined': {
           if (ev.member) {
-            pushToast(`${ev.member.name} joined the party! 🎉`, 'success');
+            pushToast(`${ev.member.name} joined the party! ðŸŽ‰`, 'success');
           }
           break;
         }
@@ -1583,12 +1646,44 @@ export const App: React.FC = () => {
     const unsubParty = partyService.subscribe(() => {
       setIsInParty(partyService.isInParty());
       setPartyMembersCount(partyService.getMembers().length);
+      setPartyPrivacy(partyService.getPrivacy());
     });
 
     return () => {
       unsubSync();
       unsubParty();
     };
+  }, []);
+
+  // Join a party straight from Discord Rich Presence. The main process only
+  // sends this for public parties (they carry a join secret); private rooms
+  // remain code-only.
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onDiscordJoinParty?.(rawCode => {
+      const code = (rawCode || '').replace(/\D/g, '');
+      if (code.length !== 4) return;
+
+      if (partyService.isInParty() && partyService.getPartyCode() === code) {
+        pushToast(`You're already in party #${code}.`, 'info');
+        return;
+      }
+
+      handleNavigate('party');
+      pushToast(`Joining party #${code} from Discord...`, 'info');
+      (async () => {
+        try {
+          await partyService.joinParty(code);
+          pushToast(`Joined party #${code} from Discord 🎉`, 'success');
+        } catch (err: any) {
+          pushToast(err?.message || 'Could not join the Discord party.', 'danger');
+        }
+      })();
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleNavigate = (view: string, param?: string) => {
@@ -1998,7 +2093,7 @@ export const App: React.FC = () => {
         onCreatePlaylist={(title, track) => {
           const newPl = libraryStore.createPlaylist(title);
           if (track) libraryStore.addTrackToPlaylist(newPl.id, track);
-          pushToast(`Playlist “${title}” created`, 'success');
+          pushToast(`Playlist â€œ${title}â€ created`, 'success');
         }}
       />
 
@@ -2008,7 +2103,7 @@ export const App: React.FC = () => {
         onClose={() => setIsCreatePlaylistOpen(false)}
         onSubmit={(title, description) => {
           const pl = libraryStore.createPlaylist(title, description);
-          pushToast(`Playlist “${pl.title}” created`, 'success');
+          pushToast(`Playlist â€œ${pl.title}â€ created`, 'success');
           handleNavigate('playlist', pl.id);
         }}
       />
@@ -2028,7 +2123,7 @@ export const App: React.FC = () => {
       <ConfirmDialog
         isOpen={pendingDeletePlaylistId !== null}
         title="Delete playlist?"
-        message={`“${userPlaylists.find(p => p.id === pendingDeletePlaylistId)?.title || 'This playlist'}” will be removed from this device. Tracks you liked stay in Liked Songs.`}
+        message={`â€œ${userPlaylists.find(p => p.id === pendingDeletePlaylistId)?.title || 'This playlist'}â€ will be removed from this device. Tracks you liked stay in Liked Songs.`}
         confirmLabel="Delete"
         onCancel={() => setPendingDeletePlaylistId(null)}
         onConfirm={() => {
@@ -2096,6 +2191,7 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
 
 
 

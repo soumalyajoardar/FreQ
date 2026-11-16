@@ -305,6 +305,11 @@ input:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+@keyframes updateBadgePulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.35); }
+  50% { box-shadow: 0 0 14px rgba(56, 189, 248, 0.75); }
+}
+
 /* Scrollable with zero visible chrome (lyrics) */
 .no-scrollbar {
   scrollbar-width: none;
@@ -527,6 +532,10 @@ img {
   .playerbar-right {
     width: auto !important;
     gap: 6px !important;
+  }
+
+  .freq-wordmark {
+    display: none !important;
   }
 
   .origin-sounds-badge span {
