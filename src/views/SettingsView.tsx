@@ -680,7 +680,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                   letterSpacing: '0.4px',
                 }}
               >
-                2.1.0 (Stable)
+                2.2.0 (Stable)
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 Made by GRESSEY & OPENCODE. All rights reserved.

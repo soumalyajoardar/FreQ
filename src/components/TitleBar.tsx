@@ -81,7 +81,7 @@ export const TitleBar: React.FC<TitleBarProps> = () => {
               letterSpacing: '0.5px',
             }}
           >
-            Desktop • v2.1.0 (Stable)
+            Desktop • v2.2.0 (Stable)
           </span>
         </div>
       </div>
