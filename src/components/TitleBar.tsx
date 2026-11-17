@@ -56,7 +56,7 @@ export const TitleBar: React.FC = () => {
             whiteSpace: 'nowrap',
           }}
         >
-          Desktop · v2.2.0
+          Desktop · v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.0'}
         </span>
       </div>
 
