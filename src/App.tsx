@@ -209,22 +209,48 @@ export const App: React.FC = () => {
     }
   });
 
+  // A pinned window is a small floating player. It must never be topmost while
+  // maximized — that covers the whole desktop and makes Alt+Tab appear to do
+  // nothing (the pinned window stays painted over every app).
+  const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(false);
+  const pinActive = alwaysOnTop && !isWindowMaximized;
+
   const handleToggleAlwaysOnTop = () => {
-    setAlwaysOnTop(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('freq_always_on_top', next ? '1' : '0');
-      } catch {
-        // Ignored.
-      }
-      window.electronAPI?.setAlwaysOnTop(next).catch(() => {});
-      return next;
-    });
+    const next = !pinActive;
+    setAlwaysOnTop(next);
+    try {
+      localStorage.setItem('freq_always_on_top', next ? '1' : '0');
+    } catch {
+      // Ignored.
+    }
+    const api = window.electronAPI;
+    if (!api) return;
+    if (next && isWindowMaximized) {
+      // Pinning implies a floating window, so restore down first and pin once
+      // the window has actually left the maximized state.
+      api.maximizeWindow()
+        .then(isMax => {
+          setIsWindowMaximized(isMax);
+          api.setAlwaysOnTop(true).catch(() => {});
+        })
+        .catch(() => {});
+      return;
+    }
+    api.setAlwaysOnTop(next).catch(() => {});
   };
 
   // Apply the persisted pin on launch (after the window exists).
   useEffect(() => {
-    if (alwaysOnTop) window.electronAPI?.setAlwaysOnTop(true).catch(() => {});
+    const api = window.electronAPI;
+    if (!api) return;
+    api.isWindowMaximized().then(isMax => {
+      setIsWindowMaximized(isMax);
+      // The app launches maximized, so main clears any stale topmost flag; only
+      // re-apply the pin if we are actually windowed.
+      if (alwaysOnTop && !isMax) api.setAlwaysOnTop(true).catch(() => {});
+    }).catch(() => {});
+    const unsubscribe = api.onWindowMaximizedChange(setIsWindowMaximized);
+    return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2000,7 +2026,7 @@ export const App: React.FC = () => {
         onToggleLike={() => handleToggleLike()}
         onAudioModeChange={handleAudioModeChange}
         onOpenNowPlaying={() => setIsNowPlayingOpen(true)}
-        alwaysOnTop={alwaysOnTop}
+        alwaysOnTop={pinActive}
         onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
         isLyricsActive={isHomeLyricsOpen && currentView === 'home'}
         onToggleLyrics={() => {
