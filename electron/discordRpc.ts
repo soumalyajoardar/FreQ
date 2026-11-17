@@ -89,7 +89,11 @@ class DiscordRpcManager {
   private startAfkLoop() {
     if (this.afkTimer) return;
     this.afkTimer = setInterval(() => {
+      // Never AFK out of a party: that presence carries the join secret the
+      // Discord invite menu needs, and dropping it would silently break
+      // invites for anyone still sitting in the lobby.
       if (!this.isEnabled || !this.isConnected || this.lastPlaying || this.showingAfk) return;
+      if (this.lastInParty) return;
       if (Date.now() - this.lastActive < 5 * 60 * 1000) return;
       this.showingAfk = true;
       this.applyStaticPresence('AFK in FreQ', 'Idle — nothing playing');
@@ -396,6 +400,10 @@ class DiscordRpcManager {
           partySize,
           partyMax,
           joinSecret: privacy === 'public' ? party.code : undefined,
+          // Discord only treats a presence as a joinable game session when
+          // the activity is flagged as an instance. Without this the channel
+          // shows "supports game invites" but the + invite menu stays empty.
+          instance: true,
         });
         this.lastUpdateTimestamp = Date.now();
         this.lastInParty = true;
@@ -468,6 +476,9 @@ class DiscordRpcManager {
           partySize,
           partyMax,
           joinSecret: partyPrivacy === 'public' ? party!.code : undefined,
+          // Marks the activity as an instanced (joinable) game session, which
+          // is what Discord's invite UI keys off of.
+          instance: true,
         }
       : {};
 
