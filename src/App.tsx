@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Sidebar } from './components/Sidebar';
@@ -306,7 +306,7 @@ export const App: React.FC = () => {
   }, []);
 
   // Drop expensive compositing (backdrop blur, infinite animations) while the
-  // window is unfocused or hidden â€” keeps GPU headroom for fullscreen games.
+  // window is unfocused or hidden — keeps GPU headroom for fullscreen games.
   useEffect(() => {
     const syncActivity = () => {
       const idle = document.hidden || !document.hasFocus();
@@ -354,7 +354,7 @@ export const App: React.FC = () => {
   const isPlayingRef = useRef<boolean>(false);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   // True once the current media element holds a loaded source. Restored
-  // sessions set a track without loading it â€” first play loads instead.
+  // sessions set a track without loading it — first play loads instead.
   const sourceLoadedRef = useRef<boolean>(false);
   // Saved position of a restored session, consumed by the first play.
   const pendingPositionRef = useRef<number>(0);
@@ -398,7 +398,7 @@ export const App: React.FC = () => {
     });
   };
 
-  // Setup Audio Engine Event Handlers â€” subscribe once with cleanup (fixes listener leak)
+  // Setup Audio Engine Event Handlers — subscribe once with cleanup (fixes listener leak)
   useEffect(() => {
     partyService.setPositionGetter(() => audioEngine.getCurrentTime());
 
@@ -408,7 +408,7 @@ export const App: React.FC = () => {
       if (partyService.isInParty() && partyService.getIsHost()) {
         partyService.broadcastPlayState(true, audioEngine.getCurrentTime());
       }
-      // A track that starts rendering is healthy â€” reset its failure count.
+      // A track that starts rendering is healthy — reset its failure count.
       const id = currentTrackRef.current?.id;
       if (id) failRef.current = { id, count: 0 };
     });
@@ -451,7 +451,7 @@ export const App: React.FC = () => {
       } else {
         failRef.current = { id: badId, count: 1 };
         // First failure for this URL: the cached stream may be poisoned
-        // (expired/blocked googlevideo URL) â€” evict it on both sides so the
+        // (expired/blocked googlevideo URL) — evict it on both sides so the
         // retry re-extracts a fresh URL instead of failing instantly again.
         playbackManager.invalidateCachedSource(badId || '');
         if (badId && window.electronAPI?.invalidateStreamUrl) {
@@ -497,7 +497,7 @@ export const App: React.FC = () => {
   }, []);
 
   // Session restore (Android PlaybackPersistence parity): one-shot on
-  // mount, restored paused â€” the first play resumes at the saved position.
+  // mount, restored paused — the first play resumes at the saved position.
   useEffect(() => {
     const snap = playbackManager.loadSession();
     if (!snap || snap.queue.length === 0) return;
@@ -515,7 +515,7 @@ export const App: React.FC = () => {
     sourceLoadedRef.current = false;
   }, []);
 
-  // Throttled session persist while playing (10s) â€” pause/track edits
+  // Throttled session persist while playing (10s) — pause/track edits
   // persist immediately via persistSessionNow.
   useEffect(() => {
     if (!currentTrack || queue.length === 0) return;
@@ -580,7 +580,7 @@ export const App: React.FC = () => {
   }, [isPlaying, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume]);
 
   // Synchronize Discord Rich Presence with current playback state.
-  // No track â†’ browsing presence (handled main-side). Any real
+  // No track → browsing presence (handled main-side). Any real
   // interaction pokes the 5-minute AFK clock (throttled).
   const pausedRpcTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -712,7 +712,7 @@ export const App: React.FC = () => {
         }
       }
     } catch {
-      // search itself failed â€” give up on alternates
+      // search itself failed — give up on alternates
     }
     return null;
   };
@@ -777,8 +777,8 @@ export const App: React.FC = () => {
       }).catch(err => console.warn('Failed vibe queue', err));
     }
 
-    // Resolve audio through the ordered source chain (local â†’ yt-dlp
-    // bridge â†’ cloud), with cache + validation handled inside.
+    // Resolve audio through the ordered source chain (local → yt-dlp
+    // bridge → cloud), with cache + validation handled inside.
     try {
       let activeTrack = track;
       let streamUrl: string | null = null;
@@ -787,7 +787,7 @@ export const App: React.FC = () => {
         streamUrl = isPlayableSource(resolved) ? sourceUrlOf(resolved) : null;
         if (!streamUrl) throw new Error(`No playable source for ${track.id}`);
       } catch (resolveErr) {
-        // Primary upload is dead (removed/region-locked) â€” swap to the
+        // Primary upload is dead (removed/region-locked) — swap to the
         // same song from a working upload instead of failing outright.
         const alt = await resolveAlternateUpload(track, token);
         if (!alt || token !== loadTokenRef.current) throw resolveErr;
@@ -796,9 +796,9 @@ export const App: React.FC = () => {
         setQueue(prev => prev.map(t => (t.id === track.id ? alt.track : t)));
         setCurrentTrack(alt.track);
         libraryStore.recordPlayed(alt.track);
-        pushToast(`Playing alternate upload of â€œ${track.title}â€`, 'info');
+        pushToast(`Playing alternate upload of “${track.title}”`, 'info');
       }
-      // A newer tap superseded this load â€” never start stale audio.
+      // A newer tap superseded this load — never start stale audio.
       if (token !== loadTokenRef.current) return;
 
       await audioEngine.loadAndPlay(streamUrl, activeTrack, startAtSec);
@@ -896,12 +896,12 @@ export const App: React.FC = () => {
       if (q.length > 1 && resolveFailRef.current < 2) {
         // Move on to the next track instead of stranding the bar dead.
         resolveFailRef.current += 1;
-        pushToast(`Couldn't play â€œ${track.title}â€ â€” skipping`, 'danger');
+        pushToast(`Couldn't play “${track.title}” — skipping`, 'danger');
         setTimeout(() => {
           if (token === loadTokenRef.current) handleNextRef.current();
         }, 400);
       } else {
-        pushToast(`Couldn't play â€œ${track.title}â€`, 'danger');
+        pushToast(`Couldn't play “${track.title}”`, 'danger');
       }
     }
   };
@@ -913,7 +913,7 @@ export const App: React.FC = () => {
     }
     if (!currentTrack || loadingRef.current) return;
     if (!sourceLoadedRef.current) {
-      // Restored session: a track is set but no media was ever loaded â€”
+      // Restored session: a track is set but no media was ever loaded —
       // load it now, resuming at the saved position.
       const q = queueRef.current.length ? queueRef.current : queue;
       const at = pendingPositionRef.current;
@@ -933,7 +933,7 @@ export const App: React.FC = () => {
         }
       }).catch((e: any) => {
         console.error('Play toggle failed:', e);
-        pushToast('Playback failed â€” trying next track', 'danger');
+        pushToast('Playback failed — trying next track', 'danger');
         handleNextRef.current();
       });
     }
@@ -1135,7 +1135,7 @@ export const App: React.FC = () => {
     const target = track || currentTrack;
     if (!target) return;
     const nowLiked = libraryStore.toggleLike(target);
-    pushToast(nowLiked ? `Liked â€œ${target.title}â€` : `Removed â€œ${target.title}â€ from Liked`, 'success');
+    pushToast(nowLiked ? `Liked “${target.title}”` : `Removed “${target.title}” from Liked`, 'success');
   };
 
   const handleMoveQueueTrack = (fromIndex: number, toIndex: number) => {
@@ -1248,7 +1248,7 @@ export const App: React.FC = () => {
       pushToast('Alarm playlist is empty', 'danger');
       return;
     }
-    pushToast(`Good morning â€” playing â€œ${a.playlistId === 'liked' ? 'Liked Songs' : 'your playlist'}â€`, 'info');
+    pushToast(`Good morning — playing “${a.playlistId === 'liked' ? 'Liked Songs' : 'your playlist'}”`, 'info');
     handlePlayTrackRef.current(tracks[0], tracks, true);
   };
 
@@ -1279,7 +1279,7 @@ export const App: React.FC = () => {
     try {
       const res = await window.electronAPI.downloadTrack(track.id);
       libraryStore.recordDownloaded(track, res.path, res.sizeBytes);
-      pushToast(`Downloaded â€œ${track.title}â€ (${formatBytes(res.sizeBytes)})`, 'success');
+      pushToast(`Downloaded “${track.title}” (${formatBytes(res.sizeBytes)})`, 'success');
     } catch {
       pushToast(`Download failed`, 'danger');
     } finally {
@@ -1390,13 +1390,13 @@ export const App: React.FC = () => {
         }
         const base = file.name.replace(/\.[^.]+$/, '') || 'Imported Playlist';
         const res = libraryStore.importM3UTracks(base, tracks);
-        pushToast(`Imported ${res.tracks} tracks into â€œ${res.playlist}â€`, 'success');
+        pushToast(`Imported ${res.tracks} tracks into “${res.playlist}”`, 'success');
       } else {
         const res = libraryStore.importLibraryJSON(text);
         pushToast(`Imported ${res.tracks} tracks in ${res.playlists} playlists${res.skipped > 0 ? ` (${res.skipped} skipped)` : ''}`, 'success');
       }
     } catch {
-      pushToast('Import failed â€” unreadable file', 'danger');
+      pushToast('Import failed — unreadable file', 'danger');
     }
   };
 
@@ -1425,7 +1425,7 @@ export const App: React.FC = () => {
     if (!scraped || scraped.tracks.length === 0) return null;
     const created = libraryStore.createPlaylist(scraped.title);
     const added = libraryStore.addTracksToPlaylist(created.id, scraped.tracks);
-    pushToast(`Saved ${added} songs to â€œ${created.title}â€`, 'success');
+    pushToast(`Saved ${added} songs to “${created.title}”`, 'success');
     return { title: created.title, count: added };
   };
 
@@ -1477,7 +1477,7 @@ export const App: React.FC = () => {
       filtered.splice(insertPos, 0, track);
       return filtered;
     });
-    pushToast(`Queued â€œ${track.title}â€ next`, 'info');
+    pushToast(`Queued “${track.title}” next`, 'info');
   };
 
   // Latest-handler refs for audio callbacks registered once
@@ -1620,7 +1620,7 @@ export const App: React.FC = () => {
 
         case 'memberJoined': {
           if (ev.member) {
-            pushToast(`${ev.member.name} joined the party! ðŸŽ‰`, 'success');
+            pushToast(`${ev.member.name} joined the party! 🎉`, 'success');
           }
           break;
         }
@@ -2102,7 +2102,7 @@ export const App: React.FC = () => {
         onCreatePlaylist={(title, track) => {
           const newPl = libraryStore.createPlaylist(title);
           if (track) libraryStore.addTrackToPlaylist(newPl.id, track);
-          pushToast(`Playlist â€œ${title}â€ created`, 'success');
+          pushToast(`Playlist “${title}” created`, 'success');
         }}
       />
 
@@ -2112,7 +2112,7 @@ export const App: React.FC = () => {
         onClose={() => setIsCreatePlaylistOpen(false)}
         onSubmit={(title, description) => {
           const pl = libraryStore.createPlaylist(title, description);
-          pushToast(`Playlist â€œ${pl.title}â€ created`, 'success');
+          pushToast(`Playlist “${pl.title}” created`, 'success');
           handleNavigate('playlist', pl.id);
         }}
       />
@@ -2132,7 +2132,7 @@ export const App: React.FC = () => {
       <ConfirmDialog
         isOpen={pendingDeletePlaylistId !== null}
         title="Delete playlist?"
-        message={`â€œ${userPlaylists.find(p => p.id === pendingDeletePlaylistId)?.title || 'This playlist'}â€ will be removed from this device. Tracks you liked stay in Liked Songs.`}
+        message={`“${userPlaylists.find(p => p.id === pendingDeletePlaylistId)?.title || 'This playlist'}” will be removed from this device. Tracks you liked stay in Liked Songs.`}
         confirmLabel="Delete"
         onCancel={() => setPendingDeletePlaylistId(null)}
         onConfirm={() => {
