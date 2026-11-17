@@ -657,8 +657,21 @@ body {
 .fq-sidebar.is-collapsed .fq-nav .fq-count { display: none; }
 .fq-sidebar.is-collapsed .fq-nav { justify-content: center; padding: 0; }
 .fq-sidebar.is-collapsed .fq-nav.is-active::before { top: 9px; bottom: 9px; }
-.fq-sidebar.is-collapsed .fq-sidebar-brand { justify-content: center; }
-.fq-sidebar.is-collapsed .fq-sidebar-collapse { display: none; }
+.fq-sidebar.is-collapsed .fq-sidebar-brand {
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 2px 0 6px;
+}
+/* The rail has no labels, so the toggle has to stay on screen — otherwise
+   collapsing the sidebar is a one-way trip. */
+.fq-sidebar.is-collapsed .fq-sidebar-collapse {
+  display: inline-flex;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+.fq-sidebar.is-collapsed .fq-sidebar-collapse:hover { color: var(--text-primary); }
 .fq-sidebar.is-collapsed .fq-sidebar-flavor-mini { display: flex; }
 
 .fq-sidebar-flavor-mini {
