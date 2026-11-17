@@ -103,6 +103,48 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekVal, setSeekVal] = useState(0);
+  const [isQhd, setIsQhd] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('freq_quality_mode') === 'QHD';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleQuality = () => {
+    setIsQhd(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('freq_quality_mode', next ? 'QHD' : 'HD');
+      } catch {}
+      return next;
+    });
+  };
+
+  const getFlavorStyle = () => {
+    switch (audioMode) {
+      case 'NORMAL': // STUDIO
+        return {
+          color: '#38bdf8',
+          textShadow: '0 0 8px rgba(56, 189, 248, 0.85), 0 0 16px rgba(56, 189, 248, 0.45)',
+        };
+      case 'NIGHTCORE': // NC
+        return {
+          color: '#facc15',
+          textShadow: '0 0 8px rgba(250, 204, 21, 0.85), 0 0 16px rgba(250, 204, 21, 0.45)',
+        };
+      case 'SNR': // SNR
+        return {
+          color: '#facc15',
+          textShadow: '0 0 8px rgba(250, 204, 21, 0.85), 0 0 16px rgba(250, 204, 21, 0.45)',
+        };
+      default:
+        return {
+          color: 'var(--text-secondary)',
+          textShadow: 'none',
+        };
+    }
+  };
 
   const displayPosition = isSeeking ? seekVal : position;
   const lock = isPartyGuest;
@@ -301,30 +343,37 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               height: '24px',
               fontSize: '9px',
               letterSpacing: '0.1em',
-              color: audioMode === 'NORMAL' ? 'var(--text-secondary)' : 'var(--accent-cyan)',
-              borderColor: audioMode === 'NORMAL' ? 'var(--line)' : 'rgba(30, 215, 96, 0.32)',
-              backgroundColor: audioMode === 'NORMAL' ? 'rgba(255, 255, 255, 0.035)' : 'rgba(30, 215, 96, 0.09)',
+              fontWeight: 700,
+              borderColor: 'var(--line)',
+              backgroundColor: 'rgba(255, 255, 255, 0.035)',
+              cursor: 'pointer',
+              transition: 'color 0.2s ease, text-shadow 0.2s ease',
+              ...getFlavorStyle(),
             }}
           >
             {FLAVOR_LABEL[audioMode]}
           </button>
 
-          <span
+          <button
+            onClick={handleToggleQuality}
             className="fq-chip fq-hide-md"
-            title="HD clarity and 3D stereo spatializer active"
+            title={isQhd ? 'QHD clarity and 3D stereo spatializer active (Click to switch to HD)' : 'HD clarity and 3D stereo spatializer active (Click to switch to QHD)'}
             style={{
               height: '24px',
               fontSize: '8.5px',
               letterSpacing: '0.1em',
               fontWeight: 700,
+              borderColor: 'var(--line)',
+              backgroundColor: 'rgba(255, 255, 255, 0.035)',
+              cursor: 'pointer',
+              userSelect: 'none',
+              animation: isPlaying ? 'textBlinkGreen 1s steps(1, end) infinite' : 'none',
               color: isPlaying ? '#1ed760' : 'var(--text-muted)',
-              borderColor: isPlaying ? 'rgba(30, 215, 96, 0.4)' : undefined,
-              animation: isPlaying ? 'hd3dBlinkGreen 0.5s ease-in-out infinite' : 'none',
-              transition: 'all 0.2s ease',
+              textShadow: isPlaying ? '0 0 8px rgba(30, 215, 96, 0.9), 0 0 16px rgba(30, 215, 96, 0.5)' : 'none',
             }}
           >
-            HD 3D
-          </span>
+            {isQhd ? 'QHD 3D' : 'HD 3D'}
+          </button>
 
           <button
             onClick={() => (onToggleLyrics ? onToggleLyrics() : onOpenNowPlaying())}
