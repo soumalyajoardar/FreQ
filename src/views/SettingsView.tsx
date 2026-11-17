@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, Sparkles, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, CheckCircle2, AlarmClock, FileUp, FileDown, Copy, Globe2, Keyboard } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, AlarmClock, FileUp, FileDown, Copy, Globe2, Keyboard, Check } from 'lucide-react';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
 import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '../services/libraryStore';
@@ -18,12 +18,10 @@ const FlavorSlider: React.FC<{
   minLabel?: string;
   maxLabel?: string;
 }> = ({ label, valueLabel, min, max, step, value, onChange, minLabel, maxLabel }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-        {label}
-      </span>
-      <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ fontSize: '12px', fontWeight: 550, color: 'var(--text-secondary)' }}>{label}</span>
+      <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
         {valueLabel}
       </span>
     </div>
@@ -32,11 +30,11 @@ const FlavorSlider: React.FC<{
       min={min}
       max={max}
       step={step}
-      height={5}
+      height={4}
       ariaLabel={label}
       onSeek={onChange}
     />
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
       <span>{minLabel ?? `${min.toFixed(2)}x`}</span>
       <span>{maxLabel ?? `${max.toFixed(2)}x`}</span>
     </div>
@@ -136,136 +134,91 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   }, [recording]);
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px' }} className="view-enter">
-      <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
-        Settings & Audio Engine
-      </h1>
+    <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '26px', paddingTop: '18px' }}>
+      <header className="fq-page-head" style={{ paddingBottom: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span className="fq-kicker">Preferences</span>
+          <h1 className="fq-h1">Settings</h1>
+        </div>
+      </header>
 
-      {/* SOFTWARE UPDATER SECTION */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: hasUpdate ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-          border: hasUpdate ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '12px', backgroundColor: hasUpdate ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasUpdate ? '#ef4444' : '#fff' }}>
-            {hasUpdate ? <DownloadCloud size={20} /> : <RefreshCw size={20} />}
-          </div>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#fff' }}>
-              Software Update
-            </h2>
-            <p
-              title={updateError || undefined}
-              style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
-              {hasUpdate
-                ? updateReady
-                  ? 'Version ' + (updateInfo?.version || 'Unknown') + ' is ready to install.'
-                  : 'Version ' + (updateInfo?.version || 'Unknown') + ' is available.'
-                : updateChecking
-                  ? 'Checking GitHub releases…'
-                  : updateError
-                    ? 'Could not check for updates. Try again.'
-                    : updateIgnored
-                      ? 'Update skipped. Check again whenever you like.'
-                      : 'FreQ is currently up to date.'}
-            </p>
-          </div>
-          
-          {!hasUpdate && (
-            <button
-              onClick={onCheckUpdate}
-              disabled={updateChecking}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: updateChecking ? 'default' : 'pointer', opacity: updateChecking ? 0.65 : 1 }}
-              onMouseEnter={e => { if (!updateChecking) e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-            >
-              <RefreshCw size={14} style={{ animation: updateChecking ? 'freqSpin 0.9s linear infinite' : 'none' }} />
-              {updateChecking ? 'Checking…' : 'Check for Updates'}
-            </button>
-          )}
+      <div className="fq-settings">
+        {/* Update */}
+        <section className={`fq-set-section${hasUpdate ? ' is-alert' : ''}`}>
+          <div className="fq-set-head">
+            <span className="fq-set-icon" style={hasUpdate ? { color: '#f87171', borderColor: 'rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.1)' } : undefined}>
+              {hasUpdate ? <DownloadCloud size={16} /> : <RefreshCw size={16} />}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 className="fq-set-title">Software update</h2>
+              <p
+                title={updateError || undefined}
+                className="fq-set-desc"
+                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {hasUpdate
+                  ? updateReady
+                    ? `Version ${updateInfo?.version || 'unknown'} is ready to install.`
+                    : `Version ${updateInfo?.version || 'unknown'} is available.`
+                  : updateChecking
+                    ? 'Checking GitHub releases…'
+                    : updateError
+                      ? 'Could not check for updates. Try again.'
+                      : updateIgnored
+                        ? 'Update skipped. Check again whenever you like.'
+                        : 'FreQ is up to date.'}
+              </p>
+            </div>
 
-          {hasUpdate && !updateDownloading && !updateReady && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={onIgnoreUpdate}
-                style={{ padding: '8px 16px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-              >
-                Ignore
+            {!hasUpdate && (
+              <button className="fq-btn" onClick={onCheckUpdate} disabled={updateChecking}>
+                <RefreshCw size={13} style={{ animation: updateChecking ? 'freqSpin 0.9s linear infinite' : 'none' }} />
+                {updateChecking ? 'Checking…' : 'Check'}
               </button>
-              <button
-                onClick={onDownloadUpdate}
-                style={{ padding: '8px 16px', borderRadius: '10px', backgroundColor: '#ef4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)' }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                Download Update
+            )}
+
+            {hasUpdate && !updateDownloading && !updateReady && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="fq-btn fq-btn-ghost" onClick={onIgnoreUpdate}>Ignore</button>
+                <button className="fq-btn fq-btn-primary" onClick={onDownloadUpdate}>Download</button>
+              </div>
+            )}
+
+            {hasUpdate && updateDownloading && !updateReady && (
+              <span className="fq-chip" style={{ color: 'var(--text-primary)' }}>
+                {updateProgress ? `${Math.round(updateProgress)}%` : 'Downloading…'}
+              </span>
+            )}
+
+            {hasUpdate && updateReady && (
+              <button className="fq-btn fq-btn-primary" onClick={onInstallUpdate}>
+                <Check size={13} />
+                Restart & install
               </button>
+            )}
+          </div>
+
+          {hasUpdate && updateDownloading && (
+            <div style={{ height: '3px', borderRadius: '2px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${updateProgress || 0}%`, background: 'var(--accent-cyan)', transition: 'width 0.25s ease' }} />
             </div>
           )}
-          {hasUpdate && updateDownloading && !updateReady && (
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444' }}>
-              Downloading... {updateProgress ? Math.round(updateProgress) + '%' : ''}
+        </section>
+
+        {/* Audio flavors */}
+        <section className="fq-set-section">
+          <div className="fq-set-head">
+            <span className="fq-set-icon"><Volume2 size={16} /></span>
+            <div style={{ flex: 1 }}>
+              <h2 className="fq-set-title">Audio engine</h2>
+              <p className="fq-set-desc">Tune each flavour. Switch between SnR, Studio and Nightcore from the rail or player.</p>
             </div>
-          )}
-          {hasUpdate && updateReady && (
-            <button
-              onClick={onInstallUpdate}
-              style={{ padding: '8px 16px', borderRadius: '10px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              Restart & Install
-            </button>
-          )}
-        </div>
-        {hasUpdate && updateDownloading && (
-          <div style={{ height: '4px', backgroundColor: 'rgba(239, 68, 68, 0.2)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: (updateProgress || 0) + '%', backgroundColor: '#ef4444', transition: 'width 0.2s ease' }} />
+            <span className="fq-chip fq-chip-accent">{audioMode}</span>
           </div>
-        )}
-      </section>
 
-      {/* Custom Audio Flavors */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Volume2 size={20} color="#fff" />
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Custom Audio Flavors
-          </h2>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Tune each flavor below. Switch flavors from the player or sidebar:
-          </span>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px 36px' }}>
             <FlavorSlider
-              label="Bass booster (Sub & Punch)"
+              label="Bass booster (sub & punch)"
               valueLabel={bassBoost <= 0 ? 'Off' : '+' + Math.round(bassBoost * 24) + ' dB'}
               min={0}
               max={1}
@@ -279,9 +232,8 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 libraryStore.setBassBoost(v);
               }}
             />
-
             <FlavorSlider
-              label="HD Definition & Clarity"
+              label="HD definition & clarity"
               valueLabel={hdClarity <= 0 ? 'Off' : Math.round(hdClarity * 100) + '%'}
               min={0}
               max={1}
@@ -295,15 +247,14 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 libraryStore.setHdClarity(v);
               }}
             />
-
             <FlavorSlider
-              label="3D Stereo Spatializer"
+              label="3D stereo spatializer"
               valueLabel={stereoWidth <= 0 ? 'Off' : Math.round(stereoWidth * 100) + '%'}
               min={0}
               max={1}
               step={0.05}
               minLabel="Normal"
-              maxLabel="Ultra-Wide"
+              maxLabel="Ultra-wide"
               value={stereoWidth}
               onChange={v => {
                 setStereoWidth(v);
@@ -311,7 +262,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 libraryStore.setStereoWidth(v);
               }}
             />
-
             <FlavorSlider
               label="SnR tempo"
               valueLabel={snrRate.toFixed(2) + 'x'}
@@ -359,345 +309,239 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
             />
           </div>
 
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Bass Booster (up to +24 dB), HD Definition, and 3D Stereo spatialization enhance playback across all audio modes with zero-distortion limiter protection.
-          </span>
-        </div>
-      </section>
+          <p className="fq-set-desc">
+            Bass booster, HD definition and 3D spatialisation apply across every flavour with a zero-distortion limiter.
+          </p>
+        </section>
 
-      {/* Listening Region */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Globe2 size={20} color="#fff" />
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
-            Listening Region
-          </h2>
-        </div>
-        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Home suggestions follow your country — currently <strong style={{ color: '#fff' }}>{regionDef(region).name}</strong>.
-        </span>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', maxWidth: '320px' }}>
-          Country
-          <select
-            value={region}
-            onChange={e => onRegionChange?.(e.target.value)}
-            style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: '#fff', padding: '8px 12px', fontSize: '14px' }}
-          >
-            {REGIONS.map(r => (
-              <option key={r.code} value={r.code} style={{ backgroundColor: '#12141f' }}>{r.name}</option>
+        {/* Region */}
+        <section className="fq-set-section">
+          <div className="fq-set-head">
+            <span className="fq-set-icon"><Globe2 size={16} /></span>
+            <div style={{ flex: 1 }}>
+              <h2 className="fq-set-title">Listening region</h2>
+              <p className="fq-set-desc">
+                Home suggestions follow your country — currently <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{regionDef(region).name}</strong>.
+              </p>
+            </div>
+            <select className="fq-select" value={region} onChange={e => onRegionChange?.(e.target.value)} aria-label="Listening region">
+              {REGIONS.map(r => (
+                <option key={r.code} value={r.code}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+        </section>
+
+        {/* Listening alarm */}
+        {onAlarmChange && (
+          <section className="fq-set-section">
+            <div className="fq-set-head">
+              <span className="fq-set-icon"><AlarmClock size={16} /></span>
+              <div style={{ flex: 1 }}>
+                <h2 className="fq-set-title">Wake-up alarm</h2>
+                <p className="fq-set-desc">Start a playlist automatically at a set time.</p>
+              </div>
+              <button
+                className="fq-switch"
+                role="switch"
+                aria-checked={alarm.enabled}
+                onClick={() => onAlarmChange({ ...alarm, enabled: !alarm.enabled })}
+                style={{ background: alarm.enabled ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.14)' }}
+              >
+                <i style={{ left: alarm.enabled ? '19px' : '2px', background: alarm.enabled ? 'var(--accent-ink)' : '#fff' }} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <input
+                type="time"
+                value={alarm.time}
+                onChange={e => onAlarmChange({ ...alarm, time: e.target.value })}
+                className="fq-select"
+                style={{ minWidth: '120px', padding: '0 12px', fontVariantNumeric: 'tabular-nums' }}
+              />
+              <select
+                className="fq-select"
+                value={alarm.playlistId}
+                onChange={e => onAlarmChange({ ...alarm, playlistId: e.target.value })}
+                aria-label="Alarm playlist"
+              >
+                {alarmPlaylists.map(p => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+          </section>
+        )}
+
+        {/* Data & privacy */}
+        <section className="fq-set-section">
+          <div className="fq-set-head">
+            <span className="fq-set-icon"><HardDrive size={16} /></span>
+            <div style={{ flex: 1 }}>
+              <h2 className="fq-set-title">Data & privacy</h2>
+              <p className="fq-set-desc">Everything lives on this machine in freq_library.json.</p>
+            </div>
+            <ShieldCheck size={15} color="var(--accent-cyan)" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+            {[
+              { value: likedCount, label: 'Liked songs' },
+              { value: playlistCount, label: 'Playlists' },
+              { value: historyCount, label: 'History entries' },
+            ].map(s => (
+              <div key={s.label} style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--line)', background: 'rgba(255,255,255,0.02)' }}>
+                <div className="fq-stat-value" style={{ fontSize: '26px' }}>{s.value}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{s.label}</div>
+              </div>
             ))}
-          </select>
-        </label>
-      </section>
-
-      {/* Local Storage & Privacy */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '18px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <HardDrive size={20} color="var(--accent-violet)" />
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Data & Privacy
-          </h2>
-        </div>
-
-        <div style={{ display: 'flex', gap: '24px' }}>
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>{likedCount}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Liked Songs</div>
           </div>
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>{playlistCount}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Playlists</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>{historyCount}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Listening History</div>
-          </div>
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ShieldCheck size={16} color="var(--accent-teal)" />
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flex: 1 }}>
-            All library items and preferences live entirely on this machine in <code>freq_library.json</code>.
-          </span>
-        </div>
-
-        <button
-          onClick={onTogglePrivate}
-          title="Pause history, stats and Discord track presence"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '10px 14px', borderRadius: '10px',
-            backgroundColor: privateMode ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)',
-            border: privateMode ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>Private listening</span>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>No history, no stats, Discord shows browsing</span>
-          </span>
-          <span style={{
-            width: '40px', height: '22px', borderRadius: '999px', position: 'relative',
-            backgroundColor: privateMode ? '#f8fafc' : 'rgba(255,255,255,0.14)',
-          }}>
-            <span style={{
-              position: 'absolute', top: '2px', left: privateMode ? '20px' : '2px',
-              width: '18px', height: '18px', borderRadius: '50%',
-              backgroundColor: privateMode ? '#090A0F' : '#fff',
-            }} />
-          </span>
-        </button>
-
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
-            onClick={onExportJSON}
-            title="Download your library as JSON"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 700 }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+            className="fq-set-row"
+            onClick={onTogglePrivate}
+            title="Pause history, stats and Discord track presence"
+            style={{ textAlign: 'left' }}
           >
-            <FileDown size={14} /> Export JSON
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>Private listening</span>
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>No history, no stats, Discord shows browsing</span>
+            </span>
+            <span className="fq-switch" style={{ background: privateMode ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.14)' }}>
+              <i style={{ left: privateMode ? '19px' : '2px', background: privateMode ? 'var(--accent-ink)' : '#fff' }} />
+            </span>
           </button>
-          <button
-            onClick={onExportM3U}
-            title="Download your library as M3U"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 700 }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
-          >
-            <FileDown size={14} /> Export M3U
-          </button>
-          <label
-            title="Import a FreQ JSON or M3U file"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
-          >
-            <FileUp size={14} /> Import
-            <input
-              type="file"
-              accept=".json,.m3u,.m3u8,application/json,audio/x-mpegurl"
-              style={{ display: 'none' }}
-              onChange={e => {
-                const f = e.target.files?.[0];
-                if (f) onImportFile?.(f);
-                e.target.value = '';
-              }}
-            />
-          </label>
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Copy size={16} color="var(--accent-violet)" />
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
-            {duplicates.length === 0 ? 'No duplicate songs found' : `${duplicates.length} duplicated song${duplicates.length === 1 ? '' : 's'} found`}
-          </span>
-          {duplicates.length > 0 && (
-            <button
-              onClick={onCleanDuplicates}
-              style={{ padding: '6px 14px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 700 }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
-            >
-              Remove duplicates
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button className="fq-btn" onClick={onExportJSON} title="Download your library as JSON">
+              <FileDown size={13} /> Export JSON
             </button>
-          )}
+            <button className="fq-btn" onClick={onExportM3U} title="Download your library as M3U">
+              <FileDown size={13} /> Export M3U
+            </button>
+            <label className="fq-btn" title="Import a FreQ JSON or M3U file" style={{ cursor: 'pointer' }}>
+              <FileUp size={13} /> Import
+              <input
+                type="file"
+                accept=".json,.m3u,.m3u8,application/json,audio/x-mpegurl"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) onImportFile?.(f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+
+          <div className="fq-set-row">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+              <Copy size={14} color="var(--text-muted)" />
+              <span style={{ fontSize: '12.5px', color: 'var(--text-primary)', fontWeight: 550 }}>
+                {duplicates.length === 0
+                  ? 'No duplicate songs found'
+                  : `${duplicates.length} duplicated song${duplicates.length === 1 ? '' : 's'}`}
+              </span>
+            </span>
+            {duplicates.length > 0 && (
+              <button className="fq-btn" onClick={onCleanDuplicates}>Remove duplicates</button>
+            )}
+          </div>
+
           {duplicates.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '150px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '150px', overflowY: 'auto', padding: '0 4px' }}>
               {duplicates.slice(0, 10).map(d => (
-                <span key={d.key} style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span key={d.key} className="fq-tsub">
                   {d.title} — {d.artist} <span style={{ color: 'var(--text-muted)' }}>× {d.copies}</span>
                 </span>
               ))}
             </div>
           )}
-        </div>
 
-        <button
-          onClick={onClearHistory}
-          style={{
-            alignSelf: 'flex-start',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.25)',
-            color: '#ef4444',
-            fontSize: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-          }}
-        >
-          Clear Listening & Search History
-        </button>
-      </section>
-
-      {/* Keyboard Shortcuts (cheat-sheet + remap) */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Keyboard size={20} color="#fff" />
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)', flex: 1, margin: 0 }}>
-            Keyboard Shortcuts
-          </h2>
           <button
-            onClick={() => {
-              libraryStore.resetShortcuts();
-              setShortcuts(libraryStore.getShortcuts());
-            }}
-            style={{ padding: '6px 14px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onClick={onClearHistory}
+            className="fq-btn"
+            style={{ alignSelf: 'flex-start', color: '#f87171', borderColor: 'rgba(248,113,113,0.26)', background: 'rgba(248,113,113,0.07)' }}
           >
-            Reset
+            Clear listening & search history
           </button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {SHORTCUT_ACTIONS.map(a => {
-            const active = recording === a.id;
-            return (
-              <div
-                key={a.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.04)',
-                }}
-              >
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {a.label}
-                </span>
-                <button
-                  onClick={() => setRecording(active ? null : a.id)}
-                  style={{
-                    padding: '6px 16px',
-                    borderRadius: '8px',
-                    backgroundColor: active ? '#1ed760' : 'rgba(255,255,255,0.08)',
-                    color: active ? '#000' : '#fff',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    fontVariantNumeric: 'tabular-nums',
-                    minWidth: '100px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: active ? '0 0 12px rgba(30, 215, 96, 0.4)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {active ? 'Press a key…' : prettyShortcut(shortcuts[a.id])}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Esc closes dialogs. Click a shortcut, then press any key combo.
-        </span>
-      </section>
+        </section>
 
-      {/* About FreQ */}
-      <section
-        style={{
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <img
-            src={freqIcon}
-            alt="FreQ"
-            style={{
-              width: '60px',
-              height: '60px',
-              minWidth: '60px',
-              minHeight: '60px',
-              maxWidth: '60px',
-              maxHeight: '60px',
-              borderRadius: '16px',
-              objectFit: 'cover',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5), 0 0 24px rgba(30, 215, 96, 0.15)',
-            }}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.3px' }}>
-              About FreQ Desktop
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  color: '#1ed760',
-                  backgroundColor: 'rgba(30, 215, 96, 0.15)',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(30, 215, 96, 0.3)',
-                  letterSpacing: '0.4px',
-                }}
-              >
-                2.2.0 (Stable)
-              </span>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Made by GRESSEY & OPENCODE. All rights reserved.
-              </span>
+        {/* Shortcuts */}
+        <section className="fq-set-section">
+          <div className="fq-set-head">
+            <span className="fq-set-icon"><Keyboard size={16} /></span>
+            <div style={{ flex: 1 }}>
+              <h2 className="fq-set-title">Keyboard shortcuts</h2>
+              <p className="fq-set-desc">Click a binding, then press any key combo. Esc closes dialogs.</p>
+            </div>
+            <button
+              className="fq-btn fq-btn-ghost"
+              onClick={() => {
+                libraryStore.resetShortcuts();
+                setShortcuts(libraryStore.getShortcuts());
+              }}
+            >
+              Reset
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '8px' }}>
+            {SHORTCUT_ACTIONS.map(a => {
+              const active = recording === a.id;
+              return (
+                <div key={a.id} className="fq-set-row" style={{ padding: '9px 12px' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 520, color: 'var(--text-secondary)' }}>{a.label}</span>
+                  <button
+                    className={`fq-kbd${active ? ' is-recording' : ''}`}
+                    onClick={() => setRecording(active ? null : a.id)}
+                  >
+                    {active ? 'Press a key…' : prettyShortcut(shortcuts[a.id])}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* About */}
+        <section className="fq-set-section">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <img
+              src={freqIcon}
+              alt="FreQ"
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '15px',
+                objectFit: 'cover',
+                flexShrink: 0,
+                border: '1px solid var(--line-strong)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+              }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <h2 className="fq-set-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400 }}>
+                FreQ Desktop
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span className="fq-chip fq-chip-accent">2.2.0 (Stable)</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  Made by GRESSEY &amp; OPENCODE. All rights reserved.
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)', margin: 0 }}>
-          FreQ is free software licensed under GPL v3.0. A music app that simply respects you: no ads, no subscriptions, no accounts, and no tracking. Your library never leaves your device.
-        </p>
-      </section>
+          <p style={{ fontSize: '12.5px', lineHeight: 1.65, color: 'var(--text-secondary)' }}>
+            FreQ is free software licensed under GPL v3.0. A music app that simply respects you: no ads, no
+            subscriptions, no accounts, no tracking. Your library never leaves your device.
+          </p>
+        </section>
+      </div>
     </div>
   );
 };
 
 export const SettingsView = React.memo(SettingsViewComponent);
-
-
-

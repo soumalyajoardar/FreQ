@@ -7,7 +7,6 @@ import {
   Check,
   LogOut,
   UserMinus,
-  Sparkles,
   Volume2,
   Clock,
   Trash2,
@@ -156,150 +155,83 @@ export const PartyView: React.FC<PartyViewProps> = ({
 
   const hostName = partyService.getHostName();
 
-  const cardStyle: React.CSSProperties = {
-    borderRadius: '20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    padding: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '18px',
-  };
-
   return (
-    <div
-      style={{
-        padding: '24px 32px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '24px',
-        maxWidth: '920px',
-        margin: '0 auto',
-        width: '100%',
-      }}
-      className="view-enter"
-    >
+    <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingTop: '18px', maxWidth: '980px', width: '100%' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div
-            style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '14px',
-              backgroundColor: 'rgba(30, 215, 96, 0.15)',
-              border: '1px solid rgba(30, 215, 96, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(30, 215, 96, 0.2)',
-            }}
-          >
-            <Radio size={24} color="#1ed760" />
+      <header className="fq-page-head" style={{ paddingBottom: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="fq-kicker" style={{ color: isInParty ? 'var(--accent-cyan)' : undefined }}>Listen together</span>
+            {isInParty && <span className="fq-chip fq-chip-accent" style={{ height: '20px', fontSize: '9px' }}>LIVE ROOM</span>}
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#f0f2f5', margin: 0 }}>
-                Listen Together
-              </h1>
-              {isInParty && (
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    backgroundColor: '#1ed760',
-                    color: '#000',
-                    letterSpacing: '0.4px',
-                  }}
-                >
-                  LIVE ROOM
-                </span>
-              )}
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary, #8b93a6)', margin: '4px 0 0 0' }}>
-              Real-time synchronized music room with up to 5 friends anywhere in the world
-            </p>
-          </div>
+          <h1 className="fq-h1">Party Room</h1>
+          <p className="fq-muted" style={{ fontSize: '13px', maxWidth: '560px', lineHeight: 1.55 }}>
+            A synchronised listening room for up to five friends, anywhere in the world.
+          </p>
         </div>
 
-        {/* Global User Name Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted, #5c6478)' }}>Your Name:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+          <span className="fq-kicker" style={{ fontSize: '9px' }}>Your name</span>
           <input
             type="text"
             value={displayName}
             onChange={handleNameChange}
             maxLength={20}
-            placeholder="Display Name"
+            placeholder="Display name"
             style={{
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#f0f2f5',
-              outline: 'none',
-              width: '130px',
+              width: '148px',
+              height: '34px',
+              padding: '0 12px',
+              borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--line)',
+              color: 'var(--text-primary)',
+              fontSize: '12.5px',
+              fontWeight: 550,
             }}
           />
         </div>
-      </div>
+      </header>
 
       {errorMsg && (
         <div
           style={{
-            padding: '12px 16px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            color: '#f87171',
-            fontSize: '13px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '12px',
+            padding: '11px 14px',
+            borderRadius: '12px',
+            border: '1px solid rgba(248, 113, 113, 0.28)',
+            background: 'rgba(248, 113, 113, 0.08)',
+            color: '#f87171',
+            fontSize: '12.5px',
           }}
         >
           <span>{errorMsg}</span>
-          <button
-            onClick={() => setErrorMsg(null)}
-            style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '13px' }}
-          >
-            ✕
-          </button>
+          <button onClick={() => setErrorMsg(null)} style={{ color: '#f87171', fontSize: '13px' }}>✕</button>
         </div>
       )}
 
-      {/* ================= ACTIVE PARTY ROOM STATE ================= */}
+      {/* ================= ACTIVE ROOM ================= */}
       {isInParty && partyCode ? (
         <>
-          {/* Party Hero Card */}
-          <div
+          <section
             style={{
-              ...cardStyle,
-              background: 'linear-gradient(135deg, rgba(30, 215, 96, 0.12) 0%, rgba(10, 12, 18, 0.88) 100%)',
-              border: '1px solid rgba(30, 215, 96, 0.35)',
               position: 'relative',
               overflow: 'hidden',
+              borderRadius: '24px',
+              border: '1px solid rgba(30, 215, 96, 0.26)',
+              background:
+                'radial-gradient(120% 130% at 0% 0%, rgba(30, 215, 96, 0.14), transparent 58%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
+              padding: '26px 28px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
             }}
           >
-            {/* Floating Reactions Overlay */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                pointerEvents: 'none',
-                overflow: 'hidden',
-                zIndex: 10,
-              }}
-            >
+            {/* Reaction overlay */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 10 }}>
               {recentReactions.map(rx => (
                 <div
                   key={rx.id}
@@ -307,51 +239,38 @@ export const PartyView: React.FC<PartyViewProps> = ({
                     position: 'absolute',
                     bottom: '20px',
                     left: `${20 + Math.random() * 60}%`,
-                    fontSize: '28px',
-                    animation: 'floatUp 3s ease-out forwards',
-                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    fontSize: '26px',
+                    animation: 'floatUp 3s ease-out forwards',
+                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
                   }}
                 >
                   <span>{rx.emoji}</span>
-                  <span style={{ fontSize: '11px', color: '#fff', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>
                     {rx.senderName}
                   </span>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary, #8b93a6)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                    Party Room Code
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                      color: '#f0f2f5',
-                    }}
-                  >
-                    {members.length}/5 Listeners
-                  </span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="fq-kicker" style={{ fontSize: '9px' }}>Room code</span>
+                  <span className="fq-chip">{members.length}/5 listeners</span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                   <span
                     style={{
-                      fontSize: '38px',
-                      fontWeight: 900,
-                      letterSpacing: '6px',
-                      color: '#1ed760',
-                      fontFamily: 'monospace',
-                      textShadow: '0 0 20px rgba(30, 215, 96, 0.4)',
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '52px',
+                      lineHeight: 0.9,
+                      letterSpacing: '0.02em',
+                      color: 'var(--accent-cyan)',
+                      fontVariantNumeric: 'tabular-nums',
                     }}
                   >
                     #{partyCode}
@@ -359,61 +278,30 @@ export const PartyView: React.FC<PartyViewProps> = ({
 
                   <button
                     onClick={handleCopyCode}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      backgroundColor: copied ? 'rgba(30, 215, 96, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                      border: copied ? '1px solid #1ed760' : '1px solid rgba(255, 255, 255, 0.15)',
-                      color: copied ? '#1ed760' : '#f0f2f5',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
+                    className="fq-btn"
+                    style={copied ? { color: 'var(--accent-cyan)', borderColor: 'rgba(30,215,96,0.4)', background: 'rgba(30,215,96,0.1)' } : undefined}
                   >
-                    {copied ? <Check size={14} color="#1ed760" /> : <Copy size={14} />}
-                    <span>{copied ? 'Code Copied!' : 'Copy Code'}</span>
+                    {copied ? <Check size={13} /> : <Copy size={13} />}
+                    {copied ? 'Copied' : 'Copy code'}
                   </button>
                 </div>
               </div>
 
-              {/* Host & Status Badges */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                {/* Party Status — private = code only, public = join from Discord */}
+              {/* Status + host + leave */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    padding: '5px 7px 5px 12px',
+                    gap: '9px',
+                    padding: '5px 6px 5px 12px',
                     borderRadius: '10px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(255, 255, 255, 0.045)',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: 800,
-                      color: 'var(--text-secondary, #8b93a6)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.7px',
-                    }}
-                  >
-                    Party Status
-                  </span>
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '2px',
-                      padding: '2px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                    }}
-                  >
+                  <span className="fq-kicker" style={{ fontSize: '9px' }}>Party status</span>
+                  <div style={{ display: 'flex', gap: '2px', padding: '2px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.35)' }}>
                     {(['private', 'public'] as PartyPrivacy[]).map(option => {
                       const active = privacy === option;
                       return (
@@ -428,180 +316,128 @@ export const PartyView: React.FC<PartyViewProps> = ({
                             gap: '5px',
                             padding: '5px 9px',
                             borderRadius: '6px',
-                            border: 'none',
-                            fontSize: '11px',
+                            fontSize: '10.5px',
                             fontWeight: 700,
                             cursor: isHost ? 'pointer' : 'default',
-                            backgroundColor: active
+                            background: active
                               ? option === 'public'
-                                ? 'rgba(30, 215, 96, 0.9)'
+                                ? 'var(--accent-cyan)'
                                 : 'rgba(255, 255, 255, 0.16)'
                               : 'transparent',
                             color: active
                               ? option === 'public'
-                                ? '#04120a'
-                                : '#f0f2f5'
-                              : '#8b93a6',
+                                ? 'var(--accent-ink)'
+                                : 'var(--text-primary)'
+                              : 'var(--text-muted)',
                             transition: 'all 0.15s ease',
                           }}
                         >
-                          {option === 'public' ? <Globe size={12} /> : <Lock size={12} />}
+                          {option === 'public' ? <Globe size={11} /> : <Lock size={11} />}
                           <span>{option === 'public' ? 'Public' : 'Private'}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: 'var(--text-muted, #6b7280)',
-                    textAlign: 'right',
-                    maxWidth: '280px',
-                  }}
-                >
+
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right', maxWidth: '280px', lineHeight: 1.5 }}>
                   {privacy === 'public'
                     ? 'Anyone can join from your Discord presence.'
                     : 'Joinable only with the 4-digit code.'}
                   {!isHost && ' (set by host)'}
                 </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                  }}
-                >
-                  <Crown size={15} color="#f59e0b" />
-                  <span style={{ fontSize: '13px', color: '#f0f2f5' }}>
-                    Host: <strong style={{ color: '#f59e0b' }}>{hostName}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="fq-chip">
+                    <Crown size={11} color="#e9b872" />
+                    Host: <strong style={{ color: '#e9b872', fontWeight: 700 }}>{hostName}</strong>
+                    {isHost && <span style={{ color: 'var(--text-muted)' }}>· you</span>}
                   </span>
-                  {isHost && (
-                    <span style={{ fontSize: '10px', backgroundColor: '#f59e0b', color: '#000', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
-                      YOU
-                    </span>
-                  )}
-                </div>
 
-                <button
-                  onClick={handleLeave}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#f87171',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.25)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)'; }}
-                >
-                  <LogOut size={14} />
-                  <span>{isHost ? 'End Party' : 'Leave Party'}</span>
-                </button>
+                  <button
+                    onClick={handleLeave}
+                    className="fq-btn"
+                    style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.26)', background: 'rgba(248,113,113,0.07)' }}
+                  >
+                    <LogOut size={13} />
+                    {isHost ? 'End party' : 'Leave'}
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Now Playing Bar in Room */}
+            {/* Now playing */}
             <div
               style={{
-                marginTop: '10px',
-                padding: '14px 18px',
-                borderRadius: '14px',
-                backgroundColor: 'rgba(0, 0, 0, 0.35)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
-                gap: '12px',
+                gap: '14px',
+                padding: '13px 16px',
+                borderRadius: '14px',
+                border: '1px solid var(--line)',
+                background: 'rgba(0, 0, 0, 0.28)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '13px', minWidth: 0 }}>
                 <SquareArt
                   src={currentTrack?.artworkUrl}
-                  alt={currentTrack?.title || 'Party Music'}
-                  style={{ borderRadius: '8px', width: '52px', height: '52px' }}
+                  alt={currentTrack?.title || 'Party music'}
+                  style={{ borderRadius: '9px', width: '48px', height: '48px', flexShrink: 0 }}
                 />
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#f0f2f5' }}>
-                    {currentTrack?.title || 'Waiting for host to pick a song...'}
+                <div style={{ minWidth: 0 }}>
+                  <div className="fq-ttitle" style={{ fontSize: '13px' }}>
+                    {currentTrack?.title || 'Waiting for the host to pick a song…'}
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary, #8b93a6)', marginTop: '2px' }}>
-                    {currentTrack?.artist || 'Host controls music'}
-                  </div>
+                  <div className="fq-tsub">{currentTrack?.artist || 'Host controls the music'}</div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                   {isPlaying ? (
-                    <Play size={14} fill="#1ed760" color="#1ed760" />
+                    <Play size={12} fill="var(--accent-cyan)" color="var(--accent-cyan)" />
                   ) : (
-                    <Pause size={14} fill="#f59e0b" color="#f59e0b" />
+                    <Pause size={12} fill="#e9b872" color="#e9b872" />
                   )}
-                  <span style={{ fontSize: '12px', color: '#f0f2f5', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatTime(position)} / {formatTime(duration)}
-                  </span>
-                </div>
+                  {formatTime(position)} / {formatTime(duration)}
+                </span>
 
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: isHost ? '#1ed760' : '#00d2ff',
-                    backgroundColor: isHost ? 'rgba(30, 215, 96, 0.15)' : 'rgba(0, 210, 255, 0.15)',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    fontWeight: 700,
-                  }}
-                >
-                  {isHost ? 'Broadcasting live to party' : 'Synced with host'}
+                <span className={`fq-chip${isHost ? ' fq-chip-accent' : ''}`}>
+                  <Volume2 size={11} />
+                  {isHost ? 'Broadcasting' : 'Synced with host'}
                 </span>
               </div>
             </div>
 
-            {/* Quick Live Emoji Reactions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #5c6478)' }}>
-                Live Reactions:
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Reactions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span className="fq-kicker" style={{ fontSize: '9px' }}>Live reactions</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 {QUICK_EMOJIS.map(emoji => (
                   <button
                     key={emoji}
                     onClick={() => handleReaction(emoji)}
                     title={`Send ${emoji} reaction to party`}
                     style={{
-                      width: '36px',
-                      height: '36px',
+                      width: '34px',
+                      height: '34px',
                       borderRadius: '10px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      fontSize: '18px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      border: '1px solid var(--line)',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      fontSize: '16px',
+                      display: 'grid',
+                      placeItems: 'center',
                       transition: 'transform 0.1s ease, background-color 0.15s ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'scale(1.2)';
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+                      e.currentTarget.style.transform = 'scale(1.14)';
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.transform = 'scale(1)';
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)';
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
                     }}
                   >
                     {emoji}
@@ -609,103 +445,75 @@ export const PartyView: React.FC<PartyViewProps> = ({
                 ))}
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Members List Card */}
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={18} color="#fff" />
-                <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#f0f2f5', margin: 0 }}>
-                  People in Room ({members.length}/5)
-                </h2>
+          {/* Members */}
+          <section className="fq-set-section">
+            <div className="fq-set-head">
+              <span className="fq-set-icon"><Users size={16} /></span>
+              <div style={{ flex: 1 }}>
+                <h2 className="fq-set-title">People in the room</h2>
+                <p className="fq-set-desc">{members.length} of 5 seats taken</p>
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted, #5c6478)' }}>
-                Maximum 5 people per room
-              </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: '10px' }}>
               {members.map(m => {
                 const isMe = m.id === partyService.getMyMemberId();
                 return (
                   <div
                     key={m.id}
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      backgroundColor: isMe ? 'rgba(30, 215, 96, 0.06)' : 'rgba(255, 255, 255, 0.03)',
-                      border: isMe ? '1px solid rgba(30, 215, 96, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      gap: '10px',
+                      padding: '11px 13px',
+                      borderRadius: '13px',
+                      border: isMe ? '1px solid rgba(30, 215, 96, 0.24)' : '1px solid var(--line)',
+                      background: isMe ? 'rgba(30, 215, 96, 0.05)' : 'rgba(255, 255, 255, 0.022)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                       <div
                         style={{
-                          width: '36px',
-                          height: '36px',
+                          width: '34px',
+                          height: '34px',
                           borderRadius: '50%',
-                          backgroundColor: m.avatarColor || '#1ed760',
-                          color: '#000',
+                          flexShrink: 0,
+                          background: m.avatarColor || 'var(--accent-cyan)',
+                          color: '#05070a',
                           fontWeight: 800,
-                          fontSize: '15px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          fontSize: '14px',
+                          display: 'grid',
+                          placeItems: 'center',
                         }}
                       >
                         {m.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#f0f2f5' }}>
-                            {m.name}
-                          </span>
-                          {m.isHost && (
-                            <span title="Party Host">
-                              <Crown size={14} color="#f59e0b" />
-                            </span>
-                          )}
+                          <span className="fq-ttitle" style={{ fontSize: '12.5px' }}>{m.name}</span>
+                          {m.isHost && <Crown size={12} color="#e9b872" />}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted, #5c6478)', marginTop: '2px' }}>
-                          {m.isHost ? 'Host • Controls music' : 'Listener'}
+                        <div className="fq-tsub" style={{ fontSize: '11px' }}>
+                          {m.isHost ? 'Host · controls music' : 'Listener'}
                         </div>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {isMe && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 800,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            color: '#f0f2f5',
-                          }}
-                        >
-                          YOU
-                        </span>
-                      )}
+                      {isMe && <span className="fq-chip" style={{ height: '19px', fontSize: '8.5px' }}>YOU</span>}
                       {isHost && !m.isHost && (
                         <button
                           onClick={() => handleKick(m.id)}
                           title={`Remove ${m.name} from party`}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-muted, #5c6478)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: '6px',
-                          }}
+                          className="fq-icon-btn"
+                          style={{ width: '26px', height: '26px', borderRadius: '7px' }}
                           onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; }}
-                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #5c6478)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = ''; }}
                         >
-                          <UserMinus size={15} />
+                          <UserMinus size={14} />
                         </button>
                       )}
                     </div>
@@ -713,121 +521,72 @@ export const PartyView: React.FC<PartyViewProps> = ({
                 );
               })}
             </div>
-          </div>
+          </section>
         </>
       ) : (
-        /* ================= LOBBY (NOT IN PARTY) STATE ================= */
+        /* ================= LOBBY ================= */
         <>
-          {/* 2-Card Action Grid: Host or Join */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
-            {/* Card 1: Host a Party */}
-            <div
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: '18px' }}>
+            {/* Host */}
+            <section
+              className="fq-set-section"
               style={{
-                ...cardStyle,
-                background: 'linear-gradient(135deg, rgba(30, 215, 96, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-                border: '1px solid rgba(30, 215, 96, 0.25)',
+                background:
+                  'radial-gradient(120% 130% at 0% 0%, rgba(30, 215, 96, 0.1), transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.008))',
+                borderColor: 'rgba(30, 215, 96, 0.22)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Crown size={18} color="#1ed760" />
-                  <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f0f2f5', margin: 0 }}>
-                    Host a Party Room
-                  </h2>
-                </div>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    backgroundColor: 'rgba(30, 215, 96, 0.15)',
-                    color: '#1ed760',
-                  }}
-                >
-                  YOU ARE HOST
+              <div className="fq-set-head">
+                <span className="fq-set-icon" style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(30,215,96,0.28)', background: 'rgba(30,215,96,0.1)' }}>
+                  <Crown size={16} />
                 </span>
+                <div style={{ flex: 1 }}>
+                  <h2 className="fq-set-title">Host a room</h2>
+                  <p className="fq-set-desc">You control tracks, skipping and seeking.</p>
+                </div>
               </div>
 
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary, #8b93a6)', margin: 0, lineHeight: 1.6 }}>
-                Create a listening party up to 5 people. You control track choices, skipping, and seeking. Friends join with a 4-digit code — or straight from your Discord presence when the room is Public.
+              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                Create a listening party for up to five people. Friends join with a 4-digit code — or straight
+                from your Discord presence when the room is public.
               </p>
 
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                }}
-              >
-                <Music size={16} color="#1ed760" />
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary, #8b93a6)' }}>
-                  {currentTrack ? `Starting with “${currentTrack.title}”` : 'Start your party anytime — pick songs as you go!'}
+              <div className="fq-set-row" style={{ background: 'rgba(0,0,0,0.22)' }}>
+                <Music size={14} color="var(--accent-cyan)" />
+                <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)', textAlign: 'right', lineHeight: 1.5 }}>
+                  {currentTrack ? `Starting with “${currentTrack.title}”` : 'Pick songs as you go'}
                 </span>
               </div>
 
               <button
+                className="fq-btn fq-btn-primary"
                 onClick={handleCreate}
                 disabled={isSubmitting}
-                style={{
-                  marginTop: 'auto',
-                  padding: '12px 20px',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  backgroundColor: '#1ed760',
-                  color: '#000',
-                  border: 'none',
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 16px rgba(30, 215, 96, 0.35)',
-                  transition: 'transform 0.1s ease',
-                }}
-                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)'; }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                style={{ marginTop: 'auto', height: '40px', justifyContent: 'center', width: '100%' }}
               >
-                <Radio size={16} />
-                <span>{isSubmitting ? 'Creating Room...' : 'Create Party Room'}</span>
+                <Radio size={14} />
+                {isSubmitting ? 'Creating room…' : 'Create party room'}
               </button>
-            </div>
+            </section>
 
-            {/* Card 2: Join a Party */}
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Users size={18} color="#00d2ff" />
-                  <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f0f2f5', margin: 0 }}>
-                    Join a Party Room
-                  </h2>
+            {/* Join */}
+            <section className="fq-set-section">
+              <div className="fq-set-head">
+                <span className="fq-set-icon"><Users size={16} /></span>
+                <div style={{ flex: 1 }}>
+                  <h2 className="fq-set-title">Join a room</h2>
+                  <p className="fq-set-desc">Enter the host's 4-digit code.</p>
                 </div>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    backgroundColor: 'rgba(0, 210, 255, 0.15)',
-                    color: '#00d2ff',
-                  }}
-                >
-                  4-DIGIT CODE
-                </span>
+                <span className="fq-chip">CODE</span>
               </div>
 
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary, #8b93a6)', margin: 0, lineHeight: 1.6 }}>
-                Enter the 4-digit code provided by your host to jump straight into their audio stream from anywhere in the world.
+              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                Jump straight into someone else's stream from anywhere in the world.
               </p>
 
               <form
                 onSubmit={e => { e.preventDefault(); handleJoin(); }}
-                style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: 'auto' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 'auto' }}
               >
                 <input
                   type="text"
@@ -836,189 +595,116 @@ export const PartyView: React.FC<PartyViewProps> = ({
                   onChange={e => setInputCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="0000"
                   style={{
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    fontSize: '28px',
-                    fontWeight: 900,
+                    height: '54px',
+                    borderRadius: '13px',
+                    border: '1px solid var(--line-strong)',
+                    background: 'rgba(255, 255, 255, 0.045)',
+                    color: 'var(--text-primary)',
+                    fontSize: '26px',
+                    fontWeight: 800,
                     textAlign: 'center',
-                    letterSpacing: '8px',
-                    fontFamily: 'monospace',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#f0f2f5',
-                    outline: 'none',
+                    letterSpacing: '10px',
+                    fontVariantNumeric: 'tabular-nums',
+                    paddingLeft: '10px',
                   }}
                 />
 
                 <button
                   type="submit"
                   disabled={isSubmitting || inputCode.length !== 4}
-                  style={{
-                    padding: '12px 20px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
-                    fontWeight: 800,
-                    backgroundColor: inputCode.length === 4 ? '#00d2ff' : 'rgba(255, 255, 255, 0.08)',
-                    color: inputCode.length === 4 ? '#000' : 'var(--text-muted, #5c6478)',
-                    border: 'none',
-                    cursor: inputCode.length === 4 && !isSubmitting ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: inputCode.length === 4 ? '0 4px 16px rgba(0, 210, 255, 0.35)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className={`fq-btn${inputCode.length === 4 ? ' fq-btn-primary' : ''}`}
+                  style={{ height: '40px', justifyContent: 'center', opacity: inputCode.length === 4 ? 1 : 0.55 }}
                 >
-                  <ArrowRight size={16} />
-                  <span>{isSubmitting ? 'Connecting...' : 'Join Party'}</span>
+                  <ArrowRight size={14} />
+                  {isSubmitting ? 'Connecting…' : 'Join party'}
                 </button>
               </form>
-            </div>
+            </section>
           </div>
 
-          {/* Card 3: Recent Codes & Host Names (User Request!) */}
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={18} color="#fff" />
-                <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#f0f2f5', margin: 0 }}>
-                  Recent Party Rooms & Codes
-                </h2>
+          {/* Recents */}
+          <section className="fq-set-section">
+            <div className="fq-set-head">
+              <span className="fq-set-icon"><Clock size={16} /></span>
+              <div style={{ flex: 1 }}>
+                <h2 className="fq-set-title">Recent rooms</h2>
+                <p className="fq-set-desc">One-click rejoin for rooms you hosted or joined.</p>
               </div>
               {recentParties.length > 0 && (
-                <button
-                  onClick={handleClearRecents}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted, #5c6478)',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #5c6478)'; }}
-                >
-                  Clear History
+                <button className="fq-btn fq-btn-ghost" onClick={handleClearRecents}>
+                  Clear
                 </button>
               )}
             </div>
 
             {recentParties.length === 0 ? (
-              <div
-                style={{
-                  padding: '30px 20px',
-                  textAlign: 'center',
-                  color: 'var(--text-muted, #5c6478)',
-                  fontSize: '13px',
-                }}
-              >
-                No recent parties found. Rooms you host or join will appear here with the host name and quick 1-click join!
+              <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                No recent parties yet — rooms you host or join will appear here.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {recentParties.map(p => (
                   <div
                     key={p.code}
+                    className="fq-mix"
                     onClick={() => handleJoin(p.code)}
-                    style={{
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.15s ease, border-color 0.15s ease',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)';
-                      e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.3)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
-                    }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <span
-                        style={{
-                          fontSize: '18px',
-                          fontWeight: 900,
-                          letterSpacing: '2px',
-                          fontFamily: 'monospace',
-                          color: p.isHost ? '#1ed760' : '#00d2ff',
-                          padding: '4px 10px',
-                          borderRadius: '8px',
-                          backgroundColor: p.isHost ? 'rgba(30, 215, 96, 0.12)' : 'rgba(0, 210, 255, 0.12)',
-                          border: p.isHost ? '1px solid rgba(30, 215, 96, 0.3)' : '1px solid rgba(0, 210, 255, 0.3)',
-                        }}
-                      >
-                        #{p.code}
-                      </span>
+                    <span
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        letterSpacing: '0.08em',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: p.isHost ? 'var(--accent-cyan)' : 'var(--text-primary)',
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        border: p.isHost ? '1px solid rgba(30,215,96,0.3)' : '1px solid var(--line)',
+                        background: p.isHost ? 'rgba(30,215,96,0.1)' : 'rgba(255,255,255,0.04)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      #{p.code}
+                    </span>
 
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#f0f2f5' }}>
-                            Host: <strong style={{ color: p.isHost ? '#1ed760' : '#f59e0b' }}>{p.hostName || 'Party Host'}</strong>
-                          </span>
-                          {p.isHost && (
-                            <span style={{ fontSize: '10px', backgroundColor: 'rgba(30, 215, 96, 0.2)', color: '#1ed760', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
-                              YOU HOSTED
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted, #5c6478)', marginTop: '2px' }}>
-                          {new Date(p.timestamp).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="fq-ttitle" style={{ fontSize: '12.5px' }}>
+                        Host: {p.hostName || 'Party Host'}
+                        {p.isHost && <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}> · you</span>}
+                      </div>
+                      <div className="fq-tsub" style={{ fontSize: '11px' }}>
+                        {new Date(p.timestamp).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button
                         onClick={e => { e.stopPropagation(); handleJoin(p.code); }}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          backgroundColor: 'rgba(30, 215, 96, 0.15)',
-                          border: '1px solid rgba(30, 215, 96, 0.3)',
-                          color: '#1ed760',
-                          cursor: 'pointer',
-                        }}
+                        className="fq-chip fq-chip-accent"
+                        style={{ height: '28px', padding: '0 12px' }}
                       >
-                        Quick Join
+                        Quick join
                       </button>
-
                       <button
                         onClick={e => handleRemoveRecent(e, p.code)}
                         title="Remove from history"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted, #5c6478)',
-                          cursor: 'pointer',
-                          padding: '6px',
-                          borderRadius: '6px',
-                        }}
+                        className="fq-icon-btn"
+                        style={{ width: '26px', height: '26px', borderRadius: '7px' }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #5c6478)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = ''; }}
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </section>
         </>
       )}
     </div>

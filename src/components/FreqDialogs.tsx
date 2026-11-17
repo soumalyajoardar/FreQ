@@ -13,9 +13,9 @@ function backdropStyle(): React.CSSProperties {
   return {
     position: 'fixed',
     inset: 0,
-    backgroundColor: 'rgba(4, 6, 12, 0.72)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
+    backgroundColor: 'rgba(3, 3, 6, 0.74)',
+    backdropFilter: 'blur(14px)',
+    WebkitBackdropFilter: 'blur(14px)',
     zIndex: 9600,
     display: 'flex',
     alignItems: 'center',
@@ -29,11 +29,11 @@ function panelStyle(maxWidth = 440): React.CSSProperties {
     width: `min(${maxWidth}px, calc(100vw - 48px))`,
     borderRadius: '20px',
     padding: '24px',
-    backgroundColor: 'rgba(16, 18, 28, 0.88)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255,255,255,0.10)',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(14, 14, 19, 0.96)',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    border: '1px solid rgba(255,255,255,0.11)',
+    boxShadow: '0 30px 80px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)',
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
@@ -83,11 +83,11 @@ export const CreatePlaylistDialog: React.FC<{
   return (
     <GlassModal onClose={onClose} closing={closing}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff' }}>
-          {mode === 'rename' ? 'Rename Playlist' : 'New Playlist'}
+        <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, color: '#fff', letterSpacing: '-0.02em' }}>
+          {mode === 'rename' ? 'Rename playlist' : 'New playlist'}
         </h3>
-        <button onClick={onClose} style={{ color: 'var(--text-secondary)', padding: 4 }}>
-          <X size={18} />
+        <button onClick={onClose} className="fq-icon-btn" style={{ width: '28px', height: '28px', borderRadius: '8px' }}>
+          <X size={16} />
         </button>
       </div>
       <form
@@ -108,10 +108,10 @@ export const CreatePlaylistDialog: React.FC<{
           style={{
             padding: '12px 14px',
             borderRadius: 12,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.35)',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid var(--line-strong)',
             color: '#fff',
-            fontSize: 14,
+            fontSize: 13.5,
             outline: 'none',
           }}
         />
@@ -123,35 +123,22 @@ export const CreatePlaylistDialog: React.FC<{
           style={{
             padding: '12px 14px',
             borderRadius: 12,
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.10)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid var(--line)',
             color: '#fff',
-            fontSize: 13,
+            fontSize: 12.5,
             outline: 'none',
           }}
         />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '10px 18px', borderRadius: 999, background: 'rgba(255,255,255,0.06)',
-              color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13,
-            }}
-          >
+          <button type="button" onClick={onClose} className="fq-btn">
             Cancel
           </button>
           <button
             type="submit"
             disabled={!valid}
-            style={{
-              padding: '10px 22px', borderRadius: 999,
-              backgroundColor: valid ? '#f8fafc' : 'rgba(255,255,255,0.08)',
-              color: valid ? '#090A0F' : 'var(--text-muted)',
-              fontWeight: 800, fontSize: 13,
-              boxShadow: valid ? '0 0 18px rgba(255,255,255,0.35)' : 'none',
-              cursor: valid ? 'pointer' : 'default',
-            }}
+            className={`fq-btn${valid ? ' fq-btn-primary' : ''}`}
+            style={{ cursor: valid ? 'pointer' : 'default', opacity: valid ? 1 : 0.55 }}
           >
             {mode === 'rename' ? 'Save' : 'Create'}
           </button>
@@ -184,26 +171,21 @@ export const ConfirmDialog: React.FC<{
           <AlertTriangle size={18} color={danger ? '#ef4444' : 'var(--accent-cyan)'} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{title}</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{message}</p>
+          <h3 style={{ fontSize: 16, fontWeight: 650, letterSpacing: '-0.01em', color: '#fff' }}>{title}</h3>
+          <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{message}</p>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button
-          onClick={onCancel}
-          style={{
-            padding: '10px 18px', borderRadius: 999, background: 'rgba(255,255,255,0.06)',
-            color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13,
-          }}
-        >
+        <button onClick={onCancel} className="fq-btn">
           Cancel
         </button>
         <button
           onClick={() => { onConfirm(); onCancel(); }}
+          className="fq-btn"
           style={{
-            padding: '10px 20px', borderRadius: 999,
-            backgroundColor: danger ? '#ef4444' : '#f8fafc',
-            color: danger ? '#fff' : '#090A0F', fontWeight: 800, fontSize: 13,
+            backgroundColor: danger ? '#f43f5e' : 'var(--accent-cyan)',
+            borderColor: 'transparent',
+            color: danger ? '#fff' : 'var(--accent-ink)',
           }}
         >
           {confirmLabel}
@@ -232,12 +214,12 @@ export const ToastStack: React.FC<{ toasts: ToastItem[] }> = ({ toasts }) => {
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 18px', borderRadius: 999,
-            background: isUpdate ? 'rgba(8, 32, 52, 0.94)' : 'rgba(14,16,26,0.92)',
+            background: isUpdate ? 'rgba(7, 26, 42, 0.95)' : 'rgba(13, 13, 18, 0.95)',
             border: t.kind === 'danger'
-              ? '1px solid rgba(239,68,68,0.4)'
+              ? '1px solid rgba(248,113,113,0.4)'
               : isUpdate
                 ? '1px solid rgba(56,189,248,0.55)'
-                : '1px solid rgba(255,255,255,0.30)',
+                : '1px solid var(--line-strong)',
             boxShadow: isUpdate
               ? '0 12px 32px rgba(0,0,0,0.5), 0 0 18px rgba(56,189,248,0.22)'
               : '0 12px 32px rgba(0,0,0,0.5)',

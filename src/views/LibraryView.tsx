@@ -1,7 +1,6 @@
 import React from 'react';
 import { Heart, Plus, Play, Trash2, Clock, Music, Pencil, Sparkles, Compass, HardDriveDownload, ListMusic, Link2 } from 'lucide-react';
 import { MediaTrack, SmartMix, UserPlaylist } from '../types';
-import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
 import { DownloadedTrack } from '../services/libraryStore';
 import { formatBytes } from '../services/downloads';
@@ -47,261 +46,139 @@ const LibraryViewComponent: React.FC<LibraryViewProps> = ({
   onCreatePlaylist,
   onDeletePlaylist,
   onRenamePlaylist,
-  onTrackContextMenu,
   onImportPlaylistLink,
 }) => {
   const [showImportLink, setShowImportLink] = React.useState(false);
-  return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }} className="view-enter">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
-          Your Library
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={() => setShowImportLink(true)}
-            title="Import a YouTube playlist link"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: 'var(--text-primary)',
-              fontWeight: 700,
-              fontSize: '13px',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'; }}
-          >
-            <Link2 size={16} />
-            <span>Import link</span>
-          </button>
-          <button
-            onClick={onCreatePlaylist}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            borderRadius: '999px',
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            color: 'var(--accent-cyan)',
-            fontWeight: 700,
-            fontSize: '13px',
-          }}
-        >
-          <Plus size={16} />
-          <span>New Playlist</span>
-        </button>
+
+  const mixCard = (mix: SmartMix, icon: React.ReactNode) => {
+    const art = mix.tracks.find(t => t.artworkUrl)?.artworkUrl || null;
+    return (
+      <div key={mix.id} className="fq-mix" onClick={() => mix.tracks.length > 0 && onPlayMix(mix)}>
+        <div className="fq-mix-art">
+          {art ? (
+            <SquareArt src={art} alt={mix.title} style={{ width: '100%', height: '100%' }} />
+          ) : (
+            icon
+          )}
         </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="fq-ttitle" style={{ fontSize: '13px' }}>{mix.title}</div>
+          <div className="fq-tsub">{mix.description}</div>
+        </div>
+        <span className="fq-mix-play">
+          <Play size={13} fill="currentColor" style={{ marginLeft: '2px' }} />
+        </span>
       </div>
+    );
+  };
+
+  return (
+    <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '34px', paddingTop: '18px' }}>
+      <header className="fq-page-head" style={{ paddingBottom: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span className="fq-kicker">On this device</span>
+          <h1 className="fq-h1">Your Library</h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button className="fq-btn" onClick={() => setShowImportLink(true)} title="Import a YouTube playlist link">
+            <Link2 size={13} />
+            Import link
+          </button>
+          <button className="fq-btn fq-btn-primary" onClick={onCreatePlaylist}>
+            <Plus size={14} />
+            New playlist
+          </button>
+        </div>
+      </header>
+
       <ImportPlaylistDialog
         isOpen={showImportLink}
         onClose={() => setShowImportLink(false)}
         onImport={onImportPlaylistLink}
       />
 
-      {/* Top Grid: Liked Songs Hero Banner & Quick Actions */}
-      <div className="library-grid-hero" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: '20px' }}>
-        {/* Liked Songs Hero Tile */}
-        <div
-          onClick={onOpenLiked}
-          style={{
-            borderRadius: '20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '200px',
-            cursor: 'pointer',
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            position: 'relative',
-            overflow: 'hidden',
-            transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
-        >
+      {/* Liked tile + activity */}
+      <div className="fq-lib-top">
+        <div className="fq-liked-tile" onClick={onOpenLiked}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Heart size={32} fill="#fff" color="#fff" />
+            <Heart size={26} fill="var(--accent-cyan)" color="var(--accent-cyan)" />
             {likedTracks.length > 0 && (
               <button
                 onClick={e => {
                   e.stopPropagation();
                   onPlayTrack(likedTracks[0], likedTracks);
                 }}
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '50%',
-                  backgroundColor: '#fff',
-                  color: '#090A0F',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
-                }}
+                className="fq-play-btn"
+                style={{ width: '40px', height: '40px' }}
+                title="Play liked songs"
               >
-                <Play size={18} fill="#090A0F" style={{ marginLeft: '2px' }} />
+                <Play size={16} fill="currentColor" style={{ marginLeft: '2px' }} />
               </button>
             )}
           </div>
 
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-              Liked Songs
-            </h2>
-            <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '4px' }}>
-              {likedTracks.length} saved songs
+            <h2 className="fq-liked-title">Liked Songs</h2>
+            <p style={{ marginTop: '6px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+              {likedTracks.length} saved {likedTracks.length === 1 ? 'song' : 'songs'}
             </p>
           </div>
         </div>
 
-        {/* Recently Played Summary / Stats */}
-        <div
-          style={{
-            borderRadius: '20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            padding: '20px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
+        <div className="fq-panel" style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Clock size={16} color="var(--accent-teal)" />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-              Listening Activity
-            </span>
+            <Clock size={13} color="var(--text-secondary)" />
+            <span className="fq-kicker">Listening activity</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '28px', margin: '14px 0' }}>
-            <div>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--accent-cyan)' }}>
-                {likedTracks.length}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, auto)', gap: '34px', justifyContent: 'start' }}>
+            {[
+              { value: likedTracks.length, label: 'Liked tracks' },
+              { value: userPlaylists.length, label: 'Playlists' },
+              { value: recentlyPlayed.length, label: 'Recent plays' },
+            ].map(s => (
+              <div key={s.label}>
+                <div className="fq-stat-value" style={{ fontSize: '34px' }}>{s.value}</div>
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{s.label}</div>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Liked Tracks</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--accent-violet)' }}>
-                {userPlaylists.length}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Custom Playlists</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--accent-teal)' }}>
-                {recentlyPlayed.length}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Recent Plays</div>
-            </div>
+            ))}
           </div>
 
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             100% on-device private storage. No accounts, no data leaves your computer.
           </div>
         </div>
       </div>
 
-      {/* Smart Mixes: auto-built from your taste */}
+      {/* Smart mixes */}
       {(smartMixes.length > 0 || discoveryLoading) && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} color="#fff" />
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Smart Mixes
-            </h2>
+        <section className="fq-section">
+          <div className="fq-section-head">
+            <div className="fq-section-title-wrap">
+              <h2 className="fq-h2">Smart mixes</h2>
+              <span className="fq-muted" style={{ fontSize: '12px' }}>Auto-built from what you actually play</span>
+            </div>
+            <Sparkles size={14} color="var(--text-muted)" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
-            {smartMixes.map(mix => {
-              const art = mix.tracks.find(t => t.artworkUrl)?.artworkUrl || null;
-              return (
-                <div
-                  key={mix.id}
-                  onClick={() => mix.tracks.length > 0 && onPlayMix(mix)}
-                  style={{
-                    padding: '14px',
-                    borderRadius: '16px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    cursor: mix.tracks.length > 0 ? 'pointer' : 'default',
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'center',
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)';
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <div style={{ width: '56px', height: '56px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, backgroundColor: '#1b1e2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {art ? (
-                      <SquareArt src={art} alt={mix.title} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                      <Sparkles size={22} color="var(--text-muted)" />
-                    )}
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {mix.title}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {mix.description}
-                    </div>
-                  </div>
-                  {mix.tracks.length > 0 && (
-                    <div style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Play size={14} fill="#090A0F" color="#090A0F" style={{ marginLeft: '2px' }} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+
+          <div className="fq-mix-grid">
+            {smartMixes.map(mix => mixCard(mix, <Sparkles size={20} color="var(--text-muted)" />))}
+
             <div
+              className="fq-mix is-dashed"
               onClick={() => !discoveryLoading && onPlayDiscoveryMix()}
-              style={{
-                padding: '14px',
-                borderRadius: '16px',
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                border: '1px dashed rgba(255, 255, 255, 0.14)',
-                cursor: discoveryLoading ? 'default' : 'pointer',
-                display: 'flex',
-                gap: '12px',
-                alignItems: 'center',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'; }}
+              style={{ cursor: discoveryLoading ? 'default' : 'pointer' }}
             >
-              <div style={{ width: '56px', height: '56px', borderRadius: '12px', flexShrink: 0, backgroundColor: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="fq-mix-art" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 {discoveryLoading ? (
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', animation: 'freqSpin 0.8s linear infinite' }} />
+                  <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--text-primary)', animation: 'freqSpin 0.8s linear infinite' }} />
                 ) : (
-                  <Compass size={22} color="#fff" />
+                  <Compass size={20} color="var(--text-primary)" />
                 )}
               </div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff' }}>
-                  Discovery Mix
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="fq-ttitle" style={{ fontSize: '13px' }}>Discovery Mix</div>
+                <div className="fq-tsub">
                   {discoveryLoading ? 'Building your mix…' : 'Fresh songs from your top artists'}
                 </div>
               </div>
@@ -310,168 +187,86 @@ const LibraryViewComponent: React.FC<LibraryViewProps> = ({
         </section>
       )}
 
-      {/* Smart Playlists: rule-based, auto-refreshing */}
+      {/* Smart playlists */}
       {smartPlaylists.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ListMusic size={18} color="#fff" />
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Smart Playlists
-            </h2>
+        <section className="fq-section">
+          <div className="fq-section-head">
+            <div className="fq-section-title-wrap">
+              <h2 className="fq-h2">Smart playlists</h2>
+              <span className="fq-muted" style={{ fontSize: '12px' }}>Rule-based and auto-refreshing</span>
+            </div>
+            <ListMusic size={14} color="var(--text-muted)" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
-            {smartPlaylists.map(mix => {
-              const art = mix.tracks.find(t => t.artworkUrl)?.artworkUrl || null;
-              return (
-                <div
-                  key={mix.id}
-                  onClick={() => mix.tracks.length > 0 && onPlayMix(mix)}
-                  style={{
-                    padding: '14px',
-                    borderRadius: '16px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'center',
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)';
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <div style={{ width: '56px', height: '56px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, backgroundColor: '#1b1e2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {art ? (
-                      <SquareArt src={art} alt={mix.title} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                      <ListMusic size={22} color="var(--text-muted)" />
-                    )}
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {mix.title}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {mix.description}
-                    </div>
-                  </div>
-                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Play size={14} fill="#090A0F" color="#090A0F" style={{ marginLeft: '2px' }} />
-                  </div>
-                </div>
-              );
-            })}
+
+          <div className="fq-mix-grid">
+            {smartPlaylists.map(mix => mixCard(mix, <ListMusic size={20} color="var(--text-muted)" />))}
           </div>
         </section>
       )}
 
-      {/* Offline Downloads */}
+      {/* Downloads */}
       {downloadedTracks.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <HardDriveDownload size={18} color="#fff" />
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Offline Downloads ({downloadedTracks.length} • {formatBytes(totalDownloadBytes)})
-            </h2>
+        <section className="fq-section">
+          <div className="fq-section-head">
+            <div className="fq-section-title-wrap">
+              <h2 className="fq-h2">Offline downloads</h2>
+              <span className="fq-muted" style={{ fontSize: '12px' }}>Available without a connection</span>
+            </div>
+            <span className="fq-chip">
+              <HardDriveDownload size={12} />
+              {downloadedTracks.length} · {formatBytes(totalDownloadBytes)}
+            </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+
+          <div className="fq-table">
             {downloadedTracks.map(d => (
-              <div
-                key={d.track.id}
-                onClick={() => onPlayTrack(d.track)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  padding: '8px 12px', borderRadius: '12px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)'; }}
-                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'; }}
-              >
+              <div key={d.track.id} className="fq-trow" onClick={() => onPlayTrack(d.track)} style={{ cursor: 'pointer' }}>
                 <SquareArt src={d.track.artworkUrl} videoId={d.track.id} alt={d.track.title} fit="cover" style={{ width: '38px', height: '38px', borderRadius: '8px', flexShrink: 0 }} />
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {d.track.title}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {d.track.artist} • {formatBytes(d.sizeBytes)}
-                  </div>
+                <div className="fq-tmain" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                  <span className="fq-ttitle">{d.track.title}</span>
+                  <span className="fq-tsub">{d.track.artist} · {formatBytes(d.sizeBytes)}</span>
                 </div>
-                <button
-                  onClick={e => { e.stopPropagation(); onRemoveDownloaded(d.track.id); }}
-                  title="Remove download"
-                  style={{ color: 'var(--text-muted)', padding: '6px' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="fq-tact" style={{ width: '40px' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); onRemoveDownloaded(d.track.id); }}
+                    title="Remove download"
+                    className="fq-icon-btn"
+                    style={{ width: '28px', height: '28px', borderRadius: '7px' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#f43f5e'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = ''; }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* User Playlists Grid */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-          Playlists ({userPlaylists.length})
-        </h2>
+      {/* Playlists */}
+      <section className="fq-section">
+        <div className="fq-section-head">
+          <div className="fq-section-title-wrap">
+            <h2 className="fq-h2">Playlists</h2>
+            <span className="fq-muted" style={{ fontSize: '12px' }}>{userPlaylists.length} curated {userPlaylists.length === 1 ? 'collection' : 'collections'}</span>
+          </div>
+          <button className="fq-btn fq-btn-ghost" onClick={onCreatePlaylist}>
+            <Plus size={13} />
+            New
+          </button>
+        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+        <div className="fq-pl-grid">
           {userPlaylists.map(pl => (
-            <div
-              key={pl.id}
-              onClick={() => onOpenPlaylist(pl.id)}
-              style={{
-                padding: '14px',
-                borderRadius: '16px',
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                position: 'relative',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)';
-                e.currentTarget.style.transform = 'translateY(-4px)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <div
-                style={{
-                  width: '100%',
-                  aspectRatio: '1',
-                  borderRadius: '12px',
-                  backgroundColor: '#1b1e2e',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                  position: 'relative',
-                }}
-              >
+            <div key={pl.id} className="fq-card" style={{ width: '100%' }} onClick={() => onOpenPlaylist(pl.id)}>
+              <div className="fq-card-media">
                 {pl.artworkUrl ? (
                   <SquareArt src={pl.artworkUrl} alt={pl.title} style={{ width: '100%', height: '100%' }} />
                 ) : (
-                  <Music size={36} color="var(--text-muted)" />
+                  <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                    <Music size={32} color="var(--text-muted)" />
+                  </div>
                 )}
 
                 {pl.tracks.length > 0 && (
@@ -480,70 +275,58 @@ const LibraryViewComponent: React.FC<LibraryViewProps> = ({
                       e.stopPropagation();
                       onPlayTrack(pl.tracks[0], pl.tracks);
                     }}
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      bottom: '10px',
-                      width: '38px',
-                      height: '38px',
-                      borderRadius: '50%',
-                      backgroundColor: '#f8fafc',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 4px 12px rgba(255, 255, 255, 0.4)',
-                    }}
+                    className="fq-card-play"
+                    title="Play playlist"
                   >
-                    <Play size={16} fill="#090A0F" color="#090A0F" style={{ marginLeft: '2px' }} />
+                    <Play size={15} fill="currentColor" style={{ marginLeft: '2px' }} />
                   </button>
                 )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {pl.title}
-                  </span>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {pl.tracks.length} tracks
-                  </span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="fq-card-title">{pl.title}</div>
+                  <div className="fq-card-meta">{pl.tracks.length} tracks</div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {onRenamePlaylist && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1px', marginTop: '6px' }}>
+                  {onRenamePlaylist && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onRenamePlaylist(pl.id); }}
+                      title="Rename playlist"
+                      className="fq-icon-btn"
+                      style={{ width: '24px', height: '24px', borderRadius: '6px' }}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  )}
                   <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      onRenamePlaylist(pl.id);
-                    }}
-                    title="Rename playlist"
-                    style={{ color: 'var(--text-muted)', padding: '6px' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                    onClick={e => { e.stopPropagation(); onDeletePlaylist(pl.id); }}
+                    title="Delete playlist"
+                    className="fq-icon-btn"
+                    style={{ width: '24px', height: '24px', borderRadius: '6px' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#f43f5e'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = ''; }}
                   >
-                    <Pencil size={14} />
+                    <Trash2 size={12} />
                   </button>
-                )}
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    onDeletePlaylist(pl.id);
-                  }}
-                  title="Delete Playlist"
-                  style={{ color: 'var(--text-muted)', padding: '6px' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                >
-                  <Trash2 size={15} />
-                </button>
                 </div>
               </div>
             </div>
           ))}
 
           {userPlaylists.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', padding: '30px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No custom playlists created yet. Click "+ New Playlist" to start curating.
+            <div
+              className="fq-panel"
+              style={{ gridColumn: '1 / -1', padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}
+            >
+              <Music size={24} color="var(--text-muted)" />
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>No playlists yet</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Create one to start curating your own collections.</div>
+              <button className="fq-btn fq-btn-primary" style={{ marginTop: '6px' }} onClick={onCreatePlaylist}>
+                <Plus size={13} />
+                New playlist
+              </button>
             </div>
           )}
         </div>
@@ -553,4 +336,3 @@ const LibraryViewComponent: React.FC<LibraryViewProps> = ({
 };
 
 export const LibraryView = React.memo(LibraryViewComponent);
-

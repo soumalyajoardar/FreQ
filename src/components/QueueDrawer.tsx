@@ -41,17 +41,20 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
       className="liquid-bar"
       style={{
         position: 'fixed',
-        top: 'var(--titlebar-height)',
-        right: 0,
-        bottom: 'var(--playerbar-height)',
+        top: 'calc(var(--titlebar-height) + 10px)',
+        right: '10px',
+        bottom: 'calc(var(--playerbar-height) + 4px)',
         width: '400px',
-        backgroundColor: 'rgba(13, 15, 24, 0.92)',
-        backdropFilter: 'blur(16px)',
-        borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(11, 11, 16, 0.94)',
+        backdropFilter: 'blur(26px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(26px) saturate(150%)',
+        border: '1px solid var(--line-strong)',
+        borderRadius: '20px',
         zIndex: 8000,
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '-12px 0 40px rgba(0, 0, 0, 0.55)',
+        overflow: 'hidden',
+        boxShadow: '0 30px 80px rgba(0, 0, 0, 0.65)',
         animation: closing
           ? 'freqSlideOutRight 0.22s ease'
           : 'freqSlideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -60,57 +63,29 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
       {/* Header */}
       <div
         style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          padding: '16px 18px',
+          borderBottom: '1px solid var(--line)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sparkles size={16} color="var(--accent-cyan)" />
-          <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>Up Next Queue</span>
-          <span style={{
-            fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)',
-            background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.25)',
-            padding: '2px 8px', borderRadius: 999,
-          }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+          <Sparkles size={14} color="var(--text-secondary)" />
+          <span className="fq-h3">Up Next</span>
+          <span className="fq-chip" style={{ height: '20px', fontSize: '9.5px' }}>
             {upcomingTracks.length}
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {upcomingTracks.length > 0 && (
-            <button
-              onClick={onClearQueue}
-              title="Clear Up Next"
-              style={{
-                fontSize: '11px', fontWeight: 700,
-                color: 'var(--text-muted)',
-                padding: '5px 10px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
+            <button className="fq-btn fq-btn-ghost" onClick={onClearQueue} title="Clear Up Next" style={{ height: '28px' }}>
               Clear
             </button>
           )}
-          <button
-            onClick={onClose}
-            title="Close"
-            style={{
-              color: 'var(--text-secondary)',
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(255,255,255,0.05)',
-            }}
-          >
-            <X size={16} />
+          <button onClick={onClose} title="Close" className="fq-icon-btn" style={{ width: '28px', height: '28px', borderRadius: '8px' }}>
+            <X size={15} />
           </button>
         </div>
       </div>
@@ -119,21 +94,17 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
         {/* Now Playing section */}
         {currentTrack && (
           <div style={{ marginBottom: '20px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Now Playing
-            </span>
+            <span className="fq-kicker" style={{ fontSize: '9px' }}>Now playing</span>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '10px 12px',
+                gap: '11px',
+                padding: '9px 11px',
                 marginTop: '8px',
-                borderRadius: '14px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.10)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
+                borderRadius: '13px',
+                backgroundColor: 'rgba(30, 215, 96, 0.055)',
+                border: '1px solid rgba(30, 215, 96, 0.2)',
               }}
             >
               <SquareArt
@@ -141,38 +112,26 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                 videoId={currentTrack.id}
                 alt={currentTrack.title}
                 fit="cover"
-                style={{ width: '44px', height: '44px', borderRadius: '10px', objectFit: 'cover' }}
+                style={{ width: '42px', height: '42px', borderRadius: '9px', objectFit: 'cover' }}
               />
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {currentTrack.title}
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {currentTrack.artist}
-                </span>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <span className="fq-ttitle" style={{ fontSize: '12.5px' }}>{currentTrack.title}</span>
+                <span className="fq-tsub">{currentTrack.artist}</span>
               </div>
-              {/* EQ bars */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 18 }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{
-                    width: 3, height: 18, borderRadius: 2,
-                    background: 'var(--accent-cyan)',
-                    transformOrigin: 'bottom',
-                    animation: `freqEq 0.9s ease-in-out ${i * 0.15}s infinite`,
-                  }} />
-                ))}
-              </div>
+              <span className="fq-eq" style={{ position: 'static' }} aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
             </div>
           </div>
         )}
 
         {/* Up Next List */}
         <div>
-          <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Next In Queue ({upcomingTracks.length})
-          </span>
+          <span className="fq-kicker" style={{ fontSize: '9px' }}>Next in queue</span>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '10px' }}>
             {upcomingTracks.map((track, i) => {
               const actualIndex = queueIndex + 1 + i;
               const isFirst = i === 0;
@@ -184,53 +143,49 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    padding: '8px 10px',
-                    borderRadius: '12px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    padding: '7px 9px',
+                    borderRadius: '11px',
                     transition: 'background 0.15s ease',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <SquareArt
                     src={track.artworkUrl}
                     fit="cover"
                     videoId={track.id}
                     alt={track.title}
-                    style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
                   />
                   <div
                     onClick={() => onSelectTrack(actualIndex)}
                     title="Play now"
-                    style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', cursor: 'pointer' }}
+                    style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, cursor: 'pointer' }}
                   >
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {track.title}
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {track.artist} • {formatTime(track.durationSeconds)}
-                    </span>
+                    <span className="fq-ttitle" style={{ fontSize: '12.5px' }}>{track.title}</span>
+                    <span className="fq-tsub">{track.artist} · {formatTime(track.durationSeconds)}</span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {onMoveTrack && (
                       <>
                         <button
                           onClick={() => !isFirst && onMoveTrack(actualIndex, actualIndex - 1)}
                           disabled={isFirst}
                           title="Move up"
-                          style={{ color: isFirst ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: 4 }}
+                          className="fq-icon-btn"
+                          style={{ width: '24px', height: '24px', borderRadius: '6px', opacity: isFirst ? 0.3 : 1 }}
                         >
-                          <ChevronUp size={15} />
+                          <ChevronUp size={14} />
                         </button>
                         <button
                           onClick={() => !isLast && onMoveTrack(actualIndex, actualIndex + 1)}
                           disabled={isLast}
                           title="Move down"
-                          style={{ color: isLast ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: 4 }}
+                          className="fq-icon-btn"
+                          style={{ width: '24px', height: '24px', borderRadius: '6px', opacity: isLast ? 0.3 : 1 }}
                         >
-                          <ChevronDown size={15} />
+                          <ChevronDown size={14} />
                         </button>
                       </>
                     )}
@@ -238,28 +193,29 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                       <button
                         onClick={() => onPlayNext(actualIndex)}
                         title="Play next"
-                        style={{ color: 'var(--accent-cyan)', padding: 4 }}
+                        className="fq-icon-btn"
+                        style={{ width: '24px', height: '24px', borderRadius: '6px', color: 'var(--accent-cyan)' }}
                       >
-                        <ListPlus size={15} />
+                        <ListPlus size={14} />
                       </button>
                     )}
                     <button
                       onClick={() => onSelectTrack(actualIndex)}
                       title="Play"
-                      style={{ color: 'var(--text-muted)', padding: 4 }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      className="fq-icon-btn"
+                      style={{ width: '24px', height: '24px', borderRadius: '6px' }}
                     >
-                      <Play size={14} />
+                      <Play size={13} />
                     </button>
                     <button
                       onClick={() => onRemoveTrack(actualIndex)}
                       title="Remove"
-                      style={{ color: 'var(--text-muted)', padding: 4 }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      className="fq-icon-btn"
+                      style={{ width: '24px', height: '24px', borderRadius: '6px' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = ''; }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -269,11 +225,11 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
             {upcomingTracks.length === 0 && (
               <div style={{
                 textAlign: 'center', padding: '28px 14px',
-                borderRadius: 14, background: 'rgba(255,255,255,0.02)',
-                border: '1px dashed rgba(255,255,255,0.10)',
-                color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.5,
+                borderRadius: 14,
+                border: '1px dashed var(--line-strong)',
+                color: 'var(--text-muted)', fontSize: '12.5px', lineHeight: 1.6,
               }}>
-                Queue is empty.<br />Vibe-aware autoplay will fill Up Next as you listen.
+                Queue is empty.<br />Vibe-aware autoplay fills Up Next as you listen.
               </div>
             )}
           </div>

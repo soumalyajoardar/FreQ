@@ -175,6 +175,47 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
 
   const upcoming = queue.slice(queueIndex + 1);
 
+  const iconBtn: React.CSSProperties = {
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '1px solid var(--line)',
+    color: 'var(--text-secondary)',
+    transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+  };
+
+  const iconBtnActive: React.CSSProperties = {
+    ...iconBtn,
+    backgroundColor: 'rgba(244, 244, 246, 0.95)',
+    borderColor: 'transparent',
+    color: '#08080c',
+  };
+
+  const hoverOn = (e: React.MouseEvent<HTMLButtonElement>, active = false) => {
+    if (active) return;
+    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.09)';
+    e.currentTarget.style.color = '#fff';
+    e.currentTarget.style.borderColor = 'var(--line-strong)';
+  };
+  const hoverOff = (e: React.MouseEvent<HTMLButtonElement>, active = false) => {
+    if (active) return;
+    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.045)';
+    e.currentTarget.style.color = 'var(--text-secondary)';
+    e.currentTarget.style.borderColor = 'var(--line)';
+  };
+
+  const flavors: { id: AudioMode; label: string }[] = [
+    { id: 'SNR', label: 'SnR' },
+    { id: 'NORMAL', label: 'Normal' },
+    { id: 'NIGHTCORE', label: 'Nightcore' },
+  ];
+
   return (
     <div
       style={{
@@ -186,47 +227,60 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
         zIndex: 9000,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#090A0F',
+        backgroundColor: '#07070a',
         overflow: 'hidden',
         animation: modalClosing
           ? 'freqSlideDownOut 0.2s ease'
           : 'freqSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
-      {/* 1. Dynamic Blurred Artwork Atmospheric Background */}
+      {/* 1. Dynamic blurred artwork atmosphere */}
       {currentTrack.artworkUrl && (
         <div
           className="np-atmosphere"
           style={{
             position: 'absolute',
-            top: '-20%',
+            top: '-25%',
             left: '-20%',
             width: '140%',
-            height: '140%',
+            height: '150%',
             backgroundImage: `url(${currentTrack.artworkUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(38px) brightness(0.45) saturate(1.35)',
+            filter: 'blur(64px) brightness(0.34) saturate(1.3)',
+            transform: 'scale(1.1)',
             zIndex: 1,
             pointerEvents: 'none',
           }}
         />
       )}
 
-      {/* Dark Readability Scrim */}
+      {/* Fine grain + vignette */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(9, 10, 15, 0.42)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          background:
+            'radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.055), transparent 62%), radial-gradient(100% 100% at 50% 100%, rgba(0,0,0,0.6), transparent 60%)',
           zIndex: 2,
           pointerEvents: 'none',
         }}
       />
 
-      {/* Foreground Content */}
+      {/* Readability scrim */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: 'rgba(7, 7, 10, 0.58)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          zIndex: 3,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Foreground content */}
       <div
         style={{
           position: 'relative',
@@ -235,253 +289,171 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           flexDirection: 'column',
           height: '100%',
           minHeight: 0,
-          padding: '16px 36px 28px 36px',
+          padding: '14px 32px 26px 32px',
           animation: 'freqRiseIn 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* Top Header */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexShrink: 0, minHeight: '40px' }}>
+        {/* Header */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexShrink: 0, minHeight: '40px' }}>
           <button
             onClick={onClose}
-            title="Collapse Player"
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
-              color: '#fff',
-              transition: 'background 0.15s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+            title="Collapse player"
+            style={iconBtn}
+            onMouseEnter={e => hoverOn(e)}
+            onMouseLeave={e => hoverOff(e)}
           >
-            <ChevronDown size={22} />
+            <ChevronDown size={19} />
           </button>
 
-          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.2px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Now Playing
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>
-              FreQ High Fidelity
+          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', pointerEvents: 'none' }}>
+            <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Now playing</span>
+            <span style={{ fontSize: '12px', fontWeight: 560, letterSpacing: '-0.005em', color: 'var(--text-secondary)' }}>
+              FreQ · High fidelity
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
             <button
               onClick={onToggleLike}
               title={isLiked ? 'Liked' : 'Like'}
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.10)',
-                color: isLiked ? '#ec4899' : '#fff',
-                transition: 'background 0.15s ease, transform 0.15s ease',
+                ...iconBtn,
+                color: isLiked ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                borderColor: isLiked ? 'rgba(30, 215, 96, 0.34)' : 'var(--line)',
+                backgroundColor: isLiked ? 'rgba(30, 215, 96, 0.1)' : 'rgba(255, 255, 255, 0.045)',
               }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.transform = 'scale(1.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.transform = 'scale(1)'; }}
+              onMouseEnter={e => { if (!isLiked) hoverOn(e); }}
+              onMouseLeave={e => { if (!isLiked) hoverOff(e); }}
             >
               <Heart
                 key={String(isLiked)}
-                size={19}
-                fill={isLiked ? '#ec4899' : 'transparent'}
+                size={17}
+                fill={isLiked ? 'currentColor' : 'transparent'}
                 style={{ animation: 'freqHeartPop 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
               />
             </button>
             <button
               onClick={() => setShowLyrics(v => !v)}
-              title={showLyrics ? 'Hide Lyrics' : 'Show Lyrics'}
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: showLyrics ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid ' + (showLyrics ? '#f8fafc' : 'rgba(255, 255, 255, 0.10)'),
-                color: showLyrics ? '#090A0F' : '#fff',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={e => { if (!showLyrics) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
-              onMouseLeave={e => { if (!showLyrics) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+              title={showLyrics ? 'Hide lyrics' : 'Show lyrics'}
+              style={showLyrics ? iconBtnActive : iconBtn}
+              onMouseEnter={e => hoverOn(e, showLyrics)}
+              onMouseLeave={e => hoverOff(e, showLyrics)}
             >
-              <LyricsIcon
-                size={19}
-                style={showLyrics ? { filter: 'drop-shadow(0 0 7px rgba(255, 255, 255, 0.9))' } : undefined}
-              />
+              <LyricsIcon size={17} />
             </button>
             <button
               onClick={() => onOpenAddToPlaylist(currentTrack)}
-              title="Add to Playlist"
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.10)',
-                color: '#fff',
-                transition: 'background 0.15s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+              title="Add to playlist"
+              style={iconBtn}
+              onMouseEnter={e => hoverOn(e)}
+              onMouseLeave={e => hoverOff(e)}
             >
-              <PlusCircle size={19} />
+              <PlusCircle size={17} />
             </button>
             <button
               onClick={() => setShowQueue((v: boolean) => !v)}
-              title={showQueue ? 'Hide Up Next' : 'Up Next'}
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: showQueue ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid ' + (showQueue ? '#f8fafc' : 'rgba(255, 255, 255, 0.10)'),
-                color: showQueue ? '#090A0F' : '#fff',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={e => { if (!showQueue) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
-              onMouseLeave={e => { if (!showQueue) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+              title={showQueue ? 'Hide up next' : 'Up next'}
+              style={showQueue ? iconBtnActive : iconBtn}
+              onMouseEnter={e => hoverOn(e, showQueue)}
+              onMouseLeave={e => hoverOff(e, showQueue)}
             >
-              <PanelRight size={19} />
+              <PanelRight size={17} />
             </button>
             {onShare && (
               <button
                 onClick={onShare}
                 title="Save share card"
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255, 255, 255, 0.10)',
-                  color: '#fff',
-                  transition: 'background 0.15s ease',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; }}
-                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
+                style={iconBtn}
+                onMouseEnter={e => hoverOn(e)}
+                onMouseLeave={e => hoverOff(e)}
               >
-                <Share2 size={19} />
+                <Share2 size={17} />
               </button>
             )}
           </div>
         </div>
 
-        {/* Center: player column (always centered) + floating right panel */}
+        {/* Body */}
         <div className="np-body">
-          {/* Left: artwork, title, artist, timeline, controls */}
           <div className="np-left">
-            {/* Artwork square / Lyrics (boxless when lyrics open) */}
+            {/* Artwork / lyrics */}
             <div
               key={currentTrack.id + (showLyrics ? '-lyrics' : '')}
-              className={showLyrics ? 'no-scrollbar' : undefined}
+              className={showLyrics ? 'np-lyrics' : undefined}
               style={showLyrics ? {
-                width: 'clamp(240px, 38vh, 360px)',
-                height: 'clamp(240px, 38vh, 360px)',
+                width: 'clamp(260px, 42vh, 400px)',
+                height: 'clamp(260px, 42vh, 400px)',
                 flexShrink: 0,
-                overflowY: 'auto',
                 animation: 'freqFadeIn 0.25s ease',
               } : {
-                width: 'clamp(240px, 38vh, 360px)',
-                height: 'clamp(240px, 38vh, 360px)',
+                width: 'clamp(260px, 42vh, 400px)',
+                height: 'clamp(260px, 42vh, 400px)',
                 flexShrink: 0,
-                borderRadius: '20px',
+                borderRadius: '18px',
                 overflow: 'hidden',
                 position: 'relative',
-                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                backgroundColor: '#12141f',
+                boxShadow: '0 26px 64px rgba(0, 0, 0, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.14)',
+                backgroundColor: '#101015',
                 animation: 'freqArtIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               {showLyrics ? (
-                <div
-                  ref={lyricsContainerRef}
-                  className="no-scrollbar"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    padding: '4px 6px 12px 2px',
-                    overflowY: 'auto',
-                  }}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                    {lyrics?.synced && lyrics.synced.length > 0 ? 'Synchronized Lyrics' : 'Track Lyrics'}
-                  </span>
-                  {isLyricsLoading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '15px', minHeight: '120px' }}>
-                      <span>Finding lyrics...</span>
-                    </div>
-                  ) : lyrics && lyrics.synced && lyrics.synced.length > 0 ? (
-                    lyrics.synced.map((cue, idx) => {
-                      const isActive = idx === activeLyricIndex;
-                      return (
-                        <div
-                          key={idx}
-                          ref={isActive ? activeLyricRef : null}
-                          onClick={() => onSeek(cue.timeMs / 1000)}
-                          style={{
-                            fontSize: isActive ? '19px' : '15px',
-                            fontWeight: isActive ? 800 : 500,
-                            color: isActive ? '#fff' : 'var(--text-secondary)',
-                            opacity: isActive ? 1 : 0.6,
-                            lineHeight: 1.5,
-                            textAlign: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.25s ease',
-                            textShadow: isActive ? '0 0 18px rgba(255, 255, 255, 0.45)' : 'none',
-                          }}
-                        >
-                          {cue.text}
-                        </div>
-                      );
-                    })
-                  ) : lyrics && lyrics.lines && lyrics.lines.length > 0 ? (
-                    lyrics.lines.map((line, idx) => (
-                      <p key={idx} style={{ fontSize: '15px', lineHeight: 1.65, color: 'var(--text-secondary)', textAlign: 'center' }}>
-                        {line}
-                      </p>
-                    ))
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '15px', minHeight: '120px' }}>
-                      <span>No lyrics available for this song</span>
-                    </div>
-                  )}
-                </div>
+                <>
+                  <div className="np-lyrics-head">
+                    <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                      {lyrics?.synced && lyrics.synced.length > 0 ? 'Synchronized lyrics' : 'Lyrics'}
+                    </span>
+                  </div>
+                  <div
+                    ref={lyricsContainerRef}
+                    className="np-lyrics-scroll no-scrollbar"
+                  >
+                    {isLyricsLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '13px', minHeight: '120px' }}>
+                        <span>Finding lyrics…</span>
+                      </div>
+                    ) : lyrics && lyrics.synced && lyrics.synced.length > 0 ? (
+                      lyrics.synced.map((cue, idx) => {
+                        const isActive = idx === activeLyricIndex;
+                        return (
+                          <div
+                            key={idx}
+                            ref={isActive ? activeLyricRef : null}
+                            onClick={() => onSeek(cue.timeMs / 1000)}
+                            style={{
+                              fontFamily: isActive ? 'var(--font-serif)' : 'inherit',
+                              fontSize: isActive ? '21px' : '14px',
+                              fontWeight: isActive ? 400 : 500,
+                              color: isActive ? '#fff' : 'var(--text-secondary)',
+                              opacity: isActive ? 1 : 0.72,
+                              lineHeight: 1.35,
+                              letterSpacing: isActive ? '-0.01em' : '0',
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.25s ease',
+                              textShadow: isActive ? '0 0 24px rgba(30, 215, 96, 0.16)' : 'none',
+                            }}
+                          >
+                            {cue.text}
+                          </div>
+                        );
+                      })
+                    ) : lyrics && lyrics.lines && lyrics.lines.length > 0 ? (
+                      lyrics.lines.map((line, idx) => (
+                        <p key={idx} style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--text-secondary)', textAlign: 'center' }}>
+                          {line}
+                        </p>
+                      ))
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '13px', minHeight: '120px' }}>
+                        <span>No lyrics available for this song</span>
+                      </div>
+                    )}
+                  </div>
+                </>
               ) : currentTrack.artworkUrl ? (
                 <>
-                  {/* Blurred ambience fill: covers any aspect-ratio gaps */}
                   <SafeArtwork src={currentTrack.artworkUrl} videoId={currentTrack.id} alt="" style={{
                       position: 'absolute',
                       inset: 0,
@@ -504,11 +476,11 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
             </div>
 
             {/* Title + artist */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden', width: '100%', gap: '4px', padding: '2px 0' }}>
-              <h2 style={{ fontSize: '23px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden', width: '100%', gap: '5px', padding: '2px 0' }}>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(26px, 3.4vh, 36px)', fontWeight: 400, lineHeight: 1.02, color: '#fff', letterSpacing: '-0.02em', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                 {currentTrack.title}
               </h2>
-              <span style={{ fontSize: '15px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+              <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.005em' }}>
                 {currentTrack.artist}
               </span>
             </div>
@@ -522,25 +494,25 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 ariaLabel="Seek track position"
                 onSeek={v => onSeek(v)}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                 <span>{formatTime(position)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
 
-            {/* Primary Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px', padding: '2px 0' }}>
+            {/* Primary controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '26px', padding: '2px 0' }}>
               <button
                 onClick={onToggleShuffle}
                 title={isShuffle ? 'Shuffle on' : 'Shuffle off'}
                 style={{
-                  color: isShuffle ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary)',
+                  color: isShuffle ? 'var(--accent-cyan)' : 'var(--text-muted)',
                   transition: 'color 0.15s, transform 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                <Shuffle size={19} />
+                <Shuffle size={18} />
               </button>
 
               <button
@@ -550,33 +522,33 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
                 onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                <SkipBack size={25} fill="currentColor" />
+                <SkipBack size={24} fill="currentColor" />
               </button>
 
               <button
                 onClick={onPlayPause}
                 title={isPlaying ? 'Pause' : 'Play'}
                 style={{
-                  width: '56px',
-                  height: '56px',
+                  width: '58px',
+                  height: '58px',
                   borderRadius: '50%',
-                  backgroundColor: '#f8fafc',
-                  color: '#090A0F',
+                  backgroundColor: 'var(--accent-cyan)',
+                  color: 'var(--accent-ink)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 12px rgba(0, 0, 0, 0.5)',
+                  boxShadow: '0 12px 30px rgba(30, 215, 96, 0.28)',
                   transition: 'transform 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
                 {isLoading ? (
-                  <div style={{ width: '27px', height: '27px', borderRadius: '50%', border: '3px solid rgba(9, 10, 15, 0.25)', borderTopColor: '#090A0F', animation: 'freqSpin 0.8s linear infinite' }} />
+                  <div style={{ width: '27px', height: '27px', borderRadius: '50%', border: '3px solid rgba(8, 8, 12, 0.25)', borderTopColor: '#08080c', animation: 'freqSpin 0.8s linear infinite' }} />
                 ) : isPlaying ? (
-                  <Pause size={27} fill="#090A0F" />
+                  <Pause size={27} fill="currentColor" />
                 ) : (
-                  <Play size={27} fill="#090A0F" style={{ marginLeft: '4px' }} />
+                  <Play size={27} fill="currentColor" style={{ marginLeft: '3px' }} />
                 )}
               </button>
 
@@ -587,20 +559,20 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
                 onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                <SkipForward size={25} fill="currentColor" />
+                <SkipForward size={24} fill="currentColor" />
               </button>
 
               <button
                 onClick={onToggleRepeat}
                 title={`Repeat: ${repeatMode}`}
                 style={{
-                  color: repeatMode !== 'OFF' ? 'var(--accent-cyan, #1ed760)' : 'var(--text-secondary)',
+                  color: repeatMode !== 'OFF' ? 'var(--accent-cyan)' : 'var(--text-muted)',
                   transition: 'color 0.15s, transform 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                {repeatMode === 'ONE' ? <Repeat1 size={21} /> : <Repeat size={21} />}
+                {repeatMode === 'ONE' ? <Repeat1 size={20} /> : <Repeat size={20} />}
               </button>
 
               <div style={{ position: 'relative' }}>
@@ -608,7 +580,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                   onClick={() => setShowSleep(v => !v)}
                   title={sleepMode === 'off' ? 'Sleep timer' : `Sleep: ${sleepMode === 'end' ? 'end of track' : formatTime(sleepRemainingSec) + ' left'}`}
                   style={{
-                    color: sleepMode !== 'off' ? '#fff' : 'var(--text-secondary)',
+                    color: sleepMode !== 'off' ? 'var(--text-primary)' : 'var(--text-muted)',
                     transition: 'color 0.15s, transform 0.15s',
                     display: 'flex',
                     alignItems: 'center',
@@ -617,14 +589,14 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                   onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >
-                  <Timer size={19} />
+                  <Timer size={18} />
                   {sleepMode === 'timer' && sleepRemainingSec > 0 && (
-                    <span style={{ fontSize: '11px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                       {formatTime(sleepRemainingSec)}
                     </span>
                   )}
                   {sleepMode === 'end' && (
-                    <span style={{ fontSize: '11px', fontWeight: 700 }}>1</span>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700 }}>1</span>
                   )}
                 </button>
                 {showSleep && (
@@ -634,17 +606,17 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                       bottom: 'calc(100% + 12px)',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      backgroundColor: 'rgba(18, 20, 31, 0.95)',
-                      backdropFilter: 'blur(16px)',
-                      WebkitBackdropFilter: 'blur(16px)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '14px',
-                      padding: '8px',
+                      backgroundColor: 'rgba(12, 12, 17, 0.97)',
+                      backdropFilter: 'blur(20px)',
+                      WebkitBackdropFilter: 'blur(20px)',
+                      border: '1px solid var(--line-strong)',
+                      borderRadius: '13px',
+                      padding: '6px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '2px',
-                      minWidth: '150px',
-                      boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+                      gap: '1px',
+                      minWidth: '156px',
+                      boxShadow: '0 20px 48px rgba(0, 0, 0, 0.6)',
                       animation: 'freqRiseIn 0.2s ease',
                       zIndex: 30,
                     }}
@@ -664,15 +636,15 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                           key={opt.label}
                           onClick={() => { onSetSleep?.(opt.value); setShowSleep(false); }}
                           style={{
-                            padding: '8px 12px',
-                            borderRadius: '9px',
-                            fontSize: '13px',
-                            fontWeight: active ? 800 : 500,
-                            color: active ? '#090A0F' : 'var(--text-primary)',
-                            backgroundColor: active ? '#f8fafc' : 'transparent',
+                            padding: '8px 11px',
+                            borderRadius: '8px',
+                            fontSize: '12.5px',
+                            fontWeight: active ? 650 : 500,
+                            color: active ? '#fff' : 'var(--text-secondary)',
+                            backgroundColor: active ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                             textAlign: 'left',
                           }}
-                          onMouseEnter={e => { if (!active) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
+                          onMouseEnter={e => { if (!active) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
                           onMouseLeave={e => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }}
                         >
                           {opt.label}
@@ -684,80 +656,53 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
               </div>
             </div>
 
-            {/* Audio Flavor Pills */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <button
-                  onClick={() => onAudioModeChange('SNR')}
-                  style={{
-                    padding: '5px 12px',
-                    width: '104px',
-                    borderRadius: '999px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    backgroundColor: audioMode === 'SNR' ? 'var(--accent-violet)' : 'rgba(255, 255, 255, 0.06)',
-                    color: audioMode === 'SNR' ? '#fff' : 'var(--text-secondary)',
-                    border: '1px solid ' + (audioMode === 'SNR' ? 'var(--accent-violet)' : 'rgba(255, 255, 255, 0.1)'),
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  SnR
-                </button>
-                <button
-                  onClick={() => onAudioModeChange('NORMAL')}
-                  style={{
-                    padding: '5px 12px',
-                    width: '104px',
-                    borderRadius: '999px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    backgroundColor: audioMode === 'NORMAL' ? '#f8fafc' : 'rgba(255, 255, 255, 0.06)',
-                    color: audioMode === 'NORMAL' ? '#090A0F' : 'var(--text-secondary)',
-                    border: '1px solid ' + (audioMode === 'NORMAL' ? '#f8fafc' : 'rgba(255, 255, 255, 0.1)'),
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Normal
-                </button>
-                <button
-                  onClick={() => onAudioModeChange('NIGHTCORE')}
-                  style={{
-                    padding: '5px 12px',
-                    width: '104px',
-                    borderRadius: '999px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    backgroundColor: audioMode === 'NIGHTCORE' ? 'var(--accent-pink)' : 'rgba(255, 255, 255, 0.06)',
-                    color: audioMode === 'NIGHTCORE' ? '#fff' : 'var(--text-secondary)',
-                    border: '1px solid ' + (audioMode === 'NIGHTCORE' ? 'var(--accent-pink)' : 'rgba(255, 255, 255, 0.1)'),
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Nightcore
-                </button>
-              </div>
+            {/* Audio flavor segmented control */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '3px', borderRadius: '999px', border: '1px solid var(--line)', background: 'rgba(255, 255, 255, 0.035)' }}>
+              {flavors.map(f => {
+                const active = audioMode === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => onAudioModeChange(f.id)}
+                    style={{
+                      padding: '5px 16px',
+                      borderRadius: '999px',
+                      fontSize: '11px',
+                      fontWeight: 650,
+                      letterSpacing: '-0.005em',
+                      backgroundColor: active ? '#f2f2f4' : 'transparent',
+                      color: active ? '#0a0a0f' : 'var(--text-muted)',
+                      border: '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-primary)'; }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
+        </div>
 
-                  </div>
-
-        {/* Right: Up Next panel, fixed to right edge */}
+        {/* Up Next panel */}
         {panelVisible && (
-        <div
-          className="np-queue glass-floating liquid-panel"
-          style={{
-            position: 'absolute',
-            right: '24px',
-            top: '110px',
-            bottom: '4vh',
-            zIndex: 20,
-            backgroundColor: 'rgba(18, 20, 31, 0.66)',
-            backdropFilter: 'blur(16px) saturate(160%)',
-            WebkitBackdropFilter: 'blur(16px) saturate(160%)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
-              borderRadius: '24px',
-              padding: '18px',
+          <div
+            className="np-queue"
+            style={{
+              position: 'absolute',
+              right: '22px',
+              top: '84px',
+              bottom: '5vh',
+              zIndex: 20,
+              backgroundColor: 'rgba(11, 11, 16, 0.94)',
+              backdropFilter: 'blur(26px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(26px) saturate(150%)',
+              border: '1px solid var(--line-strong)',
+              boxShadow: '0 30px 80px rgba(0, 0, 0, 0.65)',
+              borderRadius: '20px',
+              padding: '16px',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
@@ -767,77 +712,73 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                 : 'freqSlideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ListMusic size={15} color="#fff" />
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
-                Up Next ({upcoming.length})
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '0 2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ListMusic size={14} color="var(--text-muted)" />
+                <span className="fq-h3" style={{ fontSize: '14px' }}>Up next</span>
+              </div>
+              <span className="fq-chip" style={{ height: '20px', fontSize: '9.5px' }}>{upcoming.length}</span>
             </div>
-            {/* queue list */}
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 0, paddingRight: '2px' }}>
-                  {upcoming.map((track, i) => {
-                    const actualIndex = queueIndex + 1 + i;
-                    const isFirst = i === 0;
-                    const isLast = i === upcoming.length - 1;
-                    return (
-                      <div
-                        key={`${track.id}_${actualIndex}`}
-                        onClick={() => onSelectQueueTrack?.(actualIndex)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '8px 10px',
-                          borderRadius: '12px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
-                          cursor: 'pointer',
-                          transition: 'background 0.15s ease',
-                          animation: 'freqRiseIn 0.3s ease both',
-                          animationDelay: `${Math.min(i, 12) * 30}ms`,
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'; }}
-                      >
-                        <SquareArt
-                          src={track.artworkUrl || freqIcon}
-                          videoId={track.id}
-                          alt={track.title}
-                          fit="cover"
-                          style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0 }}
-                        />
-                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {track.title}
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {track.artist}
-                          </span>
-                        </div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                          {formatTime(track.durationSeconds)}
-                        </span>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px', minHeight: 0, margin: '0 -4px', padding: '0 4px' }}>
+              {upcoming.map((track, i) => {
+                const actualIndex = queueIndex + 1 + i;
+                const isFirst = i === 0;
+                const isLast = i === upcoming.length - 1;
+                return (
+                  <div
+                    key={`${track.id}_${actualIndex}`}
+                    className="np-queue-row"
+                    onClick={() => onSelectQueueTrack?.(actualIndex)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '7px 8px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s ease',
+                      animation: 'freqRiseIn 0.3s ease both',
+                      animationDelay: `${Math.min(i, 12) * 30}ms`,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.055)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <SquareArt
+                      src={track.artworkUrl || freqIcon}
+                      videoId={track.id}
+                      alt={track.title}
+                      fit="cover"
+                      style={{ width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0 }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                      <span className="fq-ttitle" style={{ fontSize: '12.5px' }}>{track.title}</span>
+                      <span className="fq-tsub">{track.artist}</span>
+                    </div>
+                    <span className="np-queue-time">
+                      {formatTime(track.durationSeconds)}
+                    </span>
+                    {(onMoveQueueTrack || onRemoveQueueTrack) && (
+                      <span className="np-queue-tools">
                         {onMoveQueueTrack && (
                           <>
                             <button
                               onClick={e => { e.stopPropagation(); if (!isFirst) onMoveQueueTrack(actualIndex, actualIndex - 1); }}
                               disabled={isFirst}
                               title="Move up"
-                              style={{ color: isFirst ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: '4px', flexShrink: 0 }}
-                              onMouseEnter={e => { if (!isFirst) e.currentTarget.style.color = '#fff'; }}
-                              onMouseLeave={e => { e.currentTarget.style.color = isFirst ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)'; }}
+                              className="fq-icon-btn"
+                              style={{ width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0, opacity: isFirst ? 0.25 : 1 }}
                             >
-                              <ChevronUp size={14} />
+                              <ChevronUp size={13} />
                             </button>
                             <button
                               onClick={e => { e.stopPropagation(); if (!isLast) onMoveQueueTrack(actualIndex, actualIndex + 1); }}
                               disabled={isLast}
                               title="Move down"
-                              style={{ color: isLast ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)', padding: '4px', flexShrink: 0 }}
-                              onMouseEnter={e => { if (!isLast) e.currentTarget.style.color = '#fff'; }}
-                              onMouseLeave={e => { e.currentTarget.style.color = isLast ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)'; }}
+                              className="fq-icon-btn"
+                              style={{ width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0, opacity: isLast ? 0.25 : 1 }}
                             >
-                              <ChevronDown size={14} />
+                              <ChevronDown size={13} />
                             </button>
                           </>
                         )}
@@ -845,36 +786,32 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                           <button
                             onClick={e => { e.stopPropagation(); onRemoveQueueTrack(actualIndex); }}
                             title="Remove"
-                            style={{ color: 'var(--text-muted)', padding: '4px', flexShrink: 0 }}
-                            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                            className="fq-icon-btn"
+                            style={{ width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0 }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = ''; }}
                           >
-                            <X size={14} />
+                            <X size={13} />
                           </button>
                         )}
-                      </div>
-                    );
-                  })}
-                  {upcoming.length === 0 && (
-                    <div style={{
-                      textAlign: 'center', padding: '26px 12px', borderRadius: '14px',
-                      background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.10)',
-                      color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.5,
-                    }}>
-                      Queue is empty.<br />Vibe autoplay will fill Up Next.
-                    </div>
-                  )}                </div>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {upcoming.length === 0 && (
+                <div style={{
+                  textAlign: 'center', padding: '30px 14px', borderRadius: '13px',
+                  border: '1px dashed var(--line-strong)',
+                  color: 'var(--text-muted)', fontSize: '12.5px', lineHeight: 1.6,
+                }}>
+                  Queue is empty.<br />Vibe autoplay will fill Up Next.
+                </div>
+              )}
+            </div>
           </div>
-          )}
+        )}
       </div>
     </div>
   );
 };
-
-
-
-
-
-
-
-

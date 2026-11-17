@@ -43,17 +43,20 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
 
   if (isLoading) {
     return (
-      <div style={{ padding: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-        <span>Loading album details...</span>
+      <div className="fq-view" style={{ paddingTop: '80px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+        Loading album…
       </div>
     );
   }
 
   if (!album) {
     return (
-      <div style={{ padding: '40px', color: 'var(--text-muted)' }}>
-        <button onClick={onBack} style={{ color: 'var(--accent-cyan)', marginBottom: '16px' }}>← Back</button>
-        <div>Album not found.</div>
+      <div className="fq-view" style={{ paddingTop: '60px' }}>
+        <button onClick={onBack} className="fq-back">
+          <ArrowLeft size={14} />
+          Back
+        </button>
+        <div style={{ marginTop: '20px', color: 'var(--text-muted)' }}>Album not found.</div>
       </div>
     );
   }
@@ -61,154 +64,97 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   const tracks = album.tracks || [];
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }} className="view-enter">
-      <button
-        onClick={onBack}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: 'var(--text-secondary)',
-          width: 'fit-content',
-          padding: '6px 12px',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        }}
-      >
-        <ArrowLeft size={16} />
-        <span style={{ fontSize: '13px', fontWeight: 600 }}>Back</span>
+    <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '30px', paddingTop: '18px' }}>
+      <button onClick={onBack} className="fq-back">
+        <ArrowLeft size={14} />
+        Back
       </button>
 
-      {/* Album Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '28px' }}>
-        <div
-          style={{
-            width: '180px',
-            height: '180px',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            backgroundColor: '#1b1e2e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 16px 36px rgba(0, 0, 0, 0.5)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            flexShrink: 0,
-          }}
-        >
+      <header className="fq-detail-head">
+        <div className="fq-detail-art">
           {album.artworkUrl ? (
             <SquareArt src={album.artworkUrl} alt={album.title} style={{ width: '100%', height: '100%' }} />
           ) : (
-            <Disc size={60} color="var(--text-muted)" />
+            <Disc size={58} color="var(--text-muted)" />
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
-            Album
-          </span>
-          <h1 style={{ fontSize: '34px', fontWeight: 900, color: '#f8fafc', lineHeight: 1.1 }}>
-            {album.title}
-          </h1>
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            {album.artist} {album.year ? `• ${album.year}` : ''}
-          </p>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            {tracks.length} tracks
-          </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
+          <span className="fq-kicker" style={{ color: 'var(--accent-cyan)' }}>Album</span>
+          <h1 className="fq-detail-title">{album.title}</h1>
+          <div className="fq-detail-meta">
+            {album.artist}
+            {album.year ? ` · ${album.year}` : ''}
+            {` · ${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`}
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '12px' }}>
+          <div className="fq-detail-actions">
             <button
+              className="fq-btn fq-btn-primary"
               onClick={() => tracks.length > 0 && onPlayTrack(tracks[0], tracks)}
               disabled={tracks.length === 0}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 22px',
-                borderRadius: '999px',
-                backgroundColor: '#f8fafc',
-                color: '#090A0F',
-                fontWeight: 700,
-                fontSize: '13px',
-                boxShadow: '0 0 16px rgba(255, 255, 255, 0.4)',
-              }}
             >
-              <Play size={16} fill="#090A0F" />
-              <span>Play Album</span>
+              <Play size={13} fill="currentColor" />
+              Play album
             </button>
-
             <button
+              className="fq-btn"
               onClick={() => tracks.length > 0 && onShufflePlay(tracks)}
               disabled={tracks.length === 0}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 18px',
-                borderRadius: '999px',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: '13px',
-              }}
             >
-              <Shuffle size={15} />
-              <span>Shuffle</span>
+              <Shuffle size={13} />
+              Shuffle
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Tracklist Table */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div className="fq-table">
         {tracks.map((track, idx) => (
           <div
             key={track.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '10px 16px',
-              borderRadius: '10px',
-              backgroundColor: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
-              transition: 'background 0.15s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'; }}
+            className="fq-trow"
+            onContextMenu={e => onTrackContextMenu?.(e, track)}
           >
-            <span style={{ width: '36px', fontSize: '13px', color: 'var(--text-muted)' }}>
-              {idx + 1}
-            </span>
+            <span className="fq-tnum">{String(idx + 1).padStart(2, '0')}</span>
 
             <div
+              className="fq-tmain"
               onClick={() => onPlayTrack(track, tracks)}
-              style={{ display: 'flex', flexDirection: 'column', flex: 1, cursor: 'pointer', overflow: 'hidden' }}
+              style={{ cursor: 'pointer' }}
             >
-              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {track.title}
-              </span>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {track.artist}
-              </span>
+              <SquareArt
+                src={track.artworkUrl}
+                videoId={track.id}
+                alt={track.title}
+                style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span className="fq-ttitle">{track.title}</span>
+                <span className="fq-tsub">{track.artist}</span>
+              </div>
             </div>
 
-            <span style={{ width: '70px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-              {formatTime(track.durationSeconds)}
-            </span>
+            <span className="fq-tdur">{formatTime(track.durationSeconds)}</span>
 
-            <div style={{ width: '60px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <div className="fq-tact">
               <button
                 onClick={() => onToggleLike(track)}
-                style={{ color: isLiked(track.id) ? '#ec4899' : 'var(--text-muted)', padding: '4px' }}
+                title={isLiked(track.id) ? 'Remove from Liked Songs' : 'Save to Liked Songs'}
+                style={{ color: isLiked(track.id) ? 'var(--accent-cyan)' : 'var(--text-muted)', padding: '5px' }}
               >
-                <Heart size={16} fill={isLiked(track.id) ? '#ec4899' : 'transparent'} />
+                <Heart size={15} fill={isLiked(track.id) ? 'currentColor' : 'transparent'} />
               </button>
             </div>
           </div>
         ))}
+
+        {tracks.length === 0 && (
+          <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+            No tracks listed for this album.
+          </div>
+        )}
       </div>
     </div>
   );
 };
-

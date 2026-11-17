@@ -66,22 +66,21 @@ export const HomeLyricsRail: React.FC<HomeLyricsRailProps> = ({
     <aside
       style={{
         position: 'absolute',
-        top: 0,
-        bottom: 0,
-        right: 0,
-        width: '300px',
+        top: '10px',
+        bottom: '10px',
+        right: '10px',
+        width: '320px',
         margin: 0,
-        borderRadius: 0,
-        backgroundColor: 'rgba(18, 20, 31, 0.6)',
-        backdropFilter: 'blur(16px) saturate(160%)',
-        WebkitBackdropFilter: 'blur(16px) saturate(160%)',
-        border: 'none',
-        borderLeft: '1px solid rgba(255, 255, 255, 0.09)',
-        boxShadow: '-16px 0 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.10)',
-        padding: '20px 14px',
+        borderRadius: '20px',
+        backgroundColor: 'rgba(11, 11, 16, 0.94)',
+        backdropFilter: 'blur(26px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(26px) saturate(150%)',
+        border: '1px solid var(--line-strong)',
+        boxShadow: '0 30px 80px rgba(0, 0, 0, 0.65)',
+        padding: '18px 14px 16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '12px',
         overflow: 'hidden',
         zIndex: 30,
         animation: closing
@@ -91,31 +90,37 @@ export const HomeLyricsRail: React.FC<HomeLyricsRailProps> = ({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <LyricsIcon size={15} color="#fff" />
-          <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff', letterSpacing: '0.4px' }}>
-            {lyrics?.synced && lyrics.synced.length > 0 ? 'Synchronized Lyrics' : 'Lyrics'}
+          <LyricsIcon size={14} color="var(--text-secondary)" />
+          <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+            {lyrics?.synced && lyrics.synced.length > 0 ? 'Synchronized' : 'Lyrics'}
           </span>
         </div>
         <button
           onClick={onClose}
           title="Back to Up Next"
-          style={{ color: 'var(--text-muted)', padding: '4px', display: 'flex' }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+          className="fq-icon-btn"
+          style={{ width: '26px', height: '26px', borderRadius: '7px' }}
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       </div>
 
       {track && (
-        <div style={{ padding: '0 6px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {track.title} • {track.artist}
+        <div style={{ padding: '0 6px', display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', lineHeight: 1.05, letterSpacing: '-0.02em', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {track.title}
+          </span>
+          <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {track.artist}
+          </span>
         </div>
       )}
 
+      <div style={{ height: '1px', background: 'var(--line)', margin: '0 6px' }} />
+
       <div
         ref={containerRef}
-        className="no-scrollbar"
+        className="no-scrollbar fq-lyrics-rail-scroll"
         style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0, padding: '2px 6px' }}
       >
         {isLoading ? (
@@ -131,15 +136,17 @@ export const HomeLyricsRail: React.FC<HomeLyricsRailProps> = ({
                 ref={active ? activeRef : null}
                 onClick={() => onSeek(cue.timeMs / 1000)}
                 style={{
-                  fontSize: active ? '16px' : '13px',
-                  fontWeight: active ? 800 : 500,
+                  fontFamily: active ? 'var(--font-serif)' : 'inherit',
+                  fontSize: active ? '19px' : '13px',
+                  fontWeight: active ? 400 : 500,
                   color: active ? '#fff' : 'var(--text-secondary)',
-                  opacity: active ? 1 : 0.6,
-                  lineHeight: 1.45,
+                  opacity: active ? 1 : 0.62,
+                  lineHeight: 1.35,
+                  letterSpacing: active ? '-0.01em' : '0',
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.25s ease',
-                  textShadow: active ? '0 0 18px rgba(255, 255, 255, 0.4)' : 'none',
+                  textShadow: active ? '0 0 22px rgba(30, 215, 96, 0.14)' : 'none',
                 }}
               >
                 {cue.text}

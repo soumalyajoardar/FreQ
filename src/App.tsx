@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './components/TitleBar';
+import { GlobalSearch } from './components/GlobalSearch';
 import { Sidebar } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { NowPlayingModal } from './components/NowPlayingModal';
@@ -1730,22 +1731,15 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        width: '100vw',
-        backgroundColor: 'var(--bg-primary)',
-        color: 'var(--text-primary)',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="fq-app">
+      <div className="fq-ambient" aria-hidden="true" />
+      <div className="fq-grain" aria-hidden="true" />
+
       {/* 1. Custom Frameless Windows TitleBar */}
       <TitleBar />
 
-      {/* 2. Main Middle Workspace: Sidebar + Dynamic Content View */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* 2. Workspace: icon rail + content */}
+      <div className="fq-body">
         <Sidebar
           currentView={currentView}
           onNavigate={handleNavigate}
@@ -1760,11 +1754,23 @@ export const App: React.FC = () => {
           partyMembersCount={partyMembersCount}
         />
 
-        <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#090a0f' }}>
+        <div className="fq-main">
+          {/* The Search view owns its own primary search field, so the chrome
+              command bar steps aside there to avoid two competing inputs. */}
+          {currentView !== 'search' && (
+            <GlobalSearch
+              onSearchSubmit={q => handleNavigate('search', q)}
+              onPlayTrack={handlePlayTrack}
+              onOpenParty={() => handleNavigate('party')}
+              isInParty={isInParty}
+              partyMembersCount={partyMembersCount}
+            />
+          )}
+
+          <div className="fq-main-body">
+            <div className="fq-scroll" key={`${currentView}:${activeParam || ''}`}>
           {currentView === 'home' && (
-            <div style={{ display: 'flex', height: '100%', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, backgroundColor: '#090a0f' }}>
-                <HomeView
+            <HomeView
                   onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}
                   onOpenAlbum={id => handleNavigate('album', id)}
                   onOpenArtist={id => handleNavigate('artist', id)}
@@ -1778,15 +1784,6 @@ export const App: React.FC = () => {
                   onOpenPlayer={() => setIsNowPlayingOpen(true)}
                   region={region}
                 />
-              </div>
-              <HomeLyricsRail
-                isOpen={isHomeLyricsOpen && !!currentTrack}
-                track={currentTrack}
-                position={position}
-                onSeek={handleSeek}
-                onClose={() => setIsHomeLyricsOpen(false)}
-              />
-            </div>
           )}
 
           {currentView === 'search' && (
@@ -1962,7 +1959,19 @@ export const App: React.FC = () => {
               onNavigate={handleNavigate}
             />
           )}
-        </main>
+            </div>
+
+            {currentView === 'home' && (
+              <HomeLyricsRail
+                isOpen={isHomeLyricsOpen && !!currentTrack}
+                track={currentTrack}
+                position={position}
+                onSeek={handleSeek}
+                onClose={() => setIsHomeLyricsOpen(false)}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 3. Persistent Bottom Liquid-Glass Player Bar (hidden when idle) */}

@@ -3,7 +3,6 @@ import { ArrowLeft, Play, Disc } from 'lucide-react';
 import { ArtistDetails, MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { formatTime } from '../components/PlayerBar';
-import { SafeArtwork } from '../components/SafeArtwork';
 import { SquareArt } from '../components/SquareArt';
 
 interface ArtistDetailViewProps {
@@ -40,166 +39,123 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
 
   if (isLoading) {
     return (
-      <div style={{ padding: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-        <span>Loading artist profile...</span>
+      <div className="fq-view" style={{ paddingTop: '80px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+        Loading artist…
       </div>
     );
   }
 
   if (!artist) {
     return (
-      <div style={{ padding: '40px', color: 'var(--text-muted)' }}>
-        <button onClick={onBack} style={{ color: 'var(--accent-cyan)', marginBottom: '16px' }}>← Back</button>
-        <div>Artist not found.</div>
+      <div className="fq-view" style={{ paddingTop: '60px' }}>
+        <button onClick={onBack} className="fq-back">
+          <ArrowLeft size={14} />
+          Back
+        </button>
+        <div style={{ marginTop: '20px', color: 'var(--text-muted)' }}>Artist not found.</div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }} className="view-enter">
-      <button
-        onClick={onBack}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: 'var(--text-secondary)',
-          width: 'fit-content',
-          padding: '6px 12px',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        }}
-      >
-        <ArrowLeft size={16} />
-        <span style={{ fontSize: '13px', fontWeight: 600 }}>Back</span>
+    <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '36px', paddingTop: '18px' }}>
+      <button onClick={onBack} className="fq-back">
+        <ArrowLeft size={14} />
+        Back
       </button>
 
-      {/* Artist Hero Banner */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-        <div
-          style={{
-            width: '160px',
-            height: '160px',
-            borderRadius: '50%',
-            overflow: 'hidden',
-            backgroundColor: '#1b1e2e',
-            boxShadow: '0 16px 36px rgba(0, 0, 0, 0.5)',
-            border: '2px solid rgba(255, 255, 255, 0.3)',
-            flexShrink: 0,
-          }}
-        >
-          {artist.artworkUrl && (
+      <header className="fq-detail-head">
+        <div className="fq-detail-art is-round">
+          {artist.artworkUrl ? (
             <SquareArt src={artist.artworkUrl} alt={artist.name} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+          ) : (
+            <Disc size={54} color="var(--text-muted)" />
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
-            Verified Artist
-          </span>
-          <h1 style={{ fontSize: '38px', fontWeight: 900, color: '#f8fafc', lineHeight: 1.1 }}>
-            {artist.name}
-          </h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
+          <span className="fq-kicker" style={{ color: 'var(--accent-cyan)' }}>Artist</span>
+          <h1 className="fq-detail-title">{artist.name}</h1>
           {artist.description && (
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '640px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '620px', lineHeight: 1.6 }}>
               {artist.description}
             </p>
           )}
+          <div className="fq-detail-meta">
+            {artist.topSongs.length} popular {artist.topSongs.length === 1 ? 'track' : 'tracks'}
+          </div>
+
+          <div className="fq-detail-actions">
+            <button
+              className="fq-btn fq-btn-primary"
+              onClick={() => artist.topSongs.length > 0 && onPlayTrack(artist.topSongs[0], artist.topSongs)}
+              disabled={artist.topSongs.length === 0}
+            >
+              <Play size={13} fill="currentColor" />
+              Play top songs
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Top Songs */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>
-          Top Songs
-        </h2>
+      <section className="fq-section">
+        <div className="fq-section-head">
+          <div className="fq-section-title-wrap">
+            <h2 className="fq-h2">Popular</h2>
+            <span className="fq-muted" style={{ fontSize: '12px' }}>What people play most</span>
+          </div>
+        </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div className="fq-table">
           {artist.topSongs.map((track, idx) => (
             <div
               key={track.id}
-              onClick={() => onPlayTrack(track, artist.topSongs)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid rgba(255, 255, 255, 0.03)',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'; }}
+              className="fq-trow"
+              onContextMenu={e => onTrackContextMenu?.(e, track)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', width: '20px', textAlign: 'center' }}>
-                  {idx + 1}
-                </span>
+              <span className="fq-tnum">{String(idx + 1).padStart(2, '0')}</span>
+              <div
+                className="fq-tmain"
+                onClick={() => onPlayTrack(track, artist.topSongs)}
+                style={{ cursor: 'pointer' }}
+              >
                 <SquareArt
                   src={track.artworkUrl}
                   videoId={track.id}
                   alt={track.title}
-                  style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
+                  style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
                 />
-                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {track.title}
-                </span>
+                <span className="fq-ttitle">{track.title}</span>
               </div>
-
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                {formatTime(track.durationSeconds)}
-              </span>
+              <span className="fq-tdur">{formatTime(track.durationSeconds)}</span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Discography / Albums */}
       {artist.albums && artist.albums.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Discography
-          </h2>
+        <section className="fq-section">
+          <div className="fq-section-head">
+            <div className="fq-section-title-wrap">
+              <h2 className="fq-h2">Discography</h2>
+              <span className="fq-muted" style={{ fontSize: '12px' }}>Albums and releases</span>
+            </div>
+          </div>
 
-          <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px' }}>
+          <div className="fq-rail">
             {artist.albums.map(alb => (
-              <div
-                key={alb.id}
-                onClick={() => onOpenAlbum(alb.id)}
-                style={{
-                  width: '160px',
-                  flexShrink: 0,
-                  padding: '12px',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
-              >
-                <div style={{ width: '100%', aspectRatio: '1', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#1b1e2e' }}>
+              <div key={alb.id} className="fq-card" onClick={() => onOpenAlbum(alb.id)}>
+                <div className="fq-card-media">
                   {alb.artworkUrl ? (
-                    <SquareArt src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%' }} />
+                    <SquareArt src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <Disc size={40} color="var(--text-muted)" />
+                    <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                      <Disc size={40} color="var(--text-muted)" />
+                    </div>
                   )}
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {alb.title}
-                  </span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {alb.year || 'Album'}
-                  </span>
-                </div>
+                <div className="fq-card-title">{alb.title}</div>
+                <div className="fq-card-meta">{alb.year || 'Album'}</div>
               </div>
             ))}
           </div>
@@ -208,4 +164,3 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
     </div>
   );
 };
-

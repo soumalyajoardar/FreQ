@@ -1,6 +1,21 @@
-import React from 'react';
-import { Home, Library, Search, Heart, Plus, Settings, Sparkles, Music2, BarChart3, Radio, DownloadCloud } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  Home,
+  Library,
+  Search,
+  Heart,
+  Plus,
+  Settings,
+  Music2,
+  BarChart3,
+  Radio,
+  DownloadCloud,
+  Sparkles,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
 import { AudioMode, UserPlaylist } from '../types';
+import freqIcon from '../assets/freq-icon.png';
 
 interface SidebarProps {
   currentView: string;
@@ -16,6 +31,14 @@ interface SidebarProps {
   partyMembersCount?: number;
 }
 
+const COLLAPSE_KEY = 'freq_sidebar_collapsed';
+
+const FLAVORS: { id: AudioMode; label: string; short: string; title: string }[] = [
+  { id: 'SNR', label: 'SnR', short: 'S', title: 'SnR — slowed with lush reverb' },
+  { id: 'NORMAL', label: 'Normal', short: 'N', title: 'Normal — pure 1.0× studio sound' },
+  { id: 'NIGHTCORE', label: 'Nightcore', short: 'NC', title: 'Nightcore — 1.2× up-tempo' },
+];
+
 const SidebarComponent: React.FC<SidebarProps> = ({
   currentView,
   onNavigate,
@@ -29,144 +52,119 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   isInParty,
   partyMembersCount = 0,
 }) => {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  };
+
+  const navItems = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'search', label: 'Search', icon: Search },
+    { id: 'library', label: 'Your Library', icon: Library },
+    { id: 'stats', label: 'Insights', icon: BarChart3 },
+  ];
+
   return (
-    <aside
-      className="sidebar-container"
-      style={{
-        width: 'var(--sidebar-width, 250px)',
-        height: '100%',
-        backgroundColor: 'rgba(10, 12, 18, 0.88)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '16px 12px',
-        gap: '18px',
-        overflowY: 'auto',
-        userSelect: 'none',
-      }}
-    >
-      {/* Primary Navigation */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        {[
-          { id: 'home', label: 'Home', icon: Home },
-          { id: 'search', label: 'Search', icon: Search },
-          { id: 'library', label: 'Your Library', icon: Library },
-          { id: 'stats', label: 'Insights & Stats', icon: BarChart3 },
-        ].map(item => {
-          const isActive = currentView === item.id;
+    <aside className={`fq-sidebar${collapsed ? ' is-collapsed' : ''}`}>
+      {/* Brand + collapse */}
+      <div className="fq-sidebar-brand">
+        <button
+          onClick={() => onNavigate('home')}
+          className="fq-sidebar-mark"
+          title="FreQ — Home"
+          style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}
+        >
+          <img
+            src={freqIcon}
+            alt=""
+            style={{
+              width: '22px',
+              height: '22px',
+              borderRadius: '7px',
+              objectFit: 'cover',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+              flexShrink: 0,
+            }}
+          />
+          <span className="fq-sidebar-wordmark">
+            FreQ<em>.</em>
+          </span>
+        </button>
+
+        <button
+          onClick={toggleCollapsed}
+          className="fq-sidebar-collapse fq-icon-btn"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{ width: '26px', height: '26px', borderRadius: '7px' }}
+        >
+          {collapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+        </button>
+      </div>
+
+      {/* Primary navigation */}
+      <nav className="fq-nav-group">
+        {navItems.map(item => {
           const Icon = item.icon;
+          const active = currentView === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              className="sidebar-btn"
+              className={`fq-nav${active ? ' is-active' : ''}`}
               title={item.label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? '#f0f2f5' : 'var(--text-secondary, #8b93a6)',
-                backgroundColor: isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                borderLeft: isActive ? '3px solid var(--accent-cyan, #1ed760)' : '3px solid transparent',
-                transition: 'background-color 0.15s ease, color 0.15s ease',
-              }}
-              onMouseEnter={e => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
-                  e.currentTarget.style.color = '#f0f2f5';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
-                }
-              }}
             >
-              <Icon size={17} color={isActive ? 'var(--accent-cyan, #1ed760)' : 'currentColor'} strokeWidth={isActive ? 2.3 : 1.8} />
-              <span className="sidebar-text">{item.label}</span>
+              <Icon size={17} strokeWidth={active ? 2.2 : 1.7} />
+              <span className="fq-label">{item.label}</span>
             </button>
           );
         })}
 
-        {/* Listen Together Party Entry */}
         {onOpenParty && (
           <button
             onClick={onOpenParty}
-            className="sidebar-btn"
-            title={isInParty ? `Listen Together (In Party ${partyMembersCount}/5)` : 'Listen Together (Party)'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: currentView === 'party' || isInParty ? 700 : 500,
-              color: currentView === 'party' || isInParty ? '#1ed760' : 'var(--text-secondary, #8b93a6)',
-              backgroundColor: currentView === 'party'
-                ? 'rgba(30, 215, 96, 0.16)'
-                : isInParty
-                ? 'rgba(30, 215, 96, 0.1)'
-                : 'transparent',
-              border: currentView === 'party'
-                ? '1px solid rgba(30, 215, 96, 0.35)'
-                : isInParty
-                ? '1px solid rgba(30, 215, 96, 0.25)'
-                : '1px solid transparent',
-              borderLeft: currentView === 'party' ? '3px solid #1ed760' : undefined,
-              transition: 'background-color 0.15s ease, color 0.15s ease',
-              marginTop: '4px',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={e => {
-              if (currentView !== 'party' && !isInParty) {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
-                e.currentTarget.style.color = '#f0f2f5';
-              }
-            }}
-            onMouseLeave={e => {
-              if (currentView !== 'party' && !isInParty) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
-              }
-            }}
+            className={`fq-nav${currentView === 'party' ? ' is-active' : ''}${isInParty ? ' is-party' : ''}`}
+            title={isInParty ? `Listen Together — ${partyMembersCount}/5 listeners` : 'Listen Together'}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Radio size={17} color={isInParty ? '#1ed760' : 'currentColor'} strokeWidth={isInParty ? 2.4 : 1.8} />
-              <span className="sidebar-text">Listen Together</span>
-            </div>
+            <Radio size={17} strokeWidth={isInParty ? 2.2 : 1.7} />
+            <span className="fq-label">Listen Together</span>
             {isInParty ? (
               <span
-                className="sidebar-badge"
+                className="fq-count"
                 style={{
-                  fontSize: '11px',
+                  fontSize: '10px',
+                  fontWeight: 800,
                   padding: '2px 7px',
                   borderRadius: '999px',
-                  backgroundColor: '#1ed760',
-                  color: '#000',
-                  fontWeight: 800,
+                  backgroundColor: 'var(--accent-cyan)',
+                  color: 'var(--accent-ink)',
                 }}
               >
                 {partyMembersCount}/5
               </span>
             ) : (
               <span
-                className="sidebar-badge"
+                className="fq-count"
                 style={{
-                  fontSize: '9px',
+                  fontSize: '8.5px',
+                  fontWeight: 700,
+                  letterSpacing: '0.09em',
                   padding: '2px 5px',
                   borderRadius: '5px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  color: 'var(--text-muted)',
-                  fontWeight: 700,
-                  letterSpacing: '0.4px',
+                  border: '1px solid rgba(30, 215, 96, 0.28)',
+                  color: 'rgba(30, 215, 96, 0.85)',
                 }}
               >
                 PARTY
@@ -176,201 +174,117 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-      {/* Audio Flavors Switcher Card */}
-      <div
-        className="sidebar-flavor-card"
-        style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          borderRadius: '12px',
-          padding: '10px 10px',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-        }}
-      >
-        <div className="sidebar-flavor-header" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', paddingLeft: '2px' }}>
-          <Sparkles size={13} color="var(--accent-cyan, #1ed760)" />
-          <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted, #5c6478)', textTransform: 'uppercase' }}>
-            Audio Flavor
-          </span>
+      {/* Audio flavor */}
+      <div className="fq-sidebar-section">
+        <div className="fq-sidebar-section-head">
+          <span className="fq-kicker" style={{ fontSize: '9px' }}>Audio flavor</span>
+          <Sparkles size={11} color="var(--text-muted)" />
         </div>
-        <div className="sidebar-flavor-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
-          {[
-            { id: 'SNR' as AudioMode, label: 'SnR', title: 'SnR: Slowed + Lush Reverb', activeBg: 'var(--accent-violet, #8b5cf6)', glow: 'rgba(139, 92, 246, 0.35)' },
-            { id: 'NORMAL' as AudioMode, label: 'Normal', title: 'Normal: Pure 1.0x studio sound', activeBg: 'var(--accent-cyan, #1ed760)', glow: 'rgba(30, 215, 96, 0.35)' },
-            { id: 'NIGHTCORE' as AudioMode, label: 'Nightcore', title: 'Nightcore: 1.2x Up-tempo', activeBg: 'var(--accent-pink, #ec4899)', glow: 'rgba(236, 72, 153, 0.35)' },
-          ].map(f => {
-            const active = audioMode === f.id;
-            return (
-              <button
-                key={f.id}
-                onClick={() => onAudioModeChange(f.id)}
-                className="sidebar-flavor-btn"
-                title={f.title}
-                style={{
-                  padding: '5px 2px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  backgroundColor: active ? f.activeBg : 'rgba(255, 255, 255, 0.04)',
-                  color: active ? '#fff' : 'var(--text-secondary, #8b93a6)',
-                  boxShadow: active ? `0 2px 8px ${f.glow}` : 'none',
-                  transition: 'background-color 0.15s ease, color 0.15s ease, transform 0.1s ease',
-                  textAlign: 'center',
-                }}
-              >
-                {f.label}
-              </button>
-            );
-          })}
+        <div className="fq-flavor">
+          {FLAVORS.map(f => (
+            <button
+              key={f.id}
+              onClick={() => onAudioModeChange(f.id)}
+              className={`fq-flavor-btn${audioMode === f.id ? ' is-active' : ''}`}
+              title={f.title}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Playlists & Collections */}
-      <div className="sidebar-playlists-section" style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '6px', minHeight: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 4px 4px' }}>
-          <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted, #5c6478)', textTransform: 'uppercase' }}>
-            Playlists
-          </span>
+      {/* Collapsed flavor control */}
+      <div className="fq-sidebar-flavor-mini">
+        {FLAVORS.map(f => (
+          <button
+            key={f.id}
+            onClick={() => onAudioModeChange(f.id)}
+            className={audioMode === f.id ? 'is-active' : ''}
+            title={f.title}
+          >
+            {f.short}
+          </button>
+        ))}
+      </div>
+
+      {/* Library */}
+      <div className="fq-sidebar-section" style={{ flex: 1, minHeight: 0 }}>
+        <div className="fq-sidebar-section-head">
+          <span className="fq-kicker" style={{ fontSize: '9px' }}>Your library</span>
           <button
             onClick={onCreatePlaylist}
-            title="Create New Playlist"
-            style={{
-              width: '22px',
-              height: '22px',
-              borderRadius: '5px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-secondary, #8b93a6)',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              transition: 'background-color 0.15s ease, color 0.15s ease',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
-              e.currentTarget.style.color = '#fff';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-              e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
-            }}
+            title="New playlist"
+            className="fq-icon-btn"
+            style={{ width: '22px', height: '22px', borderRadius: '6px' }}
           >
             <Plus size={13} />
           </button>
         </div>
 
-        {/* Liked Songs Tile */}
-        <button
-          onClick={() => onNavigate('liked')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '8px 10px',
-            borderRadius: '8px',
-            background: currentView === 'liked' ? 'rgba(236, 72, 153, 0.14)' : 'rgba(255, 255, 255, 0.02)',
-            border: currentView === 'liked' ? '1px solid rgba(236, 72, 153, 0.3)' : '1px solid transparent',
-            transition: 'background-color 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            if (currentView !== 'liked') e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-          }}
-          onMouseLeave={e => {
-            if (currentView !== 'liked') e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)';
-          }}
-        >
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 2px 6px rgba(236, 72, 153, 0.3)',
-            }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflowY: 'auto', minHeight: 0 }}>
+          <button
+            onClick={() => onNavigate('liked')}
+            className={`fq-playlist-row${currentView === 'liked' ? ' is-active' : ''}`}
+            style={{ height: '38px' }}
           >
-            <Heart size={14} color="#fff" fill="#fff" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', minWidth: 0 }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#f0f2f5', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%' }}>Liked Songs</span>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted, #5c6478)' }}>{likedCount} tracks</span>
-          </div>
-        </button>
+            <span
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '7px',
+                background: 'rgba(30, 215, 96, 0.14)',
+                border: '1px solid rgba(30, 215, 96, 0.34)',
+                display: 'grid',
+                placeItems: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Heart size={12} color="var(--accent-cyan)" fill="var(--accent-cyan)" />
+            </span>
+            <span className="fq-playlist-name">Liked Songs</span>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              {likedCount}
+            </span>
+          </button>
 
-        {/* User Created Playlists */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto', flex: 1, marginTop: '4px' }}>
-          {playlists.map(pl => {
-            const isPlActive = currentView === 'playlist' && pl.id === pl.id;
-            return (
-              <button
-                key={pl.id}
-                onClick={() => onNavigate('playlist', pl.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '9px',
-                  padding: '7px 9px',
-                  borderRadius: '6px',
-                  fontSize: '12.5px',
-                  fontWeight: 500,
-                  color: 'var(--text-secondary, #8b93a6)',
-                  backgroundColor: 'transparent',
-                  textAlign: 'left',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  transition: 'background-color 0.15s ease, color 0.15s ease',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                  e.currentTarget.style.color = '#f0f2f5';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
-                }}
-              >
-                <Music2 size={13} style={{ flexShrink: 0, opacity: 0.7 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.title}</span>
-              </button>
-            );
-          })}
+          {playlists.map(pl => (
+            <button
+              key={pl.id}
+              onClick={() => onNavigate('playlist', pl.id)}
+              className={`fq-playlist-row${
+                currentView === 'playlist' && pl.id ? ' is-active' : ''
+              }`}
+              title={pl.title}
+            >
+              <Music2 size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
+              <span className="fq-playlist-name">{pl.title}</span>
+            </button>
+          ))}
+
+          {playlists.length === 0 && (
+            <button
+              onClick={onCreatePlaylist}
+              className="fq-playlist-row"
+              style={{ color: 'var(--text-muted)', fontSize: '12px' }}
+            >
+              <Plus size={13} style={{ flexShrink: 0 }} />
+              <span className="fq-playlist-name">Create your first playlist</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Settings Bottom Link */}
-      <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '10px' }}>
+      {/* Footer */}
+      <div className="fq-sidebar-foot">
         <button
           onClick={() => onNavigate('settings')}
-          className="sidebar-settings-btn"
+          className={`fq-nav${currentView === 'settings' ? ' is-active' : ''}`}
           title="Settings"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '8px 10px',
-            borderRadius: '8px',
-            fontSize: '12.5px',
-            width: '100%',
-            fontWeight: currentView === 'settings' ? 600 : 500,
-            color: currentView === 'settings' ? '#f0f2f5' : 'var(--text-secondary, #8b93a6)',
-            backgroundColor: currentView === 'settings' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-            transition: 'background-color 0.15s ease, color 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.color = '#f0f2f5';
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-          }}
-          onMouseLeave={e => {
-            if (currentView !== 'settings') {
-              e.currentTarget.style.color = 'var(--text-secondary, #8b93a6)';
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }
-          }}
+          style={{ height: '34px' }}
         >
           <Settings size={15} />
-          <span className="sidebar-text">Settings</span>
+          <span className="fq-label">Settings</span>
           {hasUpdate && (
             <span
               title="Update available"
@@ -382,11 +296,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'rgba(56, 189, 248, 0.18)',
-                border: '1px solid rgba(56, 189, 248, 0.55)',
-                boxShadow: '0 0 10px rgba(56, 189, 248, 0.45)',
-                flexShrink: 0,
+                backgroundColor: 'rgba(56, 189, 248, 0.16)',
+                border: '1px solid rgba(56, 189, 248, 0.5)',
                 animation: 'updateBadgePulse 2s ease-in-out infinite',
+                flexShrink: 0,
               }}
             >
               <DownloadCloud size={11} color="#38bdf8" />

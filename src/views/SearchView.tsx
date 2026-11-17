@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Search, X, Play, Heart, PlusCircle, Clock, Music, Disc, User, Sparkles } from 'lucide-react';
 import { MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { formatTime } from '../components/PlayerBar';
-import { SafeArtwork } from '../components/SafeArtwork';
 import { SquareArt } from '../components/SquareArt';
 
 interface SearchViewProps {
@@ -35,6 +34,24 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
   const [results, setResults] = useState<MediaTrack[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'SONGS' | 'ARTISTS' | 'ALBUMS'>('ALL');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // The chrome command bar is hidden on this view, so keep the same
+  // "/" and Ctrl/Cmd+K focus shortcut working against this input.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (!typing && (e.key === '/' || (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey)))) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const executeSearch = (trimmed: string) => {
     if (trimmed.length < 1) {
@@ -132,194 +149,115 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
   );
 
   const topResult = results[0];
+  const hadQuery = query.trim().length > 0;
 
   const renderTrackItem = (track: MediaTrack, idx: number, trackList: MediaTrack[]) => (
     <div
-      key={track.id}
+      key={`${track.id}-${idx}`}
+      className="fq-trow"
       onContextMenu={e => onTrackContextMenu?.(e, track)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '10px 16px',
-        borderRadius: '12px',
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.04)',
-        transition: 'all 0.15s ease',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'; }}
-      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'; }}
     >
-      <div
-        onClick={() => handlePlayFromSearch(track)}
-        style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, cursor: 'pointer', overflow: 'hidden' }}
-      >
-        <span style={{ fontSize: '13px', color: 'var(--text-muted)', width: '20px', textAlign: 'center' }}>
-          {idx + 1}
-        </span>
+      <span className="fq-tnum">{String(idx + 1).padStart(2, '0')}</span>
 
-        <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', backgroundColor: '#1b1e2e' }}>
+      <div className="fq-tmain" onClick={() => handlePlayFromSearch(track)} style={{ cursor: 'pointer' }}>
+        <div style={{ position: 'relative', width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#14141b' }}>
           <SquareArt
             src={track.artworkUrl}
             videoId={track.id}
             alt={track.title}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: 0,
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '0'; }}
-          >
-            <Play size={16} fill="#fff" color="#fff" />
-          </div>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {track.title}
-          </span>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {track.artist} • {track.album}
-          </span>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <span className="fq-ttitle">{track.title}</span>
+          <span className="fq-tsub">{track.artist} · {track.album}</span>
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-          {formatTime(track.durationSeconds)}
-        </span>
+      <span className="fq-tdur">{formatTime(track.durationSeconds)}</span>
 
+      <div className="fq-tact" style={{ width: '70px' }}>
         <button
           onClick={() => onToggleLike(track)}
+          title={isLiked(track.id) ? 'Unlike' : 'Like'}
+          className="fq-icon-btn"
           style={{
-            color: isLiked(track.id) ? '#ec4899' : 'var(--text-muted)',
-            padding: '6px',
+            width: '26px',
+            height: '26px',
+            borderRadius: '7px',
+            color: isLiked(track.id) ? 'var(--accent-cyan)' : 'var(--text-muted)',
           }}
         >
-          <Heart size={16} fill={isLiked(track.id) ? '#ec4899' : 'transparent'} />
+          <Heart size={14} fill={isLiked(track.id) ? 'currentColor' : 'transparent'} />
         </button>
-
         <button
           onClick={() => onOpenAddToPlaylist(track)}
           title="Add to playlist"
-          style={{
-            color: 'var(--text-muted)',
-            padding: '6px',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+          className="fq-icon-btn"
+          style={{ width: '26px', height: '26px', borderRadius: '7px' }}
         >
-          <PlusCircle size={16} />
+          <PlusCircle size={14} />
         </button>
       </div>
     </div>
   );
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }} className="view-enter">
-      {/* Search Input Bar */}
-      <div style={{ position: 'relative', width: '100%', maxWidth: '640px' }}>
-        <div
-          style={{
-            position: 'absolute',
-            left: '8px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '36px',
-            height: '36px',
-            borderRadius: '11px',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            zIndex: 1,
-          }}
-        >
-          <Search size={18} strokeWidth={2.5} />
+    <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '22px', paddingTop: '18px' }}>
+      <header className="fq-page-head" style={{ paddingBottom: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span className="fq-kicker">Catalogue</span>
+          <h1 className="fq-h1">Search</h1>
         </div>
+      </header>
 
+      {/* Search input */}
+      <div style={{ position: 'relative', width: '100%', maxWidth: '720px' }}>
+        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', pointerEvents: 'none' }}>
+          <Search size={17} strokeWidth={2.2} />
+        </span>
         <input
+          ref={searchInputRef}
           type="text"
-          placeholder="Search songs, artists, albums, or lyrics..."
+          placeholder="Search songs, artists, albums, or lyrics…"
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter') {
-              submitSearch(query);
-            }
+            if (e.key === 'Enter') submitSearch(query);
           }}
           autoFocus
-          className="search-input-field"
+          spellCheck={false}
           style={{
             width: '100%',
-            height: '52px',
-            padding: query ? '0 235px 0 52px' : '0 195px 0 52px',
-            borderRadius: '16px',
-            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: '#fff',
-            fontSize: '15px',
-            fontWeight: 500,
-            backdropFilter: 'blur(16px)',
-            transition: 'border-color 0.2s, box-shadow 0.2s',
+            height: '46px',
+            padding: '0 210px 0 46px',
+            borderRadius: '14px',
+            background: 'rgba(255, 255, 255, 0.045)',
+            border: '1px solid var(--line)',
+            color: 'var(--text-primary)',
+            fontSize: '13.5px',
+            fontWeight: 450,
+            letterSpacing: '-0.005em',
+            transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
           }}
           onFocus={e => {
-            e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-            e.currentTarget.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.25)';
+            e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.4)';
+            e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
           }}
           onBlur={e => {
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+            e.currentTarget.style.borderColor = 'var(--line)';
             e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.045)';
           }}
         />
 
-        {/* Powered by ORIGIN SOUNDS */}
         <div
           className="origin-sounds-badge"
-          style={{
-            position: 'absolute',
-            right: query ? '46px' : '16px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '4px 10px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
+          style={{ position: 'absolute', right: query ? '46px' : '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
         >
-          <Sparkles size={11} color="#38bdf8" />
-          <span
-            style={{
-              fontSize: '10px',
-              fontWeight: 800,
-              letterSpacing: '0.6px',
-              textTransform: 'uppercase',
-              background: 'linear-gradient(90deg, #a78bfa, #38bdf8)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Powered by ORIGIN SOUNDS
-          </span>
+          <Sparkles size={10} color="var(--text-secondary)" />
+          <span>Powered by ORIGIN SOUNDS</span>
         </div>
 
         {query && (
@@ -328,56 +266,43 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
               setQuery('');
               setResults([]);
             }}
-            style={{
-              position: 'absolute',
-              right: '16px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-secondary)',
-              padding: '4px',
-            }}
+            className="fq-icon-btn"
+            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', width: '30px', height: '30px' }}
+            title="Clear search"
           >
-            <X size={18} />
+            <X size={15} />
           </button>
         )}
       </div>
 
-      {/* Filter Chips */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {(['ALL', 'SONGS', 'ARTISTS', 'ALBUMS'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveFilter(tab)}
-            style={{
-              padding: '6px 16px',
-              borderRadius: '999px',
-              fontSize: '12px',
-              fontWeight: 700,
-              backgroundColor: activeFilter === tab ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.05)',
-              color: activeFilter === tab ? '#090A0F' : 'var(--text-secondary)',
-              border: '1px solid ' + (activeFilter === tab ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.08)'),
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Filter chips */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+        {(['ALL', 'SONGS', 'ARTISTS', 'ALBUMS'] as const).map(tab => {
+          const active = activeFilter === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveFilter(tab)}
+              className={`fq-chip${active ? ' fq-chip-accent' : ''}`}
+              style={{ height: '30px', padding: '0 13px', fontSize: '10.5px', letterSpacing: '0.06em' }}
+            >
+              {tab}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Recent Searches & Recently Played (if query is empty) */}
-      {!query && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', marginTop: '16px' }}>
+      {/* Idle state: recent searches + recently played */}
+      {!hadQuery && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', marginTop: '6px' }}>
           {searchHistory.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
-                  Recent Searches
-                </span>
-                <button
-                  onClick={onClearSearchHistory}
-                  style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                >
-                  Clear History
+            <section className="fq-section">
+              <div className="fq-section-head">
+                <div className="fq-section-title-wrap">
+                  <h2 className="fq-h3">Recent searches</h2>
+                </div>
+                <button className="fq-btn fq-btn-ghost" onClick={onClearSearchHistory}>
+                  Clear history
                 </button>
               </div>
 
@@ -386,246 +311,211 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
                   <button
                     key={idx}
                     onClick={() => handleQuerySelect(item)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 14px',
-                      borderRadius: '20px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      color: 'var(--text-secondary)',
-                      fontSize: '13px',
-                      transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'; e.currentTarget.style.color = '#fff'; }}
-                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                    className="fq-chip"
+                    style={{ height: '32px', padding: '0 13px', fontSize: '12px', fontWeight: 520, color: 'var(--text-secondary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--line-strong)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--line)'; }}
                   >
-                    <Clock size={13} />
-                    <span>{item}</span>
+                    <Clock size={12} />
+                    {item}
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          {recentlyPlayed && recentlyPlayed.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
-                Recently Played
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {recentlyPlayed.length > 0 && (
+            <section className="fq-section">
+              <div className="fq-section-head">
+                <div className="fq-section-title-wrap">
+                  <h2 className="fq-h3">Recently played</h2>
+                </div>
+                <span className="fq-kicker">{recentlyPlayed.length} tracks</span>
+              </div>
+              <div className="fq-table">
                 {recentlyPlayed.map((track, idx) => renderTrackItem(track, idx, recentlyPlayed))}
               </div>
-            </div>
+            </section>
           )}
 
-          {searchHistory.length === 0 && (!recentlyPlayed || recentlyPlayed.length === 0) && (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontSize: '14px' }}>
-              Search for any song, artist, album...
+          {searchHistory.length === 0 && recentlyPlayed.length === 0 && (
+            <div className="fq-panel" style={{ padding: '56px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+              <Search size={24} color="var(--text-muted)" />
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>Find your next favourite</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Search any song, artist, album or lyric.</div>
             </div>
           )}
         </div>
       )}
 
-      {/* Results Content */}
+      {/* Results */}
       {isLoading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', color: 'var(--text-muted)', gap: '10px' }}>
-          <div style={{ width: '18px', height: '18px', border: '2px solid var(--accent-cyan)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          <span>Searching in FreQ database...</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '56px 0', color: 'var(--text-muted)', gap: '10px', fontSize: '12.5px' }}>
+          <div style={{ width: '15px', height: '15px', border: '2px solid rgba(255,255,255,0.15)', borderTopColor: 'var(--accent-cyan)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          Searching…
         </div>
       ) : activeFilter === 'ARTISTS' ? (
         uniqueArtists.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Artists ({uniqueArtists.length})
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+          <section className="fq-section">
+            <div className="fq-section-head">
+              <div className="fq-section-title-wrap">
+                <h2 className="fq-h3">Artists</h2>
+              </div>
+              <span className="fq-kicker">{uniqueArtists.length}</span>
+            </div>
+            <div className="fq-rail">
               {uniqueArtists.map((art, idx) => (
                 <div
                   key={idx}
+                  className="fq-card"
                   onClick={() => art.tracks.length > 0 && handlePlayCollectionFromSearch(art.tracks[0], art.tracks)}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '16px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '12px',
-                    textAlign: 'center',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'; }}
+                  style={{ width: '184px' }}
                 >
-                  <div style={{ width: '100px', height: '100px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#1b1e2e' }}>
+                  <div className="fq-card-media" style={{ borderRadius: '50%' }}>
                     {art.artworkUrl ? (
                       <SquareArt src={art.artworkUrl} alt={art.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <User size={40} color="var(--text-muted)" style={{ margin: '30px auto' }} />
+                      <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                        <User size={38} color="var(--text-muted)" />
+                      </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{art.name}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{art.tracks.length} songs</span>
-                  </div>
+                  <div className="fq-card-title" style={{ textAlign: 'center' }}>{art.name}</div>
+                  <div className="fq-card-meta" style={{ textAlign: 'center' }}>{art.tracks.length} songs</div>
                 </div>
               ))}
             </div>
-          </div>
-        ) : query.trim() ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-            No artists found for "{query}"
+          </section>
+        ) : hadQuery ? (
+          <div style={{ padding: '56px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+            No artists found for “{query}”.
           </div>
         ) : null
       ) : activeFilter === 'ALBUMS' ? (
         uniqueAlbums.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Albums ({uniqueAlbums.length})
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+          <section className="fq-section">
+            <div className="fq-section-head">
+              <div className="fq-section-title-wrap">
+                <h2 className="fq-h3">Albums</h2>
+              </div>
+              <span className="fq-kicker">{uniqueAlbums.length}</span>
+            </div>
+            <div className="fq-rail">
               {uniqueAlbums.map((alb, idx) => (
                 <div
                   key={idx}
+                  className="fq-card"
                   onClick={() => alb.tracks.length > 0 && handlePlayCollectionFromSearch(alb.tracks[0], alb.tracks)}
-                  style={{
-                    padding: '14px',
-                    borderRadius: '16px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'; }}
                 >
-                  <div style={{ width: '100%', aspectRatio: '1', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#1b1e2e' }}>
+                  <div className="fq-card-media">
                     {alb.artworkUrl ? (
                       <SquareArt src={alb.artworkUrl} alt={alb.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <Disc size={40} color="var(--text-muted)" style={{ margin: '40px auto' }} />
+                      <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                        <Disc size={38} color="var(--text-muted)" />
+                      </div>
                     )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {alb.title}
+                    <span className="fq-card-play">
+                      <Play size={15} fill="currentColor" style={{ marginLeft: '2px' }} />
                     </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{alb.artist}</span>
                   </div>
+                  <div className="fq-card-title">{alb.title}</div>
+                  <div className="fq-card-meta">{alb.artist}</div>
                 </div>
               ))}
             </div>
-          </div>
-        ) : query.trim() ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-            No albums found for "{query}"
+          </section>
+        ) : hadQuery ? (
+          <div style={{ padding: '56px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+            No albums found for “{query}”.
           </div>
         ) : null
       ) : activeFilter === 'ALL' && topResult ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Top Result + Top Songs split layout */}
-          <div className="search-grid-hero" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 340px) 1fr', gap: '24px', alignItems: 'start' }}>
-            {/* Top Result Card */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Top Result
-              </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
+          <div className="search-grid-hero" style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 320px) 1fr', gap: '26px', alignItems: 'start' }}>
+            {/* Top result */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <h2 className="fq-kicker" style={{ color: 'var(--text-muted)' }}>Top result</h2>
               <div
                 onClick={() => handlePlayFromSearch(topResult)}
                 style={{
-                  padding: '20px',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: '22px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--line)',
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012))',
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '16px',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  transition: 'border-color 0.2s ease, transform 0.25s cubic-bezier(0.16,1,0.3,1)',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.07)';
+                  e.currentTarget.style.borderColor = 'var(--line-strong)';
                   e.currentTarget.style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+                  e.currentTarget.style.borderColor = 'var(--line)';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <div style={{ width: '88px', height: '88px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', position: 'relative', backgroundColor: '#1b1e2e' }}>
+                <div style={{ width: '96px', height: '96px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.5)', background: '#14141b' }}>
                   <SquareArt src={topResult.artworkUrl} videoId={topResult.id} alt={topResult.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ minWidth: 0, paddingRight: '52px' }}>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', lineHeight: 1.05, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {topResult.title}
                   </h3>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255, 255, 255, 0.08)', marginRight: '8px', fontSize: '11px', fontWeight: 700, color: 'var(--accent-cyan)' }}>SONG</span>
+                  <p style={{ marginTop: '6px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="fq-chip fq-chip-accent" style={{ height: '20px', fontSize: '9px', marginRight: '8px' }}>SONG</span>
                     {topResult.artist}
                   </p>
                 </div>
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: '20px',
-                    bottom: '20px',
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--accent-cyan)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 4px 16px rgba(255, 255, 255, 0.4)',
-                  }}
-                >
-                  <Play size={20} fill="#090A0F" color="#090A0F" style={{ marginLeft: '2px' }} />
-                </div>
+                <span className="fq-card-play" style={{ opacity: 1, transform: 'none' }}>
+                  <Play size={16} fill="currentColor" style={{ marginLeft: '2px' }} />
+                </span>
               </div>
-            </div>
+            </section>
 
-            {/* Songs Quick List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Songs
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* Quick songs */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <h2 className="fq-kicker" style={{ color: 'var(--text-muted)' }}>Songs</h2>
+              <div className="fq-table">
                 {results.slice(0, 4).map((track, idx) => renderTrackItem(track, idx, results))}
               </div>
-            </div>
+            </section>
           </div>
 
-          {/* Full Songs list under */}
           {results.length > 4 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                More Songs
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <section className="fq-section">
+              <div className="fq-section-head">
+                <div className="fq-section-title-wrap">
+                  <h2 className="fq-h3">More songs</h2>
+                </div>
+                <span className="fq-kicker">{results.length - 4} more</span>
+              </div>
+              <div className="fq-table">
                 {results.slice(4).map((track, idx) => renderTrackItem(track, idx + 4, results))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       ) : results.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-            Songs ({results.length})
-          </span>
-          {results.map((track, idx) => renderTrackItem(track, idx, results))}
-        </div>
-      ) : query.trim() ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-          No tracks found for "{query}"
+        <section className="fq-section">
+          <div className="fq-section-head">
+            <div className="fq-section-title-wrap">
+              <h2 className="fq-h3">Songs</h2>
+            </div>
+            <span className="fq-kicker">{results.length}</span>
+          </div>
+          <div className="fq-table">
+            {results.map((track, idx) => renderTrackItem(track, idx, results))}
+          </div>
+        </section>
+      ) : hadQuery ? (
+        <div style={{ padding: '56px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+          No tracks found for “{query}”.
         </div>
       ) : null}
     </div>
@@ -633,12 +523,3 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
 };
 
 export const SearchView = React.memo(SearchViewComponent);
-
-
-
-
-
-
-
-
-

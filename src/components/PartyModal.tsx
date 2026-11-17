@@ -143,6 +143,20 @@ export const PartyModal: React.FC<PartyModalProps> = ({
 
   const myId = partyService.getMyMemberId();
 
+  const fieldStyle: React.CSSProperties = {
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    border: '1px solid var(--line-strong)',
+    borderRadius: '11px',
+    padding: '0 13px',
+    height: '42px',
+    fontSize: '13px',
+    color: '#fff',
+    outline: 'none',
+    fontWeight: 500,
+    width: '100%',
+    boxSizing: 'border-box',
+  };
+
   return (
     <div
       style={{
@@ -152,90 +166,84 @@ export const PartyModal: React.FC<PartyModalProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.72)',
+        backgroundColor: 'rgba(3, 3, 6, 0.76)',
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
         padding: '20px',
+        animation: 'freqFadeIn 0.16s ease',
       }}
       onClick={onClose}
     >
       <div
         style={{
+          position: 'relative',
           width: '100%',
-          maxWidth: '520px',
-          backgroundColor: '#0c0e14',
-          borderRadius: '24px',
-          border: '1px solid rgba(255, 255, 255, 0.10)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(30, 215, 96, 0.12)',
+          maxWidth: '540px',
+          maxHeight: 'calc(100vh - 60px)',
+          backgroundColor: 'rgba(14, 14, 19, 0.97)',
+          borderRadius: '22px',
+          border: '1px solid rgba(255, 255, 255, 0.11)',
+          boxShadow: '0 34px 90px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          animation: 'fadeInModal 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          animation: 'freqPopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div
           style={{
-            padding: '20px 24px 16px',
+            padding: '20px 22px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            gap: '12px',
+            borderBottom: '1px solid var(--line)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(30, 215, 96, 0.15)',
+                width: '34px',
+                height: '34px',
+                borderRadius: '10px',
+                border: '1px solid rgba(30, 215, 96, 0.3)',
+                backgroundColor: 'rgba(30, 215, 96, 0.1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#1ed760',
+                color: 'var(--accent-cyan)',
+                flexShrink: 0,
               }}
             >
-              <Radio size={20} />
+              <Radio size={17} />
             </div>
-            <div>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.3px' }}>
-                Listen Together
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+              <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Listen together</span>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, color: '#fff', margin: 0, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                Party room
               </h2>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Worldwide synchronized playback party (Up to 5 people)
-              </span>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+            title="Close"
+            className="fq-icon-btn"
+            style={{ width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0 }}
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Floating Reactions Overlay */}
+        {/* Floating reactions overlay */}
         {recentReactions.length > 0 && (
           <div
             style={{
               position: 'absolute',
-              top: '70px',
-              right: '24px',
+              top: '74px',
+              right: '22px',
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
@@ -247,13 +255,13 @@ export const PartyModal: React.FC<PartyModalProps> = ({
               <div
                 key={r.id}
                 style={{
-                  padding: '6px 12px',
+                  padding: '6px 11px',
                   borderRadius: '999px',
-                  backgroundColor: 'rgba(20, 24, 32, 0.92)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  boxShadow: '0 8px 20px rgba(0,0,0,0.5)',
-                  fontSize: '13px',
-                  fontWeight: 600,
+                  backgroundColor: 'rgba(12, 12, 17, 0.95)',
+                  border: '1px solid var(--line-strong)',
+                  boxShadow: '0 10px 24px rgba(0,0,0,0.55)',
+                  fontSize: '12px',
+                  fontWeight: 560,
                   color: '#fff',
                   display: 'flex',
                   alignItems: 'center',
@@ -261,25 +269,25 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   animation: 'popReaction 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
-                <span style={{ fontSize: '18px' }}>{r.emoji}</span>
+                <span style={{ fontSize: '16px' }}>{r.emoji}</span>
                 <span>{r.senderName}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Content Body */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Body */}
+        <div style={{ padding: '20px 22px 22px', display: 'flex', flexDirection: 'column', gap: '18px', overflowY: 'auto', minHeight: 0 }}>
           {errorMsg && (
             <div
               style={{
-                padding: '12px 16px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                padding: '11px 14px',
+                borderRadius: '11px',
+                backgroundColor: 'rgba(248, 113, 113, 0.08)',
+                border: '1px solid rgba(248, 113, 113, 0.28)',
                 color: '#f87171',
-                fontSize: '13px',
-                lineHeight: 1.4,
+                fontSize: '12.5px',
+                lineHeight: 1.5,
               }}
             >
               {errorMsg}
@@ -289,10 +297,9 @@ export const PartyModal: React.FC<PartyModalProps> = ({
           {!isInParty ? (
             /* --- NOT IN PARTY: JOIN / CREATE MODE --- */
             <>
-              {/* Display Name Field */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                  Your Display Name
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                <label className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                  Your display name
                 </label>
                 <input
                   type="text"
@@ -300,75 +307,64 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   onChange={handleNameChange}
                   maxLength={24}
                   placeholder="Enter your name"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '12px',
-                    padding: '10px 14px',
-                    fontSize: '14px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontWeight: 600,
+                  style={fieldStyle}
+                  onFocus={e => {
+                    e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.42)';
+                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
                   }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#1ed760'}
-                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'}
+                  onBlur={e => {
+                    e.currentTarget.style.borderColor = 'var(--line-strong)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
               </div>
 
-              {/* Tab Selector */}
+              {/* Tab selector */}
               <div
                 style={{
                   display: 'flex',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                  padding: '4px',
-                  borderRadius: '14px',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.035)',
+                  padding: '3px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--line)',
+                  gap: '2px',
                 }}
               >
-                <button
-                  onClick={() => { setActiveTab('create'); setErrorMsg(null); }}
-                  style={{
-                    flex: 1,
-                    padding: '10px 16px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: activeTab === 'create' ? '#1ed760' : 'transparent',
-                    color: activeTab === 'create' ? '#000' : 'var(--text-secondary)',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Create Party (Host)
-                </button>
-                <button
-                  onClick={() => { setActiveTab('join'); setErrorMsg(null); }}
-                  style={{
-                    flex: 1,
-                    padding: '10px 16px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: activeTab === 'join' ? '#1ed760' : 'transparent',
-                    color: activeTab === 'join' ? '#000' : 'var(--text-secondary)',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Join with Code
-                </button>
+                {([
+                  { id: 'create' as const, label: 'Create party' },
+                  { id: 'join' as const, label: 'Join with code' },
+                ]).map(tab => {
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setActiveTab(tab.id); setErrorMsg(null); }}
+                      style={{
+                        flex: 1,
+                        height: '34px',
+                        borderRadius: '9px',
+                        border: 'none',
+                        backgroundColor: active ? '#f2f2f4' : 'transparent',
+                        color: active ? '#0a0a0f' : 'var(--text-muted)',
+                        fontWeight: 650,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {activeTab === 'create' ? (
-                /* Create Card */
                 <div
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: '18px',
-                    border: '1px solid rgba(255, 255, 255, 0.07)',
-                    padding: '24px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.022)',
+                    borderRadius: '16px',
+                    border: '1px solid var(--line)',
+                    padding: '22px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -378,23 +374,24 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                 >
                   <div
                     style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '50%',
-                      backgroundColor: 'rgba(30, 215, 96, 0.12)',
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      backgroundColor: 'rgba(30, 215, 96, 0.1)',
+                      border: '1px solid rgba(30, 215, 96, 0.28)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#1ed760',
+                      color: 'var(--accent-cyan)',
                     }}
                   >
-                    <Sparkles size={24} />
+                    <Sparkles size={20} />
                   </div>
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
-                      Host a Listen Together Party
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <h3 style={{ fontSize: '14.5px', fontWeight: 650, color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+                      Host a listening room
                     </h3>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, maxWidth: '340px' }}>
                       Generates a temporary 4-digit code. Share it with up to 4 friends worldwide to sync music in real time.
                     </p>
                   </div>
@@ -402,48 +399,32 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   <button
                     onClick={handleCreate}
                     disabled={isSubmitting}
-                    style={{
-                      marginTop: '8px',
-                      width: '100%',
-                      padding: '12px 20px',
-                      borderRadius: '12px',
-                      backgroundColor: '#1ed760',
-                      color: '#000',
-                      border: 'none',
-                      fontSize: '14px',
-                      fontWeight: 800,
-                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                      boxShadow: '0 4px 16px rgba(30, 215, 96, 0.35)',
-                      transition: 'transform 0.15s ease, opacity 0.15s ease',
-                      opacity: isSubmitting ? 0.7 : 1,
-                    }}
-                    onMouseEnter={e => !isSubmitting && (e.currentTarget.style.transform = 'scale(1.02)')}
-                    onMouseLeave={e => !isSubmitting && (e.currentTarget.style.transform = 'scale(1)')}
+                    className="fq-btn fq-btn-primary"
+                    style={{ width: '100%', height: '40px', justifyContent: 'center', marginTop: '4px', opacity: isSubmitting ? 0.65 : 1 }}
                   >
-                    {isSubmitting ? 'Connecting...' : 'Create Party & Get Code'}
+                    {isSubmitting ? 'Connecting…' : 'Create party & get code'}
                   </button>
                 </div>
               ) : (
-                /* Join Form */
                 <form
                   onSubmit={handleJoin}
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: '18px',
-                    border: '1px solid rgba(255, 255, 255, 0.07)',
-                    padding: '24px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.022)',
+                    borderRadius: '16px',
+                    border: '1px solid var(--line)',
+                    padding: '22px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '16px',
                   }}
                 >
-                  <div style={{ textAlign: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
-                      Enter 4-Digit Party Code
+                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <h3 style={{ fontSize: '14.5px', fontWeight: 650, color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+                      Enter a 4-digit code
                     </h3>
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      Ask your host for the 4-digit room code
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      Ask your host for the room code
                     </span>
                   </div>
 
@@ -456,85 +437,90 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                     onChange={e => setInputCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     placeholder="••••"
                     style={{
-                      width: '200px',
+                      width: '190px',
                       textAlign: 'center',
-                      fontSize: '32px',
-                      fontWeight: 800,
+                      fontSize: '30px',
+                      fontWeight: 500,
+                      fontFamily: 'var(--font-serif)',
                       letterSpacing: '14px',
-                      padding: '12px 16px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                      border: '2px solid rgba(255, 255, 255, 0.15)',
-                      borderRadius: '16px',
+                      padding: '10px 16px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.045)',
+                      border: '1px solid var(--line-strong)',
+                      borderRadius: '14px',
                       color: '#fff',
                       outline: 'none',
-                      fontFamily: 'monospace',
+                      fontVariantNumeric: 'tabular-nums',
                     }}
-                    onFocus={e => e.currentTarget.style.borderColor = '#1ed760'}
-                    onBlur={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                    onFocus={e => {
+                      e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.42)';
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
+                    }}
+                    onBlur={e => {
+                      e.currentTarget.style.borderColor = 'var(--line-strong)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                     autoFocus
                   />
 
                   <button
                     type="submit"
                     disabled={isSubmitting || inputCode.length !== 4}
-                    style={{
-                      width: '100%',
-                      padding: '12px 20px',
-                      borderRadius: '12px',
-                      backgroundColor: inputCode.length === 4 ? '#1ed760' : 'rgba(255, 255, 255, 0.1)',
-                      color: inputCode.length === 4 ? '#000' : 'var(--text-muted)',
-                      border: 'none',
-                      fontSize: '14px',
-                      fontWeight: 800,
-                      cursor: isSubmitting || inputCode.length !== 4 ? 'not-allowed' : 'pointer',
-                      boxShadow: inputCode.length === 4 ? '0 4px 16px rgba(30, 215, 96, 0.3)' : 'none',
-                      transition: 'all 0.15s ease',
-                    }}
+                    className={`fq-btn${inputCode.length === 4 ? ' fq-btn-primary' : ''}`}
+                    style={{ width: '100%', height: '40px', justifyContent: 'center', opacity: isSubmitting || inputCode.length !== 4 ? 0.55 : 1 }}
                   >
-                    {isSubmitting ? 'Joining Room...' : 'Join Party'}
+                    {isSubmitting ? 'Joining room…' : 'Join party'}
                   </button>
                 </form>
               )}
+
+              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
+                Rooms hold up to five listeners. The host controls playback for everyone.
+              </p>
             </>
           ) : (
-            /* --- IN PARTY: ACTIVE LOBBY & CONTROL --- */
+            /* --- IN PARTY: ACTIVE LOBBY --- */
             <>
-              {/* Code Banner */}
+              {/* Code banner */}
               <div
                 style={{
-                  backgroundColor: 'rgba(30, 215, 96, 0.08)',
-                  borderRadius: '18px',
-                  border: '1px solid rgba(30, 215, 96, 0.25)',
-                  padding: '18px 24px',
+                  background:
+                    'radial-gradient(120% 140% at 0% 0%, rgba(30, 215, 96, 0.13), transparent 62%), rgba(255,255,255,0.022)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(30, 215, 96, 0.24)',
+                  padding: '16px 18px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  gap: '14px',
+                  flexWrap: 'wrap',
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <span
                       style={{
-                        width: '8px',
-                        height: '8px',
+                        width: '7px',
+                        height: '7px',
                         borderRadius: '50%',
-                        backgroundColor: '#1ed760',
-                        boxShadow: '0 0 10px #1ed760',
+                        backgroundColor: 'var(--accent-cyan)',
+                        boxShadow: '0 0 9px rgba(30, 215, 96, 0.75)',
                       }}
                     />
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#1ed760', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                      Party Active • {isHost ? 'Host DJ' : 'Guest Listener'}
+                    <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--accent-cyan)' }}>
+                      {isHost ? 'Host · broadcasting' : 'Guest · synced'}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Room Code:</span>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Room code</span>
                     <span
                       style={{
-                        fontSize: '28px',
-                        fontWeight: 900,
+                        fontSize: '30px',
+                        fontWeight: 400,
                         color: '#fff',
-                        letterSpacing: '6px',
-                        fontFamily: 'monospace',
+                        letterSpacing: '4px',
+                        fontFamily: 'var(--font-serif)',
+                        lineHeight: 1,
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {partyCode}
@@ -544,42 +530,34 @@ export const PartyModal: React.FC<PartyModalProps> = ({
 
                 <button
                   onClick={handleCopyCode}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    backgroundColor: copied ? '#1ed760' : 'rgba(255, 255, 255, 0.08)',
-                    color: copied ? '#000' : '#fff',
-                    border: 'none',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className="fq-btn"
+                  style={copied ? {
+                    color: 'var(--accent-cyan)',
+                    borderColor: 'rgba(30, 215, 96, 0.4)',
+                    background: 'rgba(30, 215, 96, 0.1)',
+                  } : undefined}
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copied ? 'Copied!' : 'Copy Code'}</span>
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copied ? 'Copied' : 'Copy code'}</span>
                 </button>
               </div>
 
-              {/* Party Status — private = code only, public = join from Discord */}
+              {/* Party status — private = code only, public = join from Discord */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: '12px',
-                  padding: '12px 16px',
-                  borderRadius: '14px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  padding: '11px 14px',
+                  borderRadius: '13px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.022)',
+                  border: '1px solid var(--line)',
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>Party Status</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>Party status</span>
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
                     {privacy === 'public'
                       ? 'Anyone can join from your Discord presence.'
                       : 'Joinable only with the 4-digit code.'}
@@ -591,8 +569,9 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                     display: 'flex',
                     gap: '2px',
                     padding: '2px',
-                    borderRadius: '8px',
+                    borderRadius: '9px',
                     backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                    border: '1px solid var(--line)',
                     flexShrink: 0,
                   }}
                 >
@@ -608,26 +587,27 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           gap: '5px',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
+                          height: '26px',
+                          padding: '0 9px',
+                          borderRadius: '7px',
                           border: 'none',
-                          fontSize: '11px',
-                          fontWeight: 700,
+                          fontSize: '10.5px',
+                          fontWeight: 650,
                           cursor: isHost ? 'pointer' : 'default',
                           backgroundColor: active
                             ? option === 'public'
-                              ? 'rgba(30, 215, 96, 0.9)'
-                              : 'rgba(255, 255, 255, 0.16)'
+                              ? 'var(--accent-cyan)'
+                              : 'rgba(255, 255, 255, 0.14)'
                             : 'transparent',
                           color: active
                             ? option === 'public'
-                              ? '#04120a'
-                              : '#fff'
+                              ? 'var(--accent-ink)'
+                              : 'var(--text-primary)'
                             : 'var(--text-muted)',
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        {option === 'public' ? <Globe size={12} /> : <Lock size={12} />}
+                        {option === 'public' ? <Globe size={11} /> : <Lock size={11} />}
                         <span>{option === 'public' ? 'Public' : 'Private'}</span>
                       </button>
                     );
@@ -635,14 +615,14 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                 </div>
               </div>
 
-              {/* Members List (Capacity: 5) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Members */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                    Party Members ({members.length}/5)
+                  <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                    People · {members.length}/5
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {5 - members.length > 0 ? `${5 - members.length} slot${5 - members.length > 1 ? 's' : ''} free` : 'Party Full'}
+                    {5 - members.length > 0 ? `${5 - members.length} slot${5 - members.length > 1 ? 's' : ''} free` : 'Room full'}
                   </span>
                 </div>
 
@@ -650,8 +630,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '8px',
-                    maxHeight: '180px',
+                    gap: '3px',
+                    maxHeight: '196px',
                     overflowY: 'auto',
                   }}
                 >
@@ -664,89 +644,69 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '10px 14px',
-                          borderRadius: '12px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                          border: isMe ? '1px solid rgba(30, 215, 96, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
+                          gap: '10px',
+                          padding: '8px 11px',
+                          borderRadius: '11px',
+                          backgroundColor: isMe ? 'rgba(30, 215, 96, 0.05)' : 'transparent',
+                          border: isMe ? '1px solid rgba(30, 215, 96, 0.22)' : '1px solid transparent',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                           <div
                             style={{
-                              width: '32px',
-                              height: '32px',
+                              width: '30px',
+                              height: '30px',
                               borderRadius: '50%',
-                              backgroundColor: member.avatarColor || '#1ed760',
-                              color: '#000',
-                              fontWeight: 800,
-                              fontSize: '13px',
+                              backgroundColor: member.avatarColor || 'var(--accent-cyan)',
+                              color: '#06060a',
+                              fontWeight: 750,
+                              fontSize: '12.5px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               textTransform: 'uppercase',
+                              flexShrink: 0,
                             }}
                           >
                             {member.name.charAt(0)}
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
-                                {member.name}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <span className="fq-ttitle" style={{ fontSize: '12.5px' }}>{member.name}</span>
+                            {isMe && (
+                              <span className="fq-chip fq-chip-accent" style={{ height: '18px', fontSize: '8px' }}>YOU</span>
+                            )}
+                            {member.isHost && (
+                              <span
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  fontSize: '9px',
+                                  padding: '1px 6px',
+                                  borderRadius: '5px',
+                                  backgroundColor: 'rgba(233, 184, 114, 0.12)',
+                                  border: '1px solid rgba(233, 184, 114, 0.28)',
+                                  color: '#e9b872',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                }}
+                              >
+                                <Crown size={9} /> HOST
                               </span>
-                              {isMe && (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '6px',
-                                    backgroundColor: 'rgba(30, 215, 96, 0.2)',
-                                    color: '#1ed760',
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  YOU
-                                </span>
-                              )}
-                              {member.isHost && (
-                                <span
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '6px',
-                                    backgroundColor: 'rgba(234, 179, 8, 0.2)',
-                                    color: '#eab308',
-                                    fontWeight: 800,
-                                  }}
-                                >
-                                  <Crown size={11} /> HOST
-                                </span>
-                              )}
-                            </div>
+                            )}
                           </div>
                         </div>
 
-                        {/* Kick Member button for Host */}
                         {isHost && !isMe && !member.isHost && (
                           <button
                             onClick={() => handleKick(member.id)}
                             title="Remove from party"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '6px',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                            className="fq-icon-btn"
+                            style={{ width: '26px', height: '26px', borderRadius: '7px', flexShrink: 0 }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = ''; }}
                           >
-                            <UserMinus size={16} />
+                            <UserMinus size={14} />
                           </button>
                         )}
                       </div>
@@ -755,24 +715,24 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                 </div>
               </div>
 
-              {/* Synchronized Playback Card */}
+              {/* Now playing */}
               <div
                 style={{
-                  padding: '14px 16px',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  padding: '11px 13px',
+                  borderRadius: '13px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.24)',
+                  border: '1px solid var(--line)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '14px',
+                  gap: '12px',
                 }}
               >
                 <div
                   style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '10px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '9px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
                     overflow: 'hidden',
                     flexShrink: 0,
                     display: 'flex',
@@ -787,76 +747,53 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
-                    <Music size={20} color="var(--text-secondary)" />
+                    <Music size={18} color="var(--text-muted)" />
                   )}
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        color: '#fff',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {currentTrack?.title || 'No track playing'}
-                    </span>
-                    {isPlaying && (
-                      <span
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          backgroundColor: '#1ed760',
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--text-secondary)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {currentTrack?.artist || 'Host will start music'}
+                  <span className="fq-ttitle" style={{ fontSize: '12.5px' }}>
+                    {currentTrack?.title || 'No track playing'}
+                  </span>
+                  <span className="fq-tsub">
+                    {currentTrack?.artist || 'Host will start the music'}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1ed760', fontSize: '11px', fontWeight: 700 }}>
-                  <Volume2 size={15} />
-                  <span>{isHost ? 'Broadcasting' : 'Synced'}</span>
-                </div>
+                <span className={`fq-chip${isPlaying ? ' fq-chip-accent' : ''}`} style={{ flexShrink: 0 }}>
+                  <Volume2 size={11} />
+                  {isHost ? 'Broadcasting' : 'Synced'}
+                </span>
               </div>
 
-              {/* Quick Reactions Bar */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                  React:
-                </span>
-                <div style={{ display: 'flex', gap: '8px' }}>
+              {/* Reactions */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>React</span>
+                <div style={{ display: 'flex', gap: '6px' }}>
                   {QUICK_EMOJIS.map(emoji => (
                     <button
                       key={emoji}
                       onClick={() => handleSendReaction(emoji)}
                       style={{
-                        padding: '6px 10px',
-                        fontSize: '16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '10px',
+                        width: '34px',
+                        height: '34px',
+                        fontSize: '15px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '9px',
                         cursor: 'pointer',
-                        transition: 'transform 0.15s ease',
+                        display: 'grid',
+                        placeItems: 'center',
+                        transition: 'transform 0.15s ease, background-color 0.15s ease',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
-                      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'scale(1.1)';
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.09)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+                      }}
                     >
                       {emoji}
                     </button>
@@ -864,34 +801,21 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                 </div>
               </div>
 
-              {/* Leave / End Button */}
+              {/* Leave / End */}
               <button
                 onClick={handleLeave}
+                className="fq-btn"
                 style={{
                   width: '100%',
-                  padding: '12px 18px',
-                  borderRadius: '12px',
-                  backgroundColor: isHost ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                  color: isHost ? '#ef4444' : '#fff',
-                  border: isHost ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.12)',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
+                  height: '40px',
                   justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = isHost ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.14)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = isHost ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.08)';
+                  color: isHost ? '#f87171' : 'var(--text-primary)',
+                  borderColor: isHost ? 'rgba(248, 113, 113, 0.26)' : 'var(--line-strong)',
+                  background: isHost ? 'rgba(248, 113, 113, 0.07)' : 'rgba(255, 255, 255, 0.045)',
                 }}
               >
-                <LogOut size={16} />
-                <span>{isHost ? 'End Party (Close Room)' : 'Leave Party'}</span>
+                <LogOut size={14} />
+                <span>{isHost ? 'End party' : 'Leave party'}</span>
               </button>
             </>
           )}
