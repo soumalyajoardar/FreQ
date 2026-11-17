@@ -84,6 +84,19 @@ function resolveYtDlp(): YtDlpCommand {
       return { cmd: packagedPath, prefixArgs: [] };
     }
   } catch {}
+  // 1.5 Local workspace / app build directory
+  try {
+    const localBuildPath = path.resolve(app.getAppPath(), 'build', 'yt-dlp.exe');
+    if (fs.existsSync(localBuildPath)) {
+      return { cmd: localBuildPath, prefixArgs: [] };
+    }
+  } catch {}
+  try {
+    const devBuildPath = path.resolve(__dirname, '../build/yt-dlp.exe');
+    if (fs.existsSync(devBuildPath)) {
+      return { cmd: devBuildPath, prefixArgs: [] };
+    }
+  } catch {}
   // 2. Venv python -m yt_dlp (robust against venv moves; .exe shims carry absolute paths)
   const siblingPython = path.resolve(__dirname, '../../Android/backend-python/.venv/Scripts/python.exe');
   try {
@@ -516,19 +529,18 @@ ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
 async function resolveStreamUrl(videoId: string) {
   const ytdlp = resolveYtDlp();
 
-  // Extraction strategies (mirrors backend-python): base client on both
-  // YouTube Music + YouTube front doors, then the tv_embedded player
-  // client which is far less aggressive about bot-checks on some networks.
+  // Extraction strategies: base web client on both YouTube Music + YouTube front doors,
+  // then android client which avoids bot-checks and handles music tracks reliably.
   const attempts: { url: string; extraArgs: string[] }[] = [
-    { url: `https://www.youtube.com/watch?v=${videoId}`, extraArgs: [] },
-    { url: `https://music.youtube.com/watch?v=${videoId}`, extraArgs: [] },
+    { url: `https://www.youtube.com/watch?v=${videoId}`, extraArgs: ['--no-warnings'] },
+    { url: `https://music.youtube.com/watch?v=${videoId}`, extraArgs: ['--no-warnings'] },
     {
       url: `https://www.youtube.com/watch?v=${videoId}`,
-      extraArgs: ['--extractor-args', 'youtube:player_client=tv_embedded'],
+      extraArgs: ['--extractor-args', 'youtube:player_client=android', '--no-warnings'],
     },
     {
       url: `https://music.youtube.com/watch?v=${videoId}`,
-      extraArgs: ['--extractor-args', 'youtube:player_client=tv_embedded'],
+      extraArgs: ['--extractor-args', 'youtube:player_client=mweb,android', '--no-warnings'],
     },
   ];
 
@@ -547,12 +559,14 @@ async function resolveStreamUrl(videoId: string) {
         { timeout: 15000 }
       );
 
-      const streamUrl = stdout.trim().split('\n')[0]?.trim();
-      if (isValidStreamUrl(streamUrl)) {
-        // True googlevideo expiry when present, else 4h fallback.
-        const expiresAt = parseStreamExpiryMs(streamUrl) || Date.now() + 4 * 60 * 60 * 1000;
-        streamCache.set(videoId, { url: streamUrl, expiresAt });
-        return { streamUrl, fromCache: false, expiresAtMs: expiresAt };
+      const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        if (isValidStreamUrl(line)) {
+          // True googlevideo expiry when present, else 4h fallback.
+          const expiresAt = parseStreamExpiryMs(line) || Date.now() + 4 * 60 * 60 * 1000;
+          streamCache.set(videoId, { url: line, expiresAt });
+          return { streamUrl: line, fromCache: false, expiresAtMs: expiresAt };
+        }
       }
     } catch (err: any) {
       const detail = err?.stderr || err?.stdout || err.message || err;

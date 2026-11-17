@@ -26,7 +26,7 @@ import { formatBytes, withLocalFile } from './services/downloads';
 import { AutoplayEngine } from './services/autoplayEngine';
 import { ytMusicService } from './services/ytmusic';
 import { buildContinuationQueue, CONTINUATION_LIMIT } from './services/continuationQueue';
-import { isSameSong, shouldUseContinuation } from './services/vibeMatch';
+import { isAlternateUploadMatch, isSameSong, shouldUseContinuation } from './services/vibeMatch';
 import { regionFromLocale } from './services/regions';
 import { playbackManager } from './services/playbackManager';
 import { isPlayableSource, sourceUrlOf } from './services/playbackSource';
@@ -713,32 +713,57 @@ export const App: React.FC = () => {
   }, []);
 
   // Alternate-upload fallback: when a track's upload is dead
-  // (removed/region-locked), find the same song under a different
-  // videoId and verify it resolves before swapping to it.
+  // (removed/region-locked/bot-checked), find the same song under a different
+  // videoId (official video, lyrical video, alternate audio) and verify it resolves.
   const resolveAlternateUpload = async (
     seed: MediaTrack,
     token: number,
   ): Promise<{ track: MediaTrack; url: string } | null> => {
     if (!window.electronAPI) return null;
     try {
-      const cands = (await ytMusicService.search(`${seed.title} ${seed.artist}`))
-        .filter(t => t.id && t.id !== seed.id && isSameSong(seed, t))
-        .slice(0, 3);
-      for (const c of cands) {
+      const query = `${seed.title} ${seed.artist || ''}`.trim();
+      const titleOnly = seed.title.trim();
+
+      const searchPromises: Promise<MediaTrack[]>[] = [];
+      if (window.electronAPI?.searchTracks) {
+        searchPromises.push(
+          window.electronAPI.searchTracks(query).catch(() => []),
+          window.electronAPI.searchTracks(titleOnly).catch(() => []),
+        );
+      }
+      searchPromises.push(
+        ytMusicService.search(query).catch(() => []),
+      );
+
+      const searchBatches = await Promise.all(searchPromises);
+      const allCandidates = searchBatches.flat();
+
+      // Deduplicate candidates by ID and filter for legitimate song uploads
+      const seenIds = new Set<string>([seed.id]);
+      const validCandidates: MediaTrack[] = [];
+      for (const cand of allCandidates) {
+        if (!cand?.id || seenIds.has(cand.id)) continue;
+        if (isAlternateUploadMatch(seed, cand) || isSameSong(seed, cand)) {
+          seenIds.add(cand.id);
+          validCandidates.push(cand);
+        }
+      }
+
+      // Try top matching uploads until one provides a working, playable stream
+      for (const c of validCandidates.slice(0, 5)) {
         if (token !== loadTokenRef.current) return null;
         try {
-          // Verify through the resolver (cached + validated) before swapping.
           const src = await playbackManager.resolveSource(c);
           if (isPlayableSource(src)) {
             const url = sourceUrlOf(src);
             if (url) return { track: c, url };
           }
         } catch {
-          // try next upload
+          // try next upload candidate
         }
       }
-    } catch {
-      // search itself failed — give up on alternates
+    } catch (err) {
+      console.warn('Alternate upload search failed:', err);
     }
     return null;
   };

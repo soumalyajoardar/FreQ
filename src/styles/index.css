@@ -1114,6 +1114,22 @@ input:focus-visible { box-shadow: none; }
   0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.3); }
   50% { box-shadow: 0 0 14px rgba(56, 189, 248, 0.7); }
 }
+@keyframes hd3dBlinkGreen {
+  0%, 100% {
+    color: #1ed760;
+    border-color: rgba(30, 215, 96, 0.7);
+    background-color: rgba(30, 215, 96, 0.16);
+    box-shadow: 0 0 8px rgba(30, 215, 96, 0.5);
+    opacity: 1;
+  }
+  50% {
+    color: rgba(30, 215, 96, 0.25);
+    border-color: rgba(30, 215, 96, 0.15);
+    background-color: rgba(30, 215, 96, 0.02);
+    box-shadow: 0 0 0px transparent;
+    opacity: 0.3;
+  }
+}
 @keyframes fqFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }

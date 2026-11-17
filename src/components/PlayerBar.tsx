@@ -312,9 +312,18 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           <span
             className="fq-chip fq-hide-md"
             title="HD clarity and 3D stereo spatializer active"
-            style={{ height: '24px', fontSize: '8.5px', letterSpacing: '0.1em', color: 'var(--text-muted)' }}
+            style={{
+              height: '24px',
+              fontSize: '8.5px',
+              letterSpacing: '0.1em',
+              fontWeight: 700,
+              color: isPlaying ? '#1ed760' : 'var(--text-muted)',
+              borderColor: isPlaying ? 'rgba(30, 215, 96, 0.4)' : undefined,
+              animation: isPlaying ? 'hd3dBlinkGreen 0.5s ease-in-out infinite' : 'none',
+              transition: 'all 0.2s ease',
+            }}
           >
-            HD · 3D
+            HD 3D
           </span>
 
           <button

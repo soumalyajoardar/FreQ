@@ -158,6 +158,69 @@ export function isSameSong(a: MediaTrack, b: MediaTrack): boolean {
   return aa === bb || aa.includes(bb) || bb.includes(aa);
 }
 
+function cleanTitleForAlternateMatch(str: string): string {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[\[\(][^\]\)]*[\]\)]/g, ' ')
+    .replace(/\b(official|music|video|full video|lyrical video|audio|lyric|lyrics|full|song|hd|4k|remastered|version|visualizer|feat|ft)\b/gi, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function foldVowels(s: string): string {
+  return (s || '').replace(/aa+/g, 'a').replace(/ee+/g, 'i').replace(/oo+/g, 'u');
+}
+
+/**
+ * Alternate-upload matcher for dead-stream fallbacks.
+ * Matches official music videos, lyrical uploads, and video variants of the same track
+ * while rejecting remixes, lo-fi flips, and unrelated songs.
+ */
+export function isAlternateUploadMatch(seed: MediaTrack, cand: MediaTrack): boolean {
+  if (!cand || !cand.id || cand.id === seed.id) return false;
+
+  const rawSeed = (seed.title || '').toLowerCase();
+  const rawCand = (cand.title || '').toLowerCase();
+
+  // If seed is not a special variant, exclude variant keywords in candidate
+  const variantKeywords = ['remix', 'mashup', 'cover', 'lofi', 'lo-fi', 'slowed', 'reverb', 'reprise', 'acoustic', 'karaoke', 'instrumental'];
+  for (const kw of variantKeywords) {
+    if (!rawSeed.includes(kw) && rawCand.includes(kw)) {
+      return false;
+    }
+  }
+
+  const cleanSeed = cleanTitleForAlternateMatch(seed.title);
+  const cleanCand = cleanTitleForAlternateMatch(cand.title);
+
+  const foldedSeed = foldVowels(cleanSeed);
+  const foldedCand = foldVowels(cleanCand);
+
+  const seedTokens = foldedSeed.split(' ').filter(w => w.length >= 3);
+  if (seedTokens.length === 0) return false;
+
+  const matchedTokens = seedTokens.filter(t => foldedCand.includes(t));
+  const tokenMatchRatio = matchedTokens.length / seedTokens.length;
+
+  if (tokenMatchRatio < 0.6) return false;
+
+  const seedArtists = (seed.artist || '')
+    .toLowerCase()
+    .split(/[,&]+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 3);
+
+  const candFullText = foldVowels((cand.title + ' ' + (cand.artist || '')).toLowerCase());
+  const artistMatches = seedArtists.length === 0 || seedArtists.some(a => candFullText.includes(foldVowels(a)));
+
+  const durMatches = seed.durationSeconds && cand.durationSeconds
+    ? Math.abs(seed.durationSeconds - cand.durationSeconds) <= 60
+    : true;
+
+  return (artistMatches && tokenMatchRatio >= 0.6) || (durMatches && tokenMatchRatio >= 0.75) || tokenMatchRatio === 1.0;
+}
+
 function titleTokens(title: string): Set<string> {
   return new Set(
     (title || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 4),
