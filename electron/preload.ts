@@ -15,6 +15,8 @@ export interface ElectronAPI {
   importPlaylistLink: (url: string) => Promise<{ title: string; tracks: any[] }>;
   onDownloadProgress: (callback: (data: { videoId: string; pct: number }) => void) => () => void;
   searchTracks: (query: string) => Promise<any[]>;
+  saavnSearch: (query: string, limit?: number) => Promise<any[]>;
+  saavnStream: (songId: string) => Promise<string | null>;
   getLibraryData: () => Promise<any>;
   saveLibraryData: (data: any) => Promise<{ success: boolean; error?: string }>;
   updateDiscordPresence: (payload: any) => Promise<void>;
@@ -58,6 +60,8 @@ const api: ElectronAPI = {
     };
   },
   searchTracks: (query: string) => ipcRenderer.invoke('search-tracks', query),
+  saavnSearch: (query: string, limit?: number) => ipcRenderer.invoke('saavn-search', query, limit),
+  saavnStream: (songId: string) => ipcRenderer.invoke('saavn-stream', songId),
   getLibraryData: () => ipcRenderer.invoke('get-library-data'),
   saveLibraryData: (data: any) => ipcRenderer.invoke('save-library-data', data),
   updateDiscordPresence: (payload: any) => ipcRenderer.invoke('discord-update-activity', payload),

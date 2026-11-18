@@ -36,6 +36,7 @@ import { HomeLyricsRail } from './components/HomeLyricsRail';
 
 import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
+import { useWindowOccluded } from './hooks/useWindowOccluded';
 
 export const App: React.FC = () => {
   // Updater State
@@ -253,6 +254,11 @@ export const App: React.FC = () => {
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pauses animations, blurs and glow work while the window is minimised or
+  // fully covered by another window. A merely unfocused (still visible) window
+  // keeps running at full fidelity.
+  useWindowOccluded();
 
   // Modal / Drawer Toggles
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState<boolean>(false);

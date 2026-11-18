@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, Notification } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { discordRpcManager, DiscordActivityPayload } from './discordRpc';
@@ -133,7 +134,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false, // Keep playback, party sync & Discord presence smooth when minimized or gaming
+      backgroundThrottling: true, // Let Chromium idle the renderer when the window is hidden or fully covered
       webSecurity: false, // Allow streaming audio & loading remote thumbnails seamlessly
     },
     show: true,
@@ -441,10 +442,15 @@ autoUpdater.on('update-downloaded', (info) => {
   sendUpdaterEvent({ type: 'update-downloaded', info });
 });
 
+// Chromium's native occlusion tracker is what lets the renderer stop painting a
+// fully covered window. Electron leaves it off, so a maximised app on top keeps
+// burning frames; enabling it makes the window "hidden" to the compositor and
+// the renderer can idle (audio playback is unaffected).
+app.commandLine.appendSwitch('enable-features', 'CalculateNativeWinOcclusion');
+
 app.whenReady().then(() => {
   log('app.whenReady fired');
   createWindow();
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -783,6 +789,127 @@ ipcMain.handle('search-tracks', async (_event, query: string) => {
     console.error('yt-dlp search error:', err.message || err);
     return [];
   }
+});
+
+// ---------------------------------------------------------------------------
+// JioSaavn fallback bridge
+//
+// The public `sumitkolhe/jiosaavn-api` deployments come and go, so the last
+// layer talks to JioSaavn's own endpoint (the very API that project wraps).
+// Main-process fetch avoids CORS, and Node's crypto decrypts the DES-encoded
+// media URL so the renderer receives a plain 320 kbps link.
+//
+// Single DES is emulated with 3DES + a repeated key: EDE(K, K, K) == DES(K),
+// which keeps us on OpenSSL's default provider (plain `des-ecb` needs the
+// legacy provider and is unavailable in packaged Electron).
+const SAAVN_DES_KEY = Buffer.from('38346591');
+const SAAVN_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+
+function saavnDecrypt(encrypted: unknown): string | null {
+  if (typeof encrypted !== 'string' || !encrypted) return null;
+  const key = SAAVN_DES_KEY;
+  // Node/OpenSSL exposes `des-ede3-ecb`; Electron's BoringSSL only lists the
+  // CBC-flavoured names and DES-ECB. Try in that order and keep the first
+  // plaintext that actually looks like a media URL.
+  const schemes: Array<[string, Buffer]> = [
+    ['des-ede3-ecb', Buffer.concat([key, key, key])],
+    ['des-ede3', Buffer.concat([key, key, key])],
+    ['des-ecb', key],
+  ];
+
+  for (const [name, cipherKey] of schemes) {
+    try {
+      const decipher = crypto.createDecipheriv(name, cipherKey, null);
+      decipher.setAutoPadding(false);
+      const raw = Buffer.concat([
+        decipher.update(Buffer.from(encrypted, 'base64')),
+        decipher.final(),
+      ])
+        .toString('utf8')
+        // DES padding leaves control bytes behind; a URL never contains any.
+        .replace(/[\u0000-\u001f\u007f]/g, '')
+        .trim();
+      if (raw.startsWith('http')) return raw;
+    } catch {
+      // Try the next scheme.
+    }
+  }
+  return null;
+}
+
+/** Decrypted 96 kbps link upgraded to the 320 kbps master when available. */
+function saavnUpgradeUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.includes('_96.mp4')) return url.replace('_96.mp4', '_320.mp4');
+  return url;
+}
+
+async function saavnGet(pathAndQuery: string): Promise<any | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 9000);
+  try {
+    const res = await fetch(`https://www.jiosaavn.com/api.php${pathAndQuery}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': SAAVN_UA, Accept: 'application/json' },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+interface SaavnTrackPayload {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  durationSeconds: number;
+  artworkUrl: string | null;
+  mediaUri: string | null;
+}
+
+function saavnShape(raw: any): SaavnTrackPayload | null {
+  if (!raw || typeof raw.id !== 'string' || typeof raw.title !== 'string') return null;
+  const info = raw.more_info || {};
+  const duration = Number(info.duration ?? raw.duration) || 0;
+  const encrypted = info.encrypted_media_url || raw.encrypted_media_url;
+  return {
+    id: raw.id,
+    title: raw.title,
+    artist: raw.subtitle || info.music || 'Unknown artist',
+    album: info.album || '',
+    durationSeconds: duration > 0 ? Math.round(duration) : 0,
+    artworkUrl: typeof raw.image === 'string' ? raw.image.replace('150x150', '500x500') : null,
+    mediaUri: saavnUpgradeUrl(saavnDecrypt(encrypted)),
+  };
+}
+
+ipcMain.handle('saavn-search', async (_event, query: string, limit = 20) => {
+  const trimmed = typeof query === 'string' ? query.trim() : '';
+  if (trimmed.length < 2) return [];
+  const n = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  const data = await saavnGet(
+    `?__call=search.getResults&q=${encodeURIComponent(trimmed)}&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${n}&p=1`
+  );
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return results.map(saavnShape).filter((t: SaavnTrackPayload | null): t is SaavnTrackPayload => !!t);
+});
+
+ipcMain.handle('saavn-stream', async (_event, songId: string) => {
+  if (typeof songId !== 'string' || !songId.trim()) return null;
+  const data = await saavnGet(
+    `?__call=song.getDetails&cc=in&_marker=0&_format=json&pids=${encodeURIComponent(songId.trim())}`
+  );
+  if (!data) return null;
+  const first = data[songId.trim()] ?? Object.values(data)[0];
+  if (!first) return null;
+  return saavnUpgradeUrl(
+    saavnDecrypt((first as any).encrypted_media_url ?? (first as any).more_info?.encrypted_media_url)
+  );
 });
 
 // Discord Rich Presence IPC Handlers

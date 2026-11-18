@@ -14,8 +14,10 @@
 
 import { MediaTrack } from '../types';
 import { isValidHttpsUrl, parseExpiryFromUrl, PlaybackSource } from './playbackSource';
+import { jioSaavnService } from './jiosaavn';
 
 const CLOUD_BASE = 'https://freq-api.vercel.app';
+const SAAVN_PREFIX = 'saavn:';
 
 export interface RemotePlaybackProvider {
   resolvePlaybackSource(track: MediaTrack): Promise<PlaybackSource>;
@@ -36,6 +38,19 @@ class YtMusicRemoteProvider implements RemotePlaybackProvider {
   }
 
   private async resolveInternal(track: MediaTrack): Promise<PlaybackSource> {
+    // 0. Tracks that came from JioSaavn already carry a direct stream. Only a
+    //    missing downloadUrl needs a lookup by id.
+    if (track.id.startsWith(SAAVN_PREFIX)) {
+      try {
+        const url = await jioSaavnService.streamForId(track.id.slice(SAAVN_PREFIX.length));
+        if (url && isValidHttpsUrl(url)) {
+          return { kind: 'remote', url, mimeType: 'audio/mpeg', expiresAtMs: null };
+        }
+      } catch {
+        // Fall through to the generic chain.
+      }
+    }
+
     // 1. Local yt-dlp bridge (own network first).
     try {
       if (window.electronAPI?.getStreamUrl) {
@@ -73,6 +88,17 @@ class YtMusicRemoteProvider implements RemotePlaybackProvider {
           mimeType: data.mimeType || 'audio/webm',
           expiresAtMs: expiresIn ?? parseExpiryFromUrl(url),
         };
+      }
+    } catch {
+      // Unavailable below.
+    }
+
+    // 3. JioSaavn by title — an independent catalog/stream when YouTube
+    //    extraction is blocked or the cloud extractor is down.
+    try {
+      const url = await jioSaavnService.resolveStreamByTitle(track.title, track.artist);
+      if (url && isValidHttpsUrl(url)) {
+        return { kind: 'remote', url, mimeType: 'audio/mpeg', expiresAtMs: null };
       }
     } catch {
       // Unavailable below.

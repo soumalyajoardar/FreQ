@@ -6,6 +6,7 @@ import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '
 import { audioEngine } from '../services/audioEngine';
 import freqIcon from '../assets/freq-icon.png';
 import { FlatScrubber } from '../components/FlatScrubber';
+import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
 
 const FlavorSlider: React.FC<{
   label: string;
@@ -114,6 +115,17 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   const [hdClarity, setHdClarity] = React.useState(() => audioEngine.getHdClarity());
   const [shortcuts, setShortcuts] = React.useState(() => libraryStore.getShortcuts());
   const [recording, setRecording] = React.useState<ShortcutAction | null>(null);
+
+  // The HD 3D / QHD 4D chip lives in the player bar and rewrites both sliders,
+  // so keep these controls in sync while Settings stays open.
+  React.useEffect(() => {
+    const sync = () => {
+      setHdClarity(audioEngine.getHdClarity());
+      setStereoWidth(audioEngine.getStereoWidth());
+    };
+    window.addEventListener(QUALITY_PRESET_EVENT, sync);
+    return () => window.removeEventListener(QUALITY_PRESET_EVENT, sync);
+  }, []);
 
   // Key capture for remapping (capture phase beats the global handler).
   React.useEffect(() => {

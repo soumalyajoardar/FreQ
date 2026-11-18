@@ -1,5 +1,6 @@
 import { AlbumDetails, ArtistDetails, CatalogItem, CatalogSection, MediaTrack } from '../types';
 import { regionDef } from './regions';
+import { jioSaavnService } from './jiosaavn';
 
 const BASE_URL = 'https://freq-api.vercel.app';
 
@@ -170,6 +171,14 @@ class YtMusicService {
       } catch (fbErr) {
         console.error('Local yt-dlp search fallback failed:', fbErr);
       }
+    }
+
+    // Last fallback: JioSaavn (independent catalog + direct streams).
+    try {
+      const saavnResults = await jioSaavnService.search(trimmed, 24);
+      if (saavnResults.length > 0) return saavnResults;
+    } catch (saavnErr) {
+      console.warn('JioSaavn search fallback failed:', saavnErr);
     }
 
     return [];

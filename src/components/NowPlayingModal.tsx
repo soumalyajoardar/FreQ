@@ -500,105 +500,112 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
               </div>
             </div>
 
-            {/* Primary controls */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '26px', padding: '2px 0' }}>
-              <button
-                onClick={onToggleShuffle}
-                title={isShuffle ? 'Shuffle on' : 'Shuffle off'}
-                style={{
-                  color: isShuffle ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                  transition: 'color 0.15s, transform 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                <Shuffle size={18} />
-              </button>
-
-              <button
-                onClick={onPrev}
-                title="Previous"
-                style={{ color: 'var(--text-primary)', transition: 'transform 0.1s' }}
-                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                <SkipBack size={24} fill="currentColor" />
-              </button>
-
-              <button
-                onClick={onPlayPause}
-                title={isPlaying ? 'Pause' : 'Play'}
-                style={{
-                  width: '58px',
-                  height: '58px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--accent-cyan)',
-                  color: 'var(--accent-ink)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 12px 30px rgba(30, 215, 96, 0.28)',
-                  transition: 'transform 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                {isLoading ? (
-                  <div style={{ width: '27px', height: '27px', borderRadius: '50%', border: '3px solid rgba(8, 8, 12, 0.25)', borderTopColor: '#08080c', animation: 'freqSpin 0.8s linear infinite' }} />
-                ) : isPlaying ? (
-                  <Pause size={27} fill="currentColor" />
-                ) : (
-                  <Play size={27} fill="currentColor" style={{ marginLeft: '3px' }} />
-                )}
-              </button>
-
-              <button
-                onClick={onNext}
-                title="Next"
-                style={{ color: 'var(--text-primary)', transition: 'transform 0.1s' }}
-                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                <SkipForward size={24} fill="currentColor" />
-              </button>
-
-              <button
-                onClick={onToggleRepeat}
-                title={`Repeat: ${repeatMode}`}
-                style={{
-                  color: repeatMode !== 'OFF' ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                  transition: 'color 0.15s, transform 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                {repeatMode === 'ONE' ? <Repeat1 size={20} /> : <Repeat size={20} />}
-              </button>
-
-              <div style={{ position: 'relative' }}>
+            {/* Primary controls — 1fr | auto | 1fr so the play button sits on
+                the exact horizontal centre of the panel regardless of how many
+                secondary controls live on each side. */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', padding: '2px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '24px' }}>
                 <button
-                  onClick={() => setShowSleep(v => !v)}
-                  title={sleepMode === 'off' ? 'Sleep timer' : `Sleep: ${sleepMode === 'end' ? 'end of track' : formatTime(sleepRemainingSec) + ' left'}`}
+                  onClick={onToggleShuffle}
+                  title={isShuffle ? 'Shuffle on' : 'Shuffle off'}
                   style={{
-                    color: sleepMode !== 'off' ? 'var(--text-primary)' : 'var(--text-muted)',
+                    color: isShuffle ? 'var(--accent-cyan)' : 'var(--text-muted)',
                     transition: 'color 0.15s, transform 0.15s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >
-                  <Timer size={18} />
-                  {sleepMode === 'timer' && sleepRemainingSec > 0 && (
-                    <span style={{ fontSize: '10.5px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                      {formatTime(sleepRemainingSec)}
-                    </span>
-                  )}
-                  {sleepMode === 'end' && (
-                    <span style={{ fontSize: '10.5px', fontWeight: 700 }}>1</span>
+                  <Shuffle size={18} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '26px' }}>
+                <button
+                  onClick={onPrev}
+                  title="Previous"
+                  style={{ color: 'var(--text-primary)', transition: 'transform 0.1s' }}
+                  onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+                  onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <SkipBack size={24} fill="currentColor" />
+                </button>
+
+                <button
+                  onClick={onPlayPause}
+                  title={isPlaying ? 'Pause' : 'Play'}
+                  style={{
+                    width: '58px',
+                    height: '58px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--accent-cyan)',
+                    color: 'var(--accent-ink)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 12px 30px rgba(30, 215, 96, 0.28)',
+                    transition: 'transform 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  {isLoading ? (
+                    <div style={{ width: '27px', height: '27px', borderRadius: '50%', border: '3px solid rgba(8, 8, 12, 0.25)', borderTopColor: '#08080c', animation: 'freqSpin 0.8s linear infinite' }} />
+                  ) : isPlaying ? (
+                    <Pause size={27} fill="currentColor" />
+                  ) : (
+                    <Play size={27} fill="currentColor" style={{ marginLeft: '3px' }} />
                   )}
                 </button>
+
+                <button
+                  onClick={onNext}
+                  title="Next"
+                  style={{ color: 'var(--text-primary)', transition: 'transform 0.1s' }}
+                  onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+                  onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <SkipForward size={24} fill="currentColor" />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '24px', paddingLeft: '24px' }}>
+                <button
+                  onClick={onToggleRepeat}
+                  title={`Repeat: ${repeatMode}`}
+                  style={{
+                    color: repeatMode !== 'OFF' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    transition: 'color 0.15s, transform 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  {repeatMode === 'ONE' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                </button>
+
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowSleep(v => !v)}
+                    title={sleepMode === 'off' ? 'Sleep timer' : `Sleep: ${sleepMode === 'end' ? 'end of track' : formatTime(sleepRemainingSec) + ' left'}`}
+                    style={{
+                      color: sleepMode !== 'off' ? 'var(--text-primary)' : 'var(--text-muted)',
+                      transition: 'color 0.15s, transform 0.15s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                  >
+                    <Timer size={18} />
+                    {sleepMode === 'timer' && sleepRemainingSec > 0 && (
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        {formatTime(sleepRemainingSec)}
+                      </span>
+                    )}
+                    {sleepMode === 'end' && (
+                      <span style={{ fontSize: '10.5px', fontWeight: 700 }}>1</span>
+                    )}
+                  </button>
                 {showSleep && (
                   <div
                     style={{
@@ -653,6 +660,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                     })}
                   </div>
                 )}
+                </div>
               </div>
             </div>
 

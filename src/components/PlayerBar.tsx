@@ -19,7 +19,28 @@ import { LyricsIcon } from './LyricsIcon';
 import { AudioMode, MediaTrack, RepeatMode } from '../types';
 import { FlatScrubber } from './FlatScrubber';
 import { SquareArt } from './SquareArt';
+import { audioEngine } from '../services/audioEngine';
+import { libraryStore } from '../services/libraryStore';
 import freqIcon from '../assets/freq-icon.png';
+
+const QUALITY_KEY = 'freq_quality_mode';
+export const QUALITY_PRESET_EVENT = 'freq-quality-preset';
+
+/** HD 3D keeps the signal untouched; QHD 4D is the fully enhanced preset. */
+export function applyQualityPreset(mode: 'HD' | 'QHD') {
+  const amount = mode === 'QHD' ? 1 : 0;
+  audioEngine.setHdClarity(amount);
+  audioEngine.setStereoWidth(amount);
+  libraryStore.setHdClarity(amount);
+  libraryStore.setStereoWidth(amount);
+  try {
+    localStorage.setItem(QUALITY_KEY, mode);
+  } catch {
+    // Ignored.
+  }
+  window.dispatchEvent(new Event(QUALITY_PRESET_EVENT));
+}
+
 
 interface PlayerBarProps {
   currentTrack: MediaTrack | null;
@@ -105,20 +126,29 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   const [seekVal, setSeekVal] = useState(0);
   const [isQhd, setIsQhd] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('freq_quality_mode') === 'QHD';
+      return localStorage.getItem(QUALITY_KEY) === 'QHD';
     } catch {
       return false;
     }
   });
 
+  // Apply the stored preset once on mount so the sliders and the chip agree
+  // after a restart (HD 3D => untouched signal, QHD 4D => full enhancement).
+  React.useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(QUALITY_KEY);
+    } catch {
+      stored = null;
+    }
+    if (stored === 'QHD' || stored === 'HD') applyQualityPreset(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleToggleQuality = () => {
-    setIsQhd(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('freq_quality_mode', next ? 'QHD' : 'HD');
-      } catch {}
-      return next;
-    });
+    const next = !isQhd;
+    setIsQhd(next);
+    applyQualityPreset(next ? 'QHD' : 'HD');
   };
 
   const getFlavorStyle = () => {
@@ -230,26 +260,30 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
         {/* Transport + timeline */}
         <div className="fq-dock-center">
+          {/* 1fr | auto | 1fr — keeps the play button on the exact centre line
+              even though the two side groups hold a different number of icons. */}
           <div className="fq-dock-controls">
-            <button
-              onClick={lock ? undefined : onToggleShuffle}
-              disabled={lock}
-              title={lock ? 'Controlled by the party host' : isShuffle ? 'Shuffle on' : 'Shuffle off'}
-              className={`fq-ctrl${isShuffle ? ' is-on' : ''}`}
-              style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
-            >
-              <Shuffle size={14.5} />
-            </button>
+            <div className="fq-dock-ctrl-group">
+              <button
+                onClick={lock ? undefined : onToggleShuffle}
+                disabled={lock}
+                title={lock ? 'Controlled by the party host' : isShuffle ? 'Shuffle on' : 'Shuffle off'}
+                className={`fq-ctrl${isShuffle ? ' is-on' : ''}`}
+                style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
+              >
+                <Shuffle size={14.5} />
+              </button>
 
-            <button
-              onClick={lock ? undefined : onPrev}
-              disabled={lock}
-              title={lock ? 'Controlled by the party host' : 'Previous'}
-              className="fq-ctrl"
-              style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
-            >
-              <SkipBack size={18} fill="currentColor" />
-            </button>
+              <button
+                onClick={lock ? undefined : onPrev}
+                disabled={lock}
+                title={lock ? 'Controlled by the party host' : 'Previous'}
+                className="fq-ctrl"
+                style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
+              >
+                <SkipBack size={18} fill="currentColor" />
+              </button>
+            </div>
 
             <button
               onClick={lock ? undefined : onPlayPause}
@@ -276,35 +310,37 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               )}
             </button>
 
-            <button
-              onClick={lock ? undefined : onNext}
-              disabled={lock}
-              title={lock ? 'Controlled by the party host' : 'Next'}
-              className="fq-ctrl"
-              style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
-            >
-              <SkipForward size={18} fill="currentColor" />
-            </button>
+            <div className="fq-dock-ctrl-group">
+              <button
+                onClick={lock ? undefined : onNext}
+                disabled={lock}
+                title={lock ? 'Controlled by the party host' : 'Next'}
+                className="fq-ctrl"
+                style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
+              >
+                <SkipForward size={18} fill="currentColor" />
+              </button>
 
-            <button
-              onClick={lock ? undefined : onToggleRepeat}
-              disabled={lock}
-              title={lock ? 'Controlled by the party host' : `Repeat: ${repeatMode.toLowerCase()}`}
-              className={`fq-ctrl${repeatMode !== 'OFF' ? ' is-on' : ''}`}
-              style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
-            >
-              {repeatMode === 'ONE' ? <Repeat1 size={15} /> : <Repeat size={15} />}
-            </button>
+              <button
+                onClick={lock ? undefined : onToggleRepeat}
+                disabled={lock}
+                title={lock ? 'Controlled by the party host' : `Repeat: ${repeatMode.toLowerCase()}`}
+                className={`fq-ctrl${repeatMode !== 'OFF' ? ' is-on' : ''}`}
+                style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
+              >
+                {repeatMode === 'ONE' ? <Repeat1 size={15} /> : <Repeat size={15} />}
+              </button>
 
-            <button
-              onClick={lock ? undefined : onStop}
-              disabled={lock}
-              title={lock ? 'Controlled by the party host' : 'Stop'}
-              className="fq-ctrl"
-              style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
-            >
-              <X size={13.5} strokeWidth={2.1} />
-            </button>
+              <button
+                onClick={lock ? undefined : onStop}
+                disabled={lock}
+                title={lock ? 'Controlled by the party host' : 'Stop'}
+                className="fq-ctrl"
+                style={{ opacity: lock ? 0.35 : 1, cursor: lock ? 'not-allowed' : 'pointer' }}
+              >
+                <X size={13.5} strokeWidth={2.1} />
+              </button>
+            </div>
           </div>
 
           <div className="fq-timeline">
@@ -357,22 +393,32 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           <button
             onClick={handleToggleQuality}
             className="fq-chip fq-hide-md"
-            title={isQhd ? 'QHD clarity and 3D stereo spatializer active (Click to switch to HD)' : 'HD clarity and 3D stereo spatializer active (Click to switch to QHD)'}
+            title={isQhd
+              ? 'QHD 4D — HD clarity and 3D spatializer boosted to 100% (Click for HD 3D)'
+              : 'HD 3D — untouched signal, clarity and spatializer at 0% (Click for QHD 4D)'}
             style={{
               height: '24px',
               fontSize: '8.5px',
               letterSpacing: '0.1em',
               fontWeight: 700,
-              borderColor: 'var(--line)',
+              borderColor: isQhd ? 'rgba(248, 113, 113, 0.4)' : 'var(--line)',
               backgroundColor: 'rgba(255, 255, 255, 0.035)',
               cursor: 'pointer',
               userSelect: 'none',
-              animation: isPlaying ? 'textBlinkGreen 1s steps(1, end) infinite' : 'none',
-              color: isPlaying ? '#1ed760' : 'var(--text-muted)',
-              textShadow: isPlaying ? '0 0 8px rgba(30, 215, 96, 0.9), 0 0 16px rgba(30, 215, 96, 0.5)' : 'none',
+              animation: isQhd
+                ? 'textBlinkRed 1s steps(1, end) infinite'
+                : isPlaying
+                  ? 'textBlinkGreen 1s steps(1, end) infinite'
+                  : 'none',
+              color: isQhd ? '#f87171' : isPlaying ? '#1ed760' : 'var(--text-muted)',
+              textShadow: isQhd
+                ? '0 0 8px rgba(248, 113, 113, 0.9), 0 0 16px rgba(248, 113, 113, 0.45)'
+                : isPlaying
+                  ? '0 0 8px rgba(30, 215, 96, 0.9), 0 0 16px rgba(30, 215, 96, 0.5)'
+                  : 'none',
             }}
           >
-            {isQhd ? 'QHD 3D' : 'HD 3D'}
+            {isQhd ? 'QHD 4D' : 'HD 3D'}
           </button>
 
           <button
