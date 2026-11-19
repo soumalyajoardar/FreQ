@@ -241,8 +241,8 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
             transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
           }}
           onFocus={e => {
-            e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.4)';
-            e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
+            e.currentTarget.style.borderColor = 'rgba(var(--accent-rgb), 0.4)';
+            e.currentTarget.style.boxShadow = '0 0 0 4px rgba(var(--accent-rgb), 0.07)';
             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
           }}
           onBlur={e => {

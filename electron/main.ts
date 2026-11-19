@@ -134,7 +134,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: true, // Let Chromium idle the renderer when the window is hidden or fully covered
+      backgroundThrottling: false, // Keep running at full speed even when unfocused or behind another window
       webSecurity: false, // Allow streaming audio & loading remote thumbnails seamlessly
     },
     show: true,
@@ -441,12 +441,6 @@ autoUpdater.on('download-progress', (progressObj) => {
 autoUpdater.on('update-downloaded', (info) => {
   sendUpdaterEvent({ type: 'update-downloaded', info });
 });
-
-// Chromium's native occlusion tracker is what lets the renderer stop painting a
-// fully covered window. Electron leaves it off, so a maximised app on top keeps
-// burning frames; enabling it makes the window "hidden" to the compositor and
-// the renderer can idle (audio playback is unaffected).
-app.commandLine.appendSwitch('enable-features', 'CalculateNativeWinOcclusion');
 
 app.whenReady().then(() => {
   log('app.whenReady fired');

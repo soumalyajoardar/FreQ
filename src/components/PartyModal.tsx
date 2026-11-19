@@ -208,8 +208,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                 width: '34px',
                 height: '34px',
                 borderRadius: '10px',
-                border: '1px solid rgba(30, 215, 96, 0.3)',
-                backgroundColor: 'rgba(30, 215, 96, 0.1)',
+                border: '1px solid rgba(var(--accent-rgb), 0.3)',
+                backgroundColor: 'rgba(var(--accent-rgb), 0.1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -309,8 +309,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   placeholder="Enter your name"
                   style={fieldStyle}
                   onFocus={e => {
-                    e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.42)';
-                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
+                    e.currentTarget.style.borderColor = 'rgba(var(--accent-rgb), 0.42)';
+                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(var(--accent-rgb), 0.07)';
                   }}
                   onBlur={e => {
                     e.currentTarget.style.borderColor = 'var(--line-strong)';
@@ -377,8 +377,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                       width: '44px',
                       height: '44px',
                       borderRadius: '12px',
-                      backgroundColor: 'rgba(30, 215, 96, 0.1)',
-                      border: '1px solid rgba(30, 215, 96, 0.28)',
+                      backgroundColor: 'rgba(var(--accent-rgb), 0.1)',
+                      border: '1px solid rgba(var(--accent-rgb), 0.28)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -452,8 +452,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                       fontVariantNumeric: 'tabular-nums',
                     }}
                     onFocus={e => {
-                      e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.42)';
-                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
+                      e.currentTarget.style.borderColor = 'rgba(var(--accent-rgb), 0.42)';
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(var(--accent-rgb), 0.07)';
                     }}
                     onBlur={e => {
                       e.currentTarget.style.borderColor = 'var(--line-strong)';
@@ -484,9 +484,9 @@ export const PartyModal: React.FC<PartyModalProps> = ({
               <div
                 style={{
                   background:
-                    'radial-gradient(120% 140% at 0% 0%, rgba(30, 215, 96, 0.13), transparent 62%), rgba(255,255,255,0.022)',
+                    'radial-gradient(120% 140% at 0% 0%, rgba(var(--accent-rgb), 0.13), transparent 62%), rgba(255,255,255,0.022)',
                   borderRadius: '16px',
-                  border: '1px solid rgba(30, 215, 96, 0.24)',
+                  border: '1px solid rgba(var(--accent-rgb), 0.24)',
                   padding: '16px 18px',
                   display: 'flex',
                   alignItems: 'center',
@@ -503,7 +503,7 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                         height: '7px',
                         borderRadius: '50%',
                         backgroundColor: 'var(--accent-cyan)',
-                        boxShadow: '0 0 9px rgba(30, 215, 96, 0.75)',
+                        boxShadow: '0 0 9px rgba(var(--accent-rgb), 0.75)',
                       }}
                     />
                     <span className="fq-kicker" style={{ fontSize: '9px', color: 'var(--accent-cyan)' }}>
@@ -533,8 +533,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                   className="fq-btn"
                   style={copied ? {
                     color: 'var(--accent-cyan)',
-                    borderColor: 'rgba(30, 215, 96, 0.4)',
-                    background: 'rgba(30, 215, 96, 0.1)',
+                    borderColor: 'rgba(var(--accent-rgb), 0.4)',
+                    background: 'rgba(var(--accent-rgb), 0.1)',
                   } : undefined}
                 >
                   {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -647,8 +647,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
                           gap: '10px',
                           padding: '8px 11px',
                           borderRadius: '11px',
-                          backgroundColor: isMe ? 'rgba(30, 215, 96, 0.05)' : 'transparent',
-                          border: isMe ? '1px solid rgba(30, 215, 96, 0.22)' : '1px solid transparent',
+                          backgroundColor: isMe ? 'rgba(var(--accent-rgb), 0.05)' : 'transparent',
+                          border: isMe ? '1px solid rgba(var(--accent-rgb), 0.22)' : '1px solid transparent',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>

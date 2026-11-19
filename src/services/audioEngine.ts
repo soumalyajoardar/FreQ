@@ -128,8 +128,7 @@ class AudioEngine {
     this.stopSmoothClock();
     const tick = () => {
       this.emitTime();
-      const idle = document.hidden || !document.hasFocus();
-      this.clockId = window.setTimeout(tick, idle ? 1000 : 220);
+      this.clockId = window.setTimeout(tick, 220);
     };
     this.clockId = window.setTimeout(tick, 220);
   }

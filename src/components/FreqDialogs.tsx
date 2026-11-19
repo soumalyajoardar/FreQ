@@ -237,7 +237,7 @@ export const ToastStack: React.FC<{ toasts: ToastItem[] }> = ({ toasts }) => {
             : isUpdate
               ? <DownloadCloud size={15} color="#38bdf8" />
               : t.kind === 'success'
-                ? <CheckCircle2 size={15} color="#10b981" />
+                ? <CheckCircle2 size={15} color="#6366f1" />
                 : <Info size={15} color="var(--accent-cyan)" />}
           <span>{t.message}</span>
           {isUpdate && (

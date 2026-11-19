@@ -36,7 +36,6 @@ import { HomeLyricsRail } from './components/HomeLyricsRail';
 
 import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
-import { useWindowOccluded } from './hooks/useWindowOccluded';
 
 export const App: React.FC = () => {
   // Updater State
@@ -171,34 +170,6 @@ export const App: React.FC = () => {
   const sleepEndsAtRef = useRef<number | null>(null);
   useEffect(() => { sleepRef.current.mode = sleepMode; }, [sleepMode]);
 
-  // Wake-up alarm (in-app): time + playlist, fires while the app is open.
-  const [alarm, setAlarm] = useState(() => {
-    try {
-      const raw = localStorage.getItem('freq_alarm');
-      if (raw) {
-        const p = JSON.parse(raw);
-        return {
-          enabled: !!p.enabled,
-          time: typeof p.time === 'string' && /^\d{2}:\d{2}$/.test(p.time) ? p.time : '07:00',
-          playlistId: typeof p.playlistId === 'string' ? p.playlistId : 'liked',
-          firedDate: typeof p.firedDate === 'string' ? p.firedDate : '',
-        };
-      }
-    } catch {
-      // Defaults below.
-    }
-    return { enabled: false, time: '07:00', playlistId: 'liked', firedDate: '' };
-  });
-  const alarmRef = useRef(alarm);
-  useEffect(() => {
-    alarmRef.current = alarm;
-    try {
-      localStorage.setItem('freq_alarm', JSON.stringify(alarm));
-    } catch {
-      // Ignored.
-    }
-  }, [alarm]);
-
   const [discoveryLoading, setDiscoveryLoading] = useState<boolean>(false);
 
   // Mini-player pin: window stays above all others.
@@ -254,11 +225,6 @@ export const App: React.FC = () => {
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Pauses animations, blurs and glow work while the window is minimised or
-  // fully covered by another window. A merely unfocused (still visible) window
-  // keeps running at full fidelity.
-  useWindowOccluded();
 
   // Modal / Drawer Toggles
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState<boolean>(false);
@@ -335,29 +301,6 @@ export const App: React.FC = () => {
       audioEngine.setAudioMode(storedMode);
     });
     return unsub;
-  }, []);
-
-  // Drop expensive compositing (backdrop blur, infinite animations) while the
-  // window is unfocused or hidden — keeps GPU headroom for fullscreen games.
-  useEffect(() => {
-    const syncActivity = () => {
-      const idle = document.hidden || !document.hasFocus();
-      document.body.classList.toggle('app-idle', idle);
-      if (!idle) {
-        setPosition(audioEngine.getCurrentTime());
-        setDuration(audioEngine.getDuration());
-      }
-    };
-    window.addEventListener('focus', syncActivity);
-    window.addEventListener('blur', syncActivity);
-    document.addEventListener('visibilitychange', syncActivity);
-    syncActivity();
-    return () => {
-      window.removeEventListener('focus', syncActivity);
-      window.removeEventListener('blur', syncActivity);
-      document.removeEventListener('visibilitychange', syncActivity);
-      document.body.classList.remove('app-idle');
-    };
   }, []);
 
   // Refs to avoid stale closures in audio callbacks (parity with Android token guards)
@@ -466,8 +409,7 @@ export const App: React.FC = () => {
           return prevDur;
         });
       }
-      // No React churn for high-frequency position slider while the app is in the background.
-      if (document.hidden || !document.hasFocus()) return;
+      // Keep the timeline live in every state, including unfocused.
       setPosition(pos);
     });
 
@@ -1295,25 +1237,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Alarm fire: start the chosen playlist.
-  const fireAlarm = () => {
-    const a = alarmRef.current;
-    const tracks = a.playlistId === 'liked'
-      ? libraryStore.getLikedTracks()
-      : libraryStore.getUserPlaylists().find(p => p.id === a.playlistId)?.tracks || [];
-    if (tracks.length === 0) {
-      pushToast('Alarm playlist is empty', 'danger');
-      return;
-    }
-    pushToast(`Good morning — playing “${a.playlistId === 'liked' ? 'Liked Songs' : 'your playlist'}”`, 'info');
-    handlePlayTrackRef.current(tracks[0], tracks, true);
-  };
-
-  const handleAlarmChange = (a: { enabled: boolean; time: string; playlistId: string }) => {
-    setAlarm(prev => ({ ...a, firedDate: prev.firedDate }));
-    if (a.enabled) pushToast(`Alarm set for ${a.time}`, 'success');
-  };
-
   // Download progress listener (main process streams yt-dlp % here).
   useEffect(() => {
     if (!window.electronAPI?.onDownloadProgress) return;
@@ -1486,7 +1409,7 @@ export const App: React.FC = () => {
     return { title: created.title, count: added };
   };
 
-  // 1s ticker: sleep countdown + alarm check. Ref-only, mount once.
+  // 1s ticker: sleep countdown. Ref-only, mount once.
   useEffect(() => {
     const id = setInterval(() => {
       if (sleepRef.current.mode === 'timer' && sleepEndsAtRef.current) {
@@ -1499,19 +1422,6 @@ export const App: React.FC = () => {
           audioEngine.pause();
         } else {
           setSleepRemaining(left);
-        }
-      }
-      const a = alarmRef.current;
-      if (a.enabled) {
-        const now = new Date();
-        const hh = `${now.getHours()}`.padStart(2, '0');
-        const mm = `${now.getMinutes()}`.padStart(2, '0');
-        const today = now.toDateString();
-        if (`${hh}:${mm}` === a.time && a.firedDate !== today) {
-          const next = { ...a, firedDate: today };
-          alarmRef.current = next;
-          setAlarm(next);
-          fireAlarm();
         }
       }
     }, 1000);
@@ -1965,12 +1875,6 @@ export const App: React.FC = () => {
               playlistCount={userPlaylists.length}
               historyCount={recentlyPlayed.length}
               onClearHistory={() => setConfirmClearHistory(true)}
-              alarm={alarm}
-              alarmPlaylists={[
-                { id: 'liked', title: `Liked Songs (${likedTracks.length})` },
-                ...userPlaylists.map(p => ({ id: p.id, title: `${p.title} (${p.tracks.length})` })),
-              ]}
-              onAlarmChange={handleAlarmChange}
               duplicates={duplicateGroups}
               onCleanDuplicates={() => setConfirmCleanDup(true)}
               onExportJSON={handleExportJSON}
@@ -2041,7 +1945,6 @@ export const App: React.FC = () => {
         duration={duration}
         volume={volume}
         isMuted={isMuted}
-        audioMode={audioMode}
         isShuffle={isShuffle}
         repeatMode={repeatMode}
         isLiked={currentTrack ? libraryStore.isLiked(currentTrack.id) : false}
@@ -2055,7 +1958,6 @@ export const App: React.FC = () => {
         onToggleShuffle={handleToggleShuffle}
         onToggleRepeat={handleToggleRepeat}
         onToggleLike={() => handleToggleLike()}
-        onAudioModeChange={handleAudioModeChange}
         onOpenNowPlaying={() => setIsNowPlayingOpen(true)}
         alwaysOnTop={pinActive}
         onToggleAlwaysOnTop={handleToggleAlwaysOnTop}

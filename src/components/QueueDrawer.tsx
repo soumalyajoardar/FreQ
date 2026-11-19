@@ -103,8 +103,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                 padding: '9px 11px',
                 marginTop: '8px',
                 borderRadius: '13px',
-                backgroundColor: 'rgba(30, 215, 96, 0.055)',
-                border: '1px solid rgba(30, 215, 96, 0.2)',
+                backgroundColor: 'rgba(var(--accent-rgb), 0.055)',
+                border: '1px solid rgba(var(--accent-rgb), 0.2)',
               }}
             >
               <SquareArt

@@ -127,8 +127,8 @@ export const ImportPlaylistDialog: React.FC<ImportPlaylistDialogProps> = ({
             boxSizing: 'border-box',
           }}
           onFocus={e => {
-            e.currentTarget.style.borderColor = 'rgba(30, 215, 96, 0.4)';
-            e.currentTarget.style.boxShadow = '0 0 0 4px rgba(30, 215, 96, 0.07)';
+            e.currentTarget.style.borderColor = 'rgba(var(--accent-rgb), 0.4)';
+            e.currentTarget.style.boxShadow = '0 0 0 4px rgba(var(--accent-rgb), 0.07)';
           }}
           onBlur={e => {
             e.currentTarget.style.borderColor = 'var(--line-strong)';

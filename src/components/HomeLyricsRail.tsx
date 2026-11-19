@@ -146,7 +146,7 @@ export const HomeLyricsRail: React.FC<HomeLyricsRailProps> = ({
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.25s ease',
-                  textShadow: active ? '0 0 22px rgba(30, 215, 96, 0.14)' : 'none',
+                  textShadow: active ? '0 0 22px rgba(var(--accent-rgb), 0.14)' : 'none',
                 }}
               >
                 {cue.text}

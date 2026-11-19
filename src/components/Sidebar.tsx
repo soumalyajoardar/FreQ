@@ -163,8 +163,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                   letterSpacing: '0.09em',
                   padding: '2px 5px',
                   borderRadius: '5px',
-                  border: '1px solid rgba(30, 215, 96, 0.28)',
-                  color: 'rgba(30, 215, 96, 0.85)',
+                  border: '1px solid rgba(var(--accent-rgb), 0.28)',
+                  color: 'rgba(var(--accent-rgb), 0.85)',
                 }}
               >
                 PARTY
@@ -233,8 +233,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 width: '24px',
                 height: '24px',
                 borderRadius: '7px',
-                background: 'rgba(30, 215, 96, 0.14)',
-                border: '1px solid rgba(30, 215, 96, 0.34)',
+                background: 'rgba(var(--accent-rgb), 0.14)',
+                border: '1px solid rgba(var(--accent-rgb), 0.34)',
                 display: 'grid',
                 placeItems: 'center',
                 flexShrink: 0,

@@ -12,16 +12,17 @@
   --surface-elevated: #15151d;
   --surface-floating: rgba(18, 18, 25, 0.86);
 
-  /* Signal colour — FreQ green, used sparingly */
-  --accent-cyan: #1ed760;
-  --accent-teal: #1ed760;
-  --accent-green: #1ed760;
+  /* Signal colour — FreQ violet, used sparingly */
+  --accent-cyan: #a855f7;
+  --accent-rgb: 168, 85, 247;
+  --accent-teal: #a855f7;
+  --accent-green: #a855f7;
   --accent-violet: #8b5cf6;
   --accent-pink: #ec4899;
   --accent-warm: #e9b872;
-  --accent-glow: rgba(30, 215, 96, 0.22);
-  --accent-soft: rgba(30, 215, 96, 0.12);
-  --accent-ink: #04130a;
+  --accent-glow: rgba(var(--accent-rgb), 0.22);
+  --accent-soft: rgba(var(--accent-rgb), 0.12);
+  --accent-ink: #12041f;
 
   /* Type */
   --text-primary: #f3f3f5;
@@ -44,7 +45,7 @@
   --glass-blur: 18px;
   --hover-overlay: rgba(255, 255, 255, 0.05);
   --active-overlay: rgba(255, 255, 255, 0.08);
-  --focus-ring: 0 0 0 2px rgba(30, 215, 96, 0.45);
+  --focus-ring: 0 0 0 2px rgba(var(--accent-rgb), 0.45);
 
   /* Spacing */
   --space-1: 4px;
@@ -212,9 +213,9 @@ body {
   border-color: transparent;
   color: var(--accent-ink);
   font-weight: 750;
-  box-shadow: 0 10px 26px rgba(30, 215, 96, 0.22);
+  box-shadow: 0 10px 26px rgba(var(--accent-rgb), 0.22);
 }
-.fq-btn-primary:hover { background: #2ae36e; border-color: transparent; }
+.fq-btn-primary:hover { background: #bd7bff; border-color: transparent; }
 
 .fq-btn-ghost {
   background: transparent;
@@ -253,8 +254,8 @@ body {
 }
 .fq-chip-accent {
   color: var(--accent-cyan);
-  border-color: rgba(30, 215, 96, 0.32);
-  background: rgba(30, 215, 96, 0.1);
+  border-color: rgba(var(--accent-rgb), 0.32);
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 /* --------------------------------------------------------------------------
@@ -266,7 +267,7 @@ body {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(1200px 520px at 18% -8%, rgba(30, 215, 96, 0.075), transparent 62%),
+    radial-gradient(1200px 520px at 18% -8%, rgba(var(--accent-rgb), 0.075), transparent 62%),
     radial-gradient(900px 460px at 92% 4%, rgba(139, 92, 246, 0.06), transparent 60%),
     radial-gradient(900px 600px at 60% 110%, rgba(236, 72, 153, 0.035), transparent 65%);
 }
@@ -378,8 +379,8 @@ body {
 .fq-search input::placeholder { color: var(--text-muted); }
 .fq-search input:focus {
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(30, 215, 96, 0.4);
-  box-shadow: 0 0 0 4px rgba(30, 215, 96, 0.07);
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.07);
 }
 .fq-search-icon {
   position: absolute;
@@ -471,15 +472,15 @@ body {
 }
 .fq-topbar-party.is-live {
   color: var(--accent-cyan);
-  border-color: rgba(30, 215, 96, 0.32);
-  background: rgba(30, 215, 96, 0.08);
+  border-color: rgba(var(--accent-rgb), 0.32);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 .fq-live-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--accent-cyan);
-  box-shadow: 0 0 8px rgba(30, 215, 96, 0.8);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.8);
   animation: updateBadgePulse 2.4s ease-in-out infinite;
 }
 @media (max-width: 1240px) {
@@ -592,7 +593,7 @@ body {
   background: var(--accent-cyan);
 }
 .fq-nav.is-party { color: var(--accent-cyan); }
-.fq-nav.is-party:hover { background: rgba(30, 215, 96, 0.09); color: var(--accent-cyan); }
+.fq-nav.is-party:hover { background: rgba(var(--accent-rgb), 0.09); color: var(--accent-cyan); }
 .fq-nav .fq-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 
 .fq-sidebar-section { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
@@ -777,7 +778,7 @@ body {
   place-items: center;
   background: var(--accent-cyan);
   color: var(--accent-ink);
-  box-shadow: 0 10px 22px rgba(30, 215, 96, 0.32);
+  box-shadow: 0 10px 22px rgba(var(--accent-rgb), 0.32);
   opacity: 0;
   transform: translateY(6px) scale(0.94);
   transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1041,7 +1042,7 @@ body {
   backdrop-filter: blur(10px);
   transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
-.glass-pill:hover { background: var(--glass-strong); border-color: rgba(30, 215, 96, 0.3); box-shadow: 0 0 12px var(--accent-glow); }
+.glass-pill:hover { background: var(--glass-strong); border-color: rgba(var(--accent-rgb), 0.3); box-shadow: 0 0 12px var(--accent-glow); }
 
 .flip-card-container { perspective: 1200px; }
 .flip-card-inner {
@@ -1063,19 +1064,6 @@ body {
   overflow: hidden;
 }
 .flip-card-back { transform: rotateY(180deg); }
-
-/* Performance: pause expensive compositing when the window is occluded */
-body.app-idle *,
-body.app-idle *::before,
-body.app-idle *::after {
-  animation: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-body.app-idle .glass-surface,
-body.app-idle .glass-floating,
-body.app-idle .glass-pill { background: var(--surface-primary); }
-body.app-idle .np-atmosphere { filter: brightness(0.45) !important; }
 
 /* --------------------------------------------------------------------------
    Base interactive elements
@@ -1125,8 +1113,8 @@ input:focus-visible { box-shadow: none; }
 }
 @keyframes textBlinkGreen {
   0%, 49.99% {
-    color: #1ed760;
-    text-shadow: 0 0 8px rgba(30, 215, 96, 0.9), 0 0 16px rgba(30, 215, 96, 0.5);
+    color: #a855f7;
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.9), 0 0 16px rgba(var(--accent-rgb), 0.5);
   }
   50%, 100% {
     color: var(--text-muted);
@@ -1328,7 +1316,7 @@ img { image-rendering: auto; content-visibility: auto; }
   border: 1px solid var(--line);
   cursor: pointer;
   background:
-    radial-gradient(120% 130% at 92% 0%, rgba(30, 215, 96, 0.24), transparent 58%),
+    radial-gradient(120% 130% at 92% 0%, rgba(var(--accent-rgb), 0.24), transparent 58%),
     linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012));
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color var(--transition-fast);
 }
@@ -1445,7 +1433,7 @@ img { image-rendering: auto; content-visibility: auto; }
   font-variant-numeric: tabular-nums;
   transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
-.fq-kbd.is-recording { background: var(--accent-cyan); border-color: transparent; color: var(--accent-ink); box-shadow: 0 0 14px rgba(30, 215, 96, 0.35); }
+.fq-kbd.is-recording { background: var(--accent-cyan); border-color: transparent; color: var(--accent-ink); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35); }
 .fq-select {
   appearance: none;
   height: 34px;
@@ -1462,7 +1450,7 @@ img { image-rendering: auto; content-visibility: auto; }
   font-weight: 550;
   outline: none;
 }
-.fq-select:focus { border-color: rgba(30, 215, 96, 0.4); }
+.fq-select:focus { border-color: rgba(var(--accent-rgb), 0.4); }
 .fq-select option { background: #121218; color: #f3f3f5; }
 
 /* --------------------------------------------------------------------------
@@ -1608,7 +1596,7 @@ img { image-rendering: auto; content-visibility: auto; }
 }
 .fq-bar.is-today { background: var(--accent-cyan); }
 .fq-bar-col:hover .fq-bar { background: rgba(255, 255, 255, 0.3); }
-.fq-bar-col:hover .fq-bar.is-today { background: #2ae36e; }
+.fq-bar-col:hover .fq-bar.is-today { background: #bd7bff; }
 
 /* --------------------------------------------------------------------------
    Responsive
@@ -1664,26 +1652,3 @@ img { image-rendering: auto; content-visibility: auto; }
   .fq-timeline .fq-time { display: none; }
 }
 
-/* --------------------------------------------------------------------------
-   Occluded / minimised: drop GPU-heavy paint work.
-   Driven by useWindowOccluded(), which only trips when the window is hidden
-   or fully covered by another window. An unfocused but visible window is
-   untouched, so playback visuals stay smooth.
-   -------------------------------------------------------------------------- */
-html.freq-perf-idle *,
-html.freq-perf-idle *::before,
-html.freq-perf-idle *::after {
-  animation-play-state: paused !important;
-  transition: none !important;
-}
-html.freq-perf-idle .fq-sidebar,
-html.freq-perf-idle .fq-dock,
-html.freq-perf-idle .fq-search,
-html.freq-perf-idle .np-atmosphere,
-html.freq-perf-idle .np-panel,
-html.freq-perf-idle .fq-dock-glow {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-html.freq-perf-idle .fq-dock-glow { filter: none !important; opacity: 0.12; }
-html.freq-perf-idle .np-atmosphere { animation: none !important; transform: none !important; }

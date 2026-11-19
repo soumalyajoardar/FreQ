@@ -221,9 +221,9 @@ export const PartyView: React.FC<PartyViewProps> = ({
               position: 'relative',
               overflow: 'hidden',
               borderRadius: '24px',
-              border: '1px solid rgba(30, 215, 96, 0.26)',
+              border: '1px solid rgba(var(--accent-rgb), 0.26)',
               background:
-                'radial-gradient(120% 130% at 0% 0%, rgba(30, 215, 96, 0.14), transparent 58%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
+                'radial-gradient(120% 130% at 0% 0%, rgba(var(--accent-rgb), 0.14), transparent 58%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
               padding: '26px 28px',
               display: 'flex',
               flexDirection: 'column',
@@ -279,7 +279,7 @@ export const PartyView: React.FC<PartyViewProps> = ({
                   <button
                     onClick={handleCopyCode}
                     className="fq-btn"
-                    style={copied ? { color: 'var(--accent-cyan)', borderColor: 'rgba(30,215,96,0.4)', background: 'rgba(30,215,96,0.1)' } : undefined}
+                    style={copied ? { color: 'var(--accent-cyan)', borderColor: 'rgba(var(--accent-rgb),0.4)', background: 'rgba(var(--accent-rgb),0.1)' } : undefined}
                   >
                     {copied ? <Check size={13} /> : <Copy size={13} />}
                     {copied ? 'Copied' : 'Copy code'}
@@ -470,8 +470,8 @@ export const PartyView: React.FC<PartyViewProps> = ({
                       gap: '10px',
                       padding: '11px 13px',
                       borderRadius: '13px',
-                      border: isMe ? '1px solid rgba(30, 215, 96, 0.24)' : '1px solid var(--line)',
-                      background: isMe ? 'rgba(30, 215, 96, 0.05)' : 'rgba(255, 255, 255, 0.022)',
+                      border: isMe ? '1px solid rgba(var(--accent-rgb), 0.24)' : '1px solid var(--line)',
+                      background: isMe ? 'rgba(var(--accent-rgb), 0.05)' : 'rgba(255, 255, 255, 0.022)',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
@@ -532,12 +532,12 @@ export const PartyView: React.FC<PartyViewProps> = ({
               className="fq-set-section"
               style={{
                 background:
-                  'radial-gradient(120% 130% at 0% 0%, rgba(30, 215, 96, 0.1), transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.008))',
-                borderColor: 'rgba(30, 215, 96, 0.22)',
+                  'radial-gradient(120% 130% at 0% 0%, rgba(var(--accent-rgb), 0.1), transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.008))',
+                borderColor: 'rgba(var(--accent-rgb), 0.22)',
               }}
             >
               <div className="fq-set-head">
-                <span className="fq-set-icon" style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(30,215,96,0.28)', background: 'rgba(30,215,96,0.1)' }}>
+                <span className="fq-set-icon" style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(var(--accent-rgb),0.28)', background: 'rgba(var(--accent-rgb),0.1)' }}>
                   <Crown size={16} />
                 </span>
                 <div style={{ flex: 1 }}>
@@ -658,8 +658,8 @@ export const PartyView: React.FC<PartyViewProps> = ({
                         color: p.isHost ? 'var(--accent-cyan)' : 'var(--text-primary)',
                         padding: '6px 10px',
                         borderRadius: '8px',
-                        border: p.isHost ? '1px solid rgba(30,215,96,0.3)' : '1px solid var(--line)',
-                        background: p.isHost ? 'rgba(30,215,96,0.1)' : 'rgba(255,255,255,0.04)',
+                        border: p.isHost ? '1px solid rgba(var(--accent-rgb),0.3)' : '1px solid var(--line)',
+                        background: p.isHost ? 'rgba(var(--accent-rgb),0.1)' : 'rgba(255,255,255,0.04)',
                         flexShrink: 0,
                       }}
                     >

@@ -21,7 +21,7 @@ export const FlatScrubber: React.FC<FlatScrubberProps> = ({
   min = 0,
   step = 0.5,
   height = 4,
-  fillColor = 'var(--accent-cyan, #1ed760)',
+  fillColor = 'var(--accent-cyan, #a855f7)',
   ariaLabel = 'Seek',
   disabled = false,
   onSeek,
@@ -91,7 +91,7 @@ export const FlatScrubber: React.FC<FlatScrubberProps> = ({
           height: activeHeight,
           width: `${pct}%`,
           borderRadius: 999,
-          backgroundColor: isHovered ? 'var(--accent-cyan, #1ed760)' : fillColor,
+          backgroundColor: isHovered ? 'var(--accent-cyan, #a855f7)' : fillColor,
           transition: 'height 0.15s ease, background-color 0.15s ease',
         }}
       />

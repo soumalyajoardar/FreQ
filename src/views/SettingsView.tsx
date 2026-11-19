@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, AlarmClock, FileUp, FileDown, Copy, Globe2, Keyboard, Check } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check } from 'lucide-react';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
 import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '../services/libraryStore';
@@ -61,9 +61,6 @@ interface SettingsViewProps {
   onInstallUpdate?: () => void;
   onIgnoreUpdate?: () => void;
   onCheckUpdate?: () => void;
-  alarm?: { enabled: boolean; time: string; playlistId: string };
-  alarmPlaylists?: { id: string; title: string }[];
-  onAlarmChange?: (a: { enabled: boolean; time: string; playlistId: string }) => void;
   duplicates?: DuplicateGroup[];
   onCleanDuplicates?: () => void;
   onExportJSON?: () => void;
@@ -94,9 +91,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   onInstallUpdate,
   onIgnoreUpdate,
   onCheckUpdate,
-  alarm = { enabled: false, time: '07:00', playlistId: 'liked' },
-  alarmPlaylists = [],
-  onAlarmChange,
   duplicates = [],
   onCleanDuplicates,
   onExportJSON,
@@ -344,48 +338,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           </div>
         </section>
 
-        {/* Listening alarm */}
-        {onAlarmChange && (
-          <section className="fq-set-section">
-            <div className="fq-set-head">
-              <span className="fq-set-icon"><AlarmClock size={16} /></span>
-              <div style={{ flex: 1 }}>
-                <h2 className="fq-set-title">Wake-up alarm</h2>
-                <p className="fq-set-desc">Start a playlist automatically at a set time.</p>
-              </div>
-              <button
-                className="fq-switch"
-                role="switch"
-                aria-checked={alarm.enabled}
-                onClick={() => onAlarmChange({ ...alarm, enabled: !alarm.enabled })}
-                style={{ background: alarm.enabled ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.14)' }}
-              >
-                <i style={{ left: alarm.enabled ? '19px' : '2px', background: alarm.enabled ? 'var(--accent-ink)' : '#fff' }} />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <input
-                type="time"
-                value={alarm.time}
-                onChange={e => onAlarmChange({ ...alarm, time: e.target.value })}
-                className="fq-select"
-                style={{ minWidth: '120px', padding: '0 12px', fontVariantNumeric: 'tabular-nums' }}
-              />
-              <select
-                className="fq-select"
-                value={alarm.playlistId}
-                onChange={e => onAlarmChange({ ...alarm, playlistId: e.target.value })}
-                aria-label="Alarm playlist"
-              >
-                {alarmPlaylists.map(p => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
-                ))}
-              </select>
-            </div>
-          </section>
-        )}
-
         {/* Data & privacy */}
         <section className="fq-set-section">
           <div className="fq-set-head">
@@ -538,7 +490,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 FreQ Desktop
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="fq-chip fq-chip-accent">2.2.0 (Stable)</span>
+                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.3'} (Stable)</span>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
                   Made by GRESSEY &amp; OPENCODE. All rights reserved.
                 </span>

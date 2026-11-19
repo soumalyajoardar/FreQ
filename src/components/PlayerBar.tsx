@@ -16,7 +16,7 @@ import {
   Radio,
 } from 'lucide-react';
 import { LyricsIcon } from './LyricsIcon';
-import { AudioMode, MediaTrack, RepeatMode } from '../types';
+import { MediaTrack, RepeatMode } from '../types';
 import { FlatScrubber } from './FlatScrubber';
 import { SquareArt } from './SquareArt';
 import { audioEngine } from '../services/audioEngine';
@@ -50,7 +50,6 @@ interface PlayerBarProps {
   duration: number;
   volume: number;
   isMuted: boolean;
-  audioMode: AudioMode;
   isShuffle: boolean;
   repeatMode: RepeatMode;
   isLiked: boolean;
@@ -64,7 +63,6 @@ interface PlayerBarProps {
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
   onToggleLike: () => void;
-  onAudioModeChange: (mode: AudioMode) => void;
   onOpenNowPlaying: () => void;
   onToggleLyrics?: () => void;
   isLyricsActive?: boolean;
@@ -83,12 +81,6 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-const FLAVOR_LABEL: Record<AudioMode, string> = {
-  SNR: 'SNR',
-  NORMAL: 'STUDIO',
-  NIGHTCORE: 'NC',
-};
-
 export const PlayerBar: React.FC<PlayerBarProps> = ({
   currentTrack,
   isPlaying,
@@ -97,7 +89,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   duration,
   volume,
   isMuted,
-  audioMode,
   isShuffle,
   repeatMode,
   isLiked,
@@ -111,7 +102,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   onToggleShuffle,
   onToggleRepeat,
   onToggleLike,
-  onAudioModeChange,
   onOpenNowPlaying,
   onToggleLyrics,
   isLyricsActive = false,
@@ -151,39 +141,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     applyQualityPreset(next ? 'QHD' : 'HD');
   };
 
-  const getFlavorStyle = () => {
-    switch (audioMode) {
-      case 'NORMAL': // STUDIO
-        return {
-          color: '#38bdf8',
-          textShadow: '0 0 8px rgba(56, 189, 248, 0.85), 0 0 16px rgba(56, 189, 248, 0.45)',
-        };
-      case 'NIGHTCORE': // NC
-        return {
-          color: '#facc15',
-          textShadow: '0 0 8px rgba(250, 204, 21, 0.85), 0 0 16px rgba(250, 204, 21, 0.45)',
-        };
-      case 'SNR': // SNR
-        return {
-          color: '#facc15',
-          textShadow: '0 0 8px rgba(250, 204, 21, 0.85), 0 0 16px rgba(250, 204, 21, 0.45)',
-        };
-      default:
-        return {
-          color: 'var(--text-secondary)',
-          textShadow: 'none',
-        };
-    }
-  };
-
   const displayPosition = isSeeking ? seekVal : position;
   const lock = isPartyGuest;
-
-  const cycleFlavor = () => {
-    if (audioMode === 'SNR') onAudioModeChange('NORMAL');
-    else if (audioMode === 'NORMAL') onAudioModeChange('NIGHTCORE');
-    else onAudioModeChange('SNR');
-  };
 
   const art = currentTrack?.artworkUrl;
 
@@ -372,25 +331,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         {/* Utilities */}
         <div className="fq-dock-extra">
           <button
-            onClick={cycleFlavor}
-            className="fq-chip fq-hide-sm"
-            title={`Audio flavor: ${audioMode}. Click to cycle.`}
-            style={{
-              height: '24px',
-              fontSize: '9px',
-              letterSpacing: '0.1em',
-              fontWeight: 700,
-              borderColor: 'var(--line)',
-              backgroundColor: 'rgba(255, 255, 255, 0.035)',
-              cursor: 'pointer',
-              transition: 'color 0.2s ease, text-shadow 0.2s ease',
-              ...getFlavorStyle(),
-            }}
-          >
-            {FLAVOR_LABEL[audioMode]}
-          </button>
-
-          <button
             onClick={handleToggleQuality}
             className="fq-chip fq-hide-md"
             title={isQhd
@@ -410,11 +350,11 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 : isPlaying
                   ? 'textBlinkGreen 1s steps(1, end) infinite'
                   : 'none',
-              color: isQhd ? '#f87171' : isPlaying ? '#1ed760' : 'var(--text-muted)',
+              color: isQhd ? '#f87171' : isPlaying ? '#a855f7' : 'var(--text-muted)',
               textShadow: isQhd
                 ? '0 0 8px rgba(248, 113, 113, 0.9), 0 0 16px rgba(248, 113, 113, 0.45)'
                 : isPlaying
-                  ? '0 0 8px rgba(30, 215, 96, 0.9), 0 0 16px rgba(30, 215, 96, 0.5)'
+                  ? '0 0 8px rgba(var(--accent-rgb), 0.9), 0 0 16px rgba(var(--accent-rgb), 0.5)'
                   : 'none',
             }}
           >
@@ -440,7 +380,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 gap: '4px',
                 padding: isInParty ? '3px 8px' : '4px',
                 borderRadius: '999px',
-                backgroundColor: isInParty ? 'rgba(30, 215, 96, 0.12)' : 'transparent',
+                backgroundColor: isInParty ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
               }}
             >
               <Radio size={15} strokeWidth={isInParty ? 2.4 : 1.8} />

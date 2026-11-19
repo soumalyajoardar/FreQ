@@ -319,8 +319,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
               style={{
                 ...iconBtn,
                 color: isLiked ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                borderColor: isLiked ? 'rgba(30, 215, 96, 0.34)' : 'var(--line)',
-                backgroundColor: isLiked ? 'rgba(30, 215, 96, 0.1)' : 'rgba(255, 255, 255, 0.045)',
+                borderColor: isLiked ? 'rgba(var(--accent-rgb), 0.34)' : 'var(--line)',
+                backgroundColor: isLiked ? 'rgba(var(--accent-rgb), 0.1)' : 'rgba(255, 255, 255, 0.045)',
               }}
               onMouseEnter={e => { if (!isLiked) hoverOn(e); }}
               onMouseLeave={e => { if (!isLiked) hoverOff(e); }}
@@ -432,7 +432,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                               textAlign: 'center',
                               cursor: 'pointer',
                               transition: 'all 0.25s ease',
-                              textShadow: isActive ? '0 0 24px rgba(30, 215, 96, 0.16)' : 'none',
+                              textShadow: isActive ? '0 0 24px rgba(var(--accent-rgb), 0.16)' : 'none',
                             }}
                           >
                             {cue.text}
@@ -542,7 +542,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 12px 30px rgba(30, 215, 96, 0.28)',
+                    boxShadow: '0 12px 30px rgba(var(--accent-rgb), 0.28)',
                     transition: 'transform 0.15s',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; }}

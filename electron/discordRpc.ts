@@ -224,6 +224,10 @@ class DiscordRpcManager {
         if (this.lastActivity && this.isEnabled) {
           if (this.lastActivity.track && this.lastActivity.track.title) {
             this.applyActivity(this.lastActivity);
+          } else if (this.lastActivity.party) {
+            // Coming back from a Discord restart while sitting in a party: keep
+            // advertising the room (and its join secret) even with no track.
+            this.applyPartyIdle(this.lastActivity.party);
           } else {
             this.showBrowsing();
           }
