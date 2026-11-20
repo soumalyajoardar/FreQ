@@ -483,6 +483,71 @@ body {
   box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.8);
   animation: updateBadgePulse 2.4s ease-in-out infinite;
 }
+
+/* Audio output picker in the global top bar */
+.fq-topbar-output { position: relative; }
+.fq-topbar-party.is-open {
+  color: var(--accent-cyan);
+  border-color: rgba(var(--accent-rgb), 0.32);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+.fq-output-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  width: 272px;
+  padding: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(13, 13, 18, 0.97);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  animation: freqPopIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fq-output-menu-head {
+  padding: 7px 9px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.fq-output-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 520;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.fq-output-item span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fq-output-item:hover { background: rgba(255, 255, 255, 0.055); color: var(--text-primary); }
+.fq-output-item.is-active { background: rgba(var(--accent-rgb), 0.1); color: var(--accent-cyan); }
+.fq-output-empty,
+.fq-output-note {
+  padding: 7px 9px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.fq-output-note { border-top: 1px solid var(--line); margin-top: 4px; }
 @media (max-width: 1240px) {
   .fq-keyhint { display: none; }
 }
@@ -629,9 +694,9 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 36px;
-  padding: 0 8px;
-  border-radius: 9px;
+  height: 52px;
+  padding: 0 7px;
+  border-radius: 11px;
   color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 500;
@@ -1113,7 +1178,7 @@ input:focus-visible { box-shadow: none; }
 }
 @keyframes textBlinkGreen {
   0%, 49.99% {
-    color: #a855f7;
+    color: var(--accent-cyan);
     text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.9), 0 0 16px rgba(var(--accent-rgb), 0.5);
   }
   50%, 100% {
@@ -1488,6 +1553,37 @@ img { image-rendering: auto; content-visibility: auto; }
   place-items: center;
 }
 .fq-detail-art.is-round { border-radius: 50%; }
+
+/* Upload / change playlist cover overlay */
+.fq-cover-edit {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%) translateY(6px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(8, 8, 12, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transition: opacity var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+}
+.fq-detail-art:hover .fq-cover-edit,
+.fq-cover-edit:focus-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.fq-cover-edit:hover { background: rgba(var(--accent-rgb), 0.85); border-color: transparent; }
+.fq-cover-edit:disabled { cursor: progress; opacity: 1; }
 .fq-detail-title {
   font-family: var(--font-serif);
   font-size: clamp(34px, 4vw, 54px);

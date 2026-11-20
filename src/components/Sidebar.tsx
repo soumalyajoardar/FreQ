@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { AudioMode, UserPlaylist } from '../types';
 import freqIcon from '../assets/freq-icon.png';
+import { SquareArt } from './SquareArt';
 
 interface SidebarProps {
   currentView: string;
@@ -226,13 +227,12 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           <button
             onClick={() => onNavigate('liked')}
             className={`fq-playlist-row${currentView === 'liked' ? ' is-active' : ''}`}
-            style={{ height: '38px' }}
           >
             <span
               style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '7px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
                 background: 'rgba(var(--accent-rgb), 0.14)',
                 border: '1px solid rgba(var(--accent-rgb), 0.34)',
                 display: 'grid',
@@ -240,7 +240,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 flexShrink: 0,
               }}
             >
-              <Heart size={12} color="var(--accent-cyan)" fill="var(--accent-cyan)" />
+              <Heart size={17} color="var(--accent-cyan)" fill="var(--accent-cyan)" />
             </span>
             <span className="fq-playlist-name">Liked Songs</span>
             <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
@@ -248,19 +248,51 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             </span>
           </button>
 
-          {playlists.map(pl => (
-            <button
-              key={pl.id}
-              onClick={() => onNavigate('playlist', pl.id)}
-              className={`fq-playlist-row${
-                currentView === 'playlist' && pl.id ? ' is-active' : ''
-              }`}
-              title={pl.title}
-            >
-              <Music2 size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
-              <span className="fq-playlist-name">{pl.title}</span>
-            </button>
-          ))}
+          {playlists.map(pl => {
+            const cover = pl.coverUrl || pl.artworkUrl;
+            return (
+              <button
+                key={pl.id}
+                onClick={() => onNavigate('playlist', pl.id)}
+                className={`fq-playlist-row${
+                  currentView === 'playlist' && pl.id ? ' is-active' : ''
+                }`}
+                title={pl.title}
+              >
+                {cover ? (
+                  <SquareArt
+                    src={cover}
+                    alt={pl.title}
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '9px',
+                      border: '1px solid var(--line)',
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '9px',
+                      background: 'rgba(255, 255, 255, 0.045)',
+                      border: '1px solid var(--line)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Music2 size={16} style={{ opacity: 0.55 }} />
+                  </span>
+                )}
+                <span className="fq-playlist-name">{pl.title}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  {pl.tracks.length}
+                </span>
+              </button>
+            );
+          })}
 
           {playlists.length === 0 && (
             <button

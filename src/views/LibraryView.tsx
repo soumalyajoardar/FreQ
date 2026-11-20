@@ -261,8 +261,8 @@ const LibraryViewComponent: React.FC<LibraryViewProps> = ({
           {userPlaylists.map(pl => (
             <div key={pl.id} className="fq-card" style={{ width: '100%' }} onClick={() => onOpenPlaylist(pl.id)}>
               <div className="fq-card-media">
-                {pl.artworkUrl ? (
-                  <SquareArt src={pl.artworkUrl} alt={pl.title} style={{ width: '100%', height: '100%' }} />
+                {pl.coverUrl || pl.artworkUrl ? (
+                  <SquareArt src={pl.coverUrl || pl.artworkUrl} alt={pl.title} style={{ width: '100%', height: '100%' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
                     <Music size={32} color="var(--text-muted)" />

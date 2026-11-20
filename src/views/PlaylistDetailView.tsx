@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Play, Shuffle, Heart, Trash2, Music, ChevronUp, ChevronDown, ListPlus } from 'lucide-react';
+import { ArrowLeft, Play, Shuffle, Heart, Trash2, Music, ChevronUp, ChevronDown, ListPlus, Camera, X } from 'lucide-react';
 import { MediaTrack } from '../types';
 import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
@@ -19,6 +19,29 @@ interface PlaylistDetailViewProps {
   onPlayNext?: (track: MediaTrack) => void;
   isLikedView?: boolean;
   onTrackContextMenu?: (e: React.MouseEvent, track: MediaTrack) => void;
+  /** True when the current cover came from the user (not track artwork). */
+  hasCustomCover?: boolean;
+  /** Persist a compressed data URL, or null to clear the custom cover. */
+  onChangeCover?: (dataUrl: string | null) => void;
+}
+
+/** Downscale an image file to a square JPEG data URL small enough for localStorage. */
+async function fileToCoverDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const edge = Math.min(bitmap.width, bitmap.height);
+  const sx = (bitmap.width - edge) / 2;
+  const sy = (bitmap.height - edge) / 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = 480;
+  canvas.height = 480;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    bitmap.close();
+    throw new Error('Canvas unavailable');
+  }
+  ctx.drawImage(bitmap, sx, sy, edge, edge, 0, 0, 480, 480);
+  bitmap.close();
+  return canvas.toDataURL('image/jpeg', 0.82);
 }
 
 export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
@@ -36,10 +59,28 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   onPlayNext,
   isLikedView = false,
   onTrackContextMenu,
+  hasCustomCover = false,
+  onChangeCover,
 }) => {
   const totalSeconds = tracks.reduce((acc, t) => acc + (t.durationSeconds || 0), 0);
   const totalDurationStr = formatTime(totalSeconds);
   const empty = tracks.length === 0;
+  const coverInputRef = React.useRef<HTMLInputElement>(null);
+  const [coverBusy, setCoverBusy] = React.useState(false);
+
+  const handleCoverFile = async (file: File | undefined) => {
+    if (!file || !onChangeCover) return;
+    if (!file.type.startsWith('image/') || file.size > 12 * 1024 * 1024) return;
+    setCoverBusy(true);
+    try {
+      onChangeCover(await fileToCoverDataUrl(file));
+    } catch {
+      // Unreadable/corrupt image — leave the existing cover untouched.
+    } finally {
+      setCoverBusy(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  };
 
   return (
     <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '30px', paddingTop: '18px' }}>
@@ -49,7 +90,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
       </button>
 
       <header className="fq-detail-head">
-        <div className="fq-detail-art">
+        <div className="fq-detail-art" style={{ position: 'relative' }}>
           {artworkUrl ? (
             <SquareArt src={artworkUrl} alt={title} style={{ width: '100%', height: '100%' }} />
           ) : isLikedView ? (
@@ -67,6 +108,28 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
             </div>
           ) : (
             <Music size={52} color="var(--text-muted)" />
+          )}
+
+          {onChangeCover && !isLikedView && (
+            <>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={e => handleCoverFile(e.target.files?.[0])}
+              />
+              <button
+                type="button"
+                className="fq-cover-edit"
+                disabled={coverBusy}
+                onClick={() => coverInputRef.current?.click()}
+                title={artworkUrl ? 'Change playlist cover' : 'Upload playlist cover'}
+              >
+                <Camera size={15} />
+                <span>{coverBusy ? 'Working…' : 'Cover'}</span>
+              </button>
+            </>
           )}
         </div>
 
@@ -101,6 +164,16 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
               <Shuffle size={13} />
               Shuffle
             </button>
+            {hasCustomCover && onChangeCover && (
+              <button
+                className="fq-btn fq-btn-ghost"
+                onClick={() => onChangeCover(null)}
+                title="Remove the custom cover"
+              >
+                <X size={13} />
+                Remove cover
+              </button>
+            )}
           </div>
         </div>
       </header>

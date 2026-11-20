@@ -247,8 +247,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
             backgroundImage: `url(${currentTrack.artworkUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(64px) brightness(0.34) saturate(1.3)',
-            transform: 'scale(1.1)',
+            filter: 'blur(58px) brightness(0.58) saturate(1.35)',
+            transform: 'scale(1.12)',
             zIndex: 1,
             pointerEvents: 'none',
           }}
@@ -261,7 +261,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           position: 'absolute',
           inset: 0,
           background:
-            'radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.055), transparent 62%), radial-gradient(100% 100% at 50% 100%, rgba(0,0,0,0.6), transparent 60%)',
+            'radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.06), transparent 62%), radial-gradient(100% 100% at 50% 100%, rgba(0,0,0,0.42), transparent 62%)',
           zIndex: 2,
           pointerEvents: 'none',
         }}
@@ -272,9 +272,9 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(7, 7, 10, 0.58)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
+          backgroundColor: 'rgba(7, 7, 10, 0.28)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
           zIndex: 3,
           pointerEvents: 'none',
         }}

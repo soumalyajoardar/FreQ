@@ -1,9 +1,10 @@
 import React from 'react';
-import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette } from 'lucide-react';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
 import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '../services/libraryStore';
 import { audioEngine } from '../services/audioEngine';
+import { THEME_PRESETS, applyTheme, getThemeId, getThemePreset } from '../services/theme';
 import freqIcon from '../assets/freq-icon.png';
 import { FlatScrubber } from '../components/FlatScrubber';
 import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
@@ -109,6 +110,12 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   const [hdClarity, setHdClarity] = React.useState(() => audioEngine.getHdClarity());
   const [shortcuts, setShortcuts] = React.useState(() => libraryStore.getShortcuts());
   const [recording, setRecording] = React.useState<ShortcutAction | null>(null);
+  const [themeId, setThemeId] = React.useState(() => getThemeId());
+
+  const pickTheme = (id: string) => {
+    applyTheme(id);
+    setThemeId(id);
+  };
 
   // The HD 3D / QHD 4D chip lives in the player bar and rewrites both sliders,
   // so keep these controls in sync while Settings stays open.
@@ -318,6 +325,49 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           <p className="fq-set-desc">
             Bass booster, HD definition and 3D spatialisation apply across every flavour with a zero-distortion limiter.
           </p>
+        </section>
+
+        {/* Accent theme */}
+        <section className="fq-set-section">
+          <div className="fq-set-head">
+            <span className="fq-set-icon"><Palette size={16} /></span>
+            <div style={{ flex: 1 }}>
+              <h2 className="fq-set-title">Accent theme</h2>
+              <p className="fq-set-desc">Pick the signal colour that tints controls, highlights and lyrics — one of the rainbow hues.</p>
+            </div>
+            <span className="fq-chip fq-chip-accent">{getThemePreset(themeId).name}</span>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {THEME_PRESETS.map(t => {
+              const active = t.id === themeId;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => pickTheme(t.id)}
+                  title={t.name}
+                  aria-label={`${t.name} accent`}
+                  aria-pressed={active}
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: t.accent,
+                    border: active ? '2px solid #fff' : '2px solid rgba(255,255,255,0.12)',
+                    boxShadow: active ? `0 0 0 3px rgba(${t.rgb}, 0.35), 0 6px 16px rgba(${t.rgb}, 0.3)` : 'none',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer',
+                    transition: 'transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast)',
+                    transform: active ? 'scale(1.05)' : 'none',
+                  }}
+                >
+                  {active && <Check size={16} strokeWidth={3} color={t.ink} />}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         {/* Region */}

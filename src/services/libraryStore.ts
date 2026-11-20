@@ -304,6 +304,7 @@ export class LibraryStore {
       createdAt: Date.now(),
       tracks: [],
       artworkUrl: null,
+      coverUrl: null,
     };
     this.userPlaylists.unshift(newPlaylist);
     this.persist();
@@ -326,6 +327,15 @@ export class LibraryStore {
       this.persist();
       this.notify();
     }
+  }
+
+  /** Set or clear a user-uploaded playlist cover. Pass null to fall back to track artwork. */
+  public setPlaylistCover(playlistId: string, coverUrl: string | null) {
+    const pl = this.userPlaylists.find(p => p.id === playlistId);
+    if (!pl) return;
+    pl.coverUrl = coverUrl || null;
+    this.persist();
+    this.notify();
   }
 
   public addTrackToPlaylist(playlistId: string, track: MediaTrack) {

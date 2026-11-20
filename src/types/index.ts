@@ -30,6 +30,8 @@ export interface UserPlaylist {
   createdAt: number;
   tracks: MediaTrack[];
   artworkUrl?: string | null;
+  /** User-uploaded cover (compressed data URL). Takes priority over artworkUrl. */
+  coverUrl?: string | null;
 }
 
 export interface SmartMix {

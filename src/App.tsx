@@ -1728,9 +1728,6 @@ export const App: React.FC = () => {
             <GlobalSearch
               onSearchSubmit={q => handleNavigate('search', q)}
               onPlayTrack={handlePlayTrack}
-              onOpenParty={() => handleNavigate('party')}
-              isInParty={isInParty}
-              partyMembersCount={partyMembersCount}
             />
           )}
 
@@ -1819,7 +1816,12 @@ export const App: React.FC = () => {
                   key={pl.id}
                   title={pl.title}
                   description={pl.description}
-                  artworkUrl={pl.artworkUrl}
+                  artworkUrl={pl.coverUrl || pl.artworkUrl}
+                  hasCustomCover={!!pl.coverUrl}
+                  onChangeCover={dataUrl => {
+                    libraryStore.setPlaylistCover(pl.id, dataUrl);
+                    pushToast(dataUrl ? 'Playlist cover updated' : 'Cover removed', 'info');
+                  }}
                   tracks={pl.tracks}
                   onBack={() => handleNavigate('library')}
                   onTrackContextMenu={(e, track) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, track }); }} onPlayTrack={handlePlayTrack}

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Notification, session } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -10,9 +10,19 @@ import { discordRpcManager, DiscordActivityPayload } from './discordRpc';
 const execFileAsync = promisify(execFile);
 
 const logFile = path.join(__dirname, '../freq-debug.log');
+const MAX_LOG_BYTES = 5 * 1024 * 1024;
+let logWriteCount = 0;
 function log(...args: any[]) {
   const msg = `[${new Date().toISOString()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}\n`;
   try { fs.appendFileSync(logFile, msg); } catch {}
+  // Keep the debug log bounded — renderer console forwarding can otherwise
+  // grow this file without limit over a long session.
+  logWriteCount += 1;
+  if (logWriteCount % 200 === 0) {
+    try {
+      if (fs.statSync(logFile).size > MAX_LOG_BYTES) fs.writeFileSync(logFile, '');
+    } catch {}
+  }
   console.log(...args);
 }
 
@@ -20,6 +30,25 @@ process.on('uncaughtException', err => log('Uncaught Exception:', err));
 process.on('unhandledRejection', err => log('Unhandled Rejection:', err));
 
 let mainWindow: BrowserWindow | null = null;
+
+// Only ever hand http(s) URLs to the OS browser. Anything else (file:, ms-msdt:,
+// javascript:, custom protocol handlers) is treated as hostile.
+function isSafeExternalUrl(raw: string): boolean {
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function openExternalSafe(raw: string) {
+  if (!isSafeExternalUrl(raw)) {
+    log('Blocked unsafe external URL:', raw);
+    return;
+  }
+  void shell.openExternal(raw);
+}
 
 // "Pin window on top" intent. The actual topmost flag is derived from this and
 // from the window state: a pinned window is a small floating player, so it is
@@ -135,7 +164,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false, // Keep running at full speed even when unfocused or behind another window
-      webSecurity: false, // Allow streaming audio & loading remote thumbnails seamlessly
+      // Keep the renderer sandboxed: same-origin/CORS enforcement stays on.
+      // Remote thumbnails and audio do not need it disabled.
+      webSecurity: true,
     },
     show: true,
   });
@@ -205,10 +236,20 @@ function createWindow() {
     mainWindow.webContents.send('window-restored');
   });
 
-// External links open in default OS browser
+  // External links open in the default OS browser; never spawn an in-app window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openExternalSafe(url);
     return { action: 'deny' };
+  });
+
+  // The app is a single-page shell. Any attempt to navigate the top frame away
+  // from the app itself is treated as an external link.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const devUrl = process.env.VITE_DEV_SERVER_URL;
+    const internal = url.startsWith('file://') || (!!devUrl && url.startsWith(devUrl));
+    if (internal) return;
+    event.preventDefault();
+    openExternalSafe(url);
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -409,7 +450,7 @@ ipcMain.handle('download-update', async () => {
 
   // Fallback: open the GitHub release download in browser
   const releaseUrl = cachedLatestRelease?.html_url || ('https://github.com/' + UPDATER_OWNER + '/' + UPDATER_REPO + '/releases/latest');
-  shell.openExternal(releaseUrl);
+  openExternalSafe(releaseUrl);
   sendUpdaterEvent({ type: 'update-downloaded', info: { version: cachedLatestRelease?.tag_name || 'latest' } });
 });
 
@@ -444,6 +485,25 @@ autoUpdater.on('update-downloaded', (info) => {
 
 app.whenReady().then(() => {
   log('app.whenReady fired');
+
+  // The renderer only needs microphone-class permission to expose audio-output
+  // device names (and speaker selection for setSinkId). Camera/video and every
+  // other permission stay denied.
+  const ses = session.defaultSession;
+  ses.setPermissionRequestHandler((_wc, permission, callback, details: any) => {
+    if (permission === 'media') {
+      const types: string[] = Array.isArray(details?.mediaTypes) ? details.mediaTypes : [];
+      const wantsVideo = types.some(t => t === 'video' || t === 'camera');
+      callback(!wantsVideo);
+      return;
+    }
+    callback(permission === 'speaker-selection');
+  });
+  ses.setPermissionCheckHandler((_wc, permission, _origin, details: any) => {
+    if (permission === 'media') return details?.mediaType !== 'video';
+    return permission === 'speaker-selection';
+  });
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -505,7 +565,7 @@ ipcMain.handle('set-always-on-top', (_event, on: boolean) => {
 
 // yt-dlp Audio Stream Resolution IPC
 ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
-  if (!videoId || typeof videoId !== 'string') {
+  if (!videoId || typeof videoId !== 'string' || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
     throw new Error('Valid videoId is required');
   }
 
@@ -664,8 +724,14 @@ ipcMain.handle('delete-downloaded-file', async (_event, filePath: string) => {
 });
 
 ipcMain.handle('file-exists', async (_event, filePath: string) => {
+  if (typeof filePath !== 'string' || !filePath) return false;
+  // Only answer existence questions about files inside the downloads folder;
+  // the renderer has no legitimate reason to probe the rest of the disk.
+  const dir = path.resolve(downloadsDir());
+  const resolved = path.resolve(filePath);
+  if (resolved !== dir && !resolved.startsWith(dir + path.sep)) return false;
   try {
-    return typeof filePath === 'string' && filePath.length > 0 && fs.existsSync(filePath);
+    return fs.existsSync(resolved);
   } catch {
     return false;
   }
@@ -683,6 +749,7 @@ ipcMain.handle('import-playlist-link', async (_event, url: string) => {
     if (!okHost) throw new Error('not a YouTube URL');
     listId = u.searchParams.get('list') || '';
     if (!listId) throw new Error('no playlist id in URL');
+    if (!/^[A-Za-z0-9_-]{10,64}$/.test(listId)) throw new Error('no playlist id in URL');
   } catch (e: any) {
     throw new Error(e?.message === 'not a YouTube URL' || e?.message === 'no playlist id in URL' ? e.message : 'Invalid playlist URL');
   }
@@ -734,7 +801,13 @@ ipcMain.handle('get-library-data', async () => {
 ipcMain.handle('save-library-data', async (_event, payload: any) => {
   const filePath = getLibraryFilePath();
   try {
-    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+    const json = JSON.stringify(payload, null, 2);
+    if (typeof json !== 'string') return { success: false, error: 'Library payload is not serialisable' };
+    // Guard against a runaway/compromised renderer filling the disk.
+    if (json.length > 64 * 1024 * 1024) {
+      return { success: false, error: 'Library data exceeds the 64 MB limit' };
+    }
+    fs.writeFileSync(filePath, json, 'utf-8');
     return { success: true };
   } catch (e: any) {
     console.error('Failed to save library file:', e);

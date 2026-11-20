@@ -22,6 +22,8 @@ const LEVEL_TARGET_DB = -20;
 const LEVEL_MIN_GAIN = 0.25;
 const LEVEL_MAX_GAIN = 4;
 
+const OUTPUT_DEVICE_KEY = 'freq_output_device';
+
 class AudioEngine {
   private audio: HTMLAudioElement;
   private audioCtx: AudioContext | null = null;
@@ -66,6 +68,7 @@ class AudioEngine {
   private currentTrack: MediaTrack | null = null;
   private audioMode: AudioMode = 'SNR';
   private volume: number = 0.85;
+  private outputDeviceId: string = 'default';
   // Custom flavor parameters (tunable from Settings, persisted in library)
   private snrRate: number = 0.8;
   private snrReverb: number = 0.55;
@@ -146,7 +149,14 @@ class AudioEngine {
     this.audio.volume = this.volume;
     this.audio.preservesPitch = true;
 
+    try {
+      this.outputDeviceId = localStorage.getItem(OUTPUT_DEVICE_KEY) || 'default';
+    } catch {}
+
     this.setupAudioListeners();
+    // Best-effort early sink apply for the element; the AudioContext path is
+    // re-applied once the graph exists (see initAudioGraph).
+    void this.applyOutputDevice();
   }
 
   private initAudioGraph() {
@@ -339,6 +349,7 @@ class AudioEngine {
       this.audio.volume = 1;
       this.applyVolume();
       this.isAudioGraphReady = true;
+      void this.applyOutputDevice();
     } catch (e) {
       console.warn('Web Audio DSP graph initialization fallback:', e);
     }
@@ -537,6 +548,55 @@ class AudioEngine {
 
   public getVolume(): number {
     return this.volume;
+  }
+
+  // --- Audio output routing ---
+
+  /** Enumerate physical/virtual audio outputs (labels depend on permission). */
+  public async listOutputDevices(): Promise<MediaDeviceInfo[]> {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter(d => d.kind === 'audiooutput');
+    } catch {
+      return [];
+    }
+  }
+
+  public getOutputDeviceId(): string {
+    return this.outputDeviceId;
+  }
+
+  /**
+   * Route playback to a specific output. Prefers AudioContext.setSinkId (the
+   * active path once the Web Audio graph is live) with the media element as a
+   * fallback. Returns false when the runtime has no sink-selection support.
+   */
+  public async setOutputDevice(deviceId: string): Promise<boolean> {
+    this.outputDeviceId = deviceId || 'default';
+    try {
+      localStorage.setItem(OUTPUT_DEVICE_KEY, this.outputDeviceId);
+    } catch {}
+    return this.applyOutputDevice();
+  }
+
+  private async applyOutputDevice(): Promise<boolean> {
+    let applied = false;
+    const targets: any[] = [];
+    if (this.audioCtx) targets.push(this.audioCtx);
+    targets.push(this.audio);
+
+    for (const target of targets) {
+      if (typeof target?.setSinkId !== 'function') continue;
+      try {
+        await target.setSinkId(this.outputDeviceId);
+        applied = true;
+      } catch {
+        // Device disappeared or the runtime rejected the id — keep the active
+        // output and let the next enumeration reconcile the list.
+      }
+    }
+    return applied;
   }
 
   public setAudioMode(mode: AudioMode) {

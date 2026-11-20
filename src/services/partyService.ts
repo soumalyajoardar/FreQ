@@ -49,13 +49,13 @@ const PRIMARY_BROKER = 'wss://broker.emqx.io:8084/mqtt';
 const FALLBACK_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
 
 const AVATAR_COLORS = [
-  '#a855f7', // FreQ violet
+  'var(--accent-cyan)', // Active accent theme
   '#00d2ff', // Electric cyan
-  '#a855f7', // Purple
+  '#8b5cf6', // Purple
   '#ec4899', // Pink
   '#f59e0b', // Amber
   '#3b82f6', // Royal blue
-  '#6366f1', // Emerald
+  '#6366f1', // Indigo
 ];
 
 function getRandomColor(): string {

@@ -333,9 +333,10 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           <button
             onClick={handleToggleQuality}
             className="fq-chip fq-hide-md"
-            title={isQhd
-              ? 'QHD 4D — HD clarity and 3D spatializer boosted to 100% (Click for HD 3D)'
-              : 'HD 3D — untouched signal, clarity and spatializer at 0% (Click for QHD 4D)'}
+            title={
+              isQhd
+                ? 'QHD 4D — fully enhanced preset, clarity and spatializer at 100% (Click for HD 3D)'
+                : 'HD 3D — untouched signal, clarity and spatializer at 0% (Click for QHD 4D)'}
             style={{
               height: '24px',
               fontSize: '8.5px',
@@ -350,7 +351,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 : isPlaying
                   ? 'textBlinkGreen 1s steps(1, end) infinite'
                   : 'none',
-              color: isQhd ? '#f87171' : isPlaying ? '#a855f7' : 'var(--text-muted)',
+              color: isQhd ? '#f87171' : isPlaying ? 'var(--accent-cyan)' : 'var(--text-muted)',
               textShadow: isQhd
                 ? '0 0 8px rgba(248, 113, 113, 0.9), 0 0 16px rgba(248, 113, 113, 0.45)'
                 : isPlaying

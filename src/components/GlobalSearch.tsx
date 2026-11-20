@@ -1,16 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ArrowRight, Play, User, Sparkles, Radio } from 'lucide-react';
+import { Search, ArrowRight, Play, User, Sparkles, Headphones, ChevronDown, Check } from 'lucide-react';
 import { MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
+import { audioEngine } from '../services/audioEngine';
 import { SquareArt } from './SquareArt';
 import { useExitTransition } from './useExitTransition';
 
 interface GlobalSearchProps {
   onSearchSubmit: (query: string) => void;
   onPlayTrack: (track: MediaTrack) => void;
-  onOpenParty?: () => void;
-  isInParty?: boolean;
-  partyMembersCount?: number;
   placeholder?: string;
 }
 
@@ -19,16 +17,60 @@ interface GlobalSearchProps {
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   onSearchSubmit,
   onPlayTrack,
-  onOpenParty,
-  isInParty = false,
-  partyMembersCount = 0,
   placeholder = 'Search songs, artists, albums…',
 }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<MediaTrack[]>([]);
+  const [outputOpen, setOutputOpen] = useState(false);
+  const [outputDevices, setOutputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [outputId, setOutputId] = useState(() => audioEngine.getOutputDeviceId());
   const inputRef = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  const refreshOutputs = async () => {
+    setOutputDevices(await audioEngine.listOutputDevices());
+  };
+
+  useEffect(() => {
+    void refreshOutputs();
+    const media = navigator.mediaDevices;
+    if (!media?.addEventListener) return;
+    const onChange = () => void refreshOutputs();
+    media.addEventListener('devicechange', onChange);
+    return () => media.removeEventListener('devicechange', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!outputOpen) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (outputRef.current && !outputRef.current.contains(e.target as Node)) {
+        setOutputOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, [outputOpen]);
+
+  // "Default - Headphones (Realtek(R) Audio)" → "Headphones".
+  const cleanDeviceLabel = (label: string) =>
+    label
+      .replace(/^(Default|Communications)\s*-\s*/i, '')
+      .replace(/\s*\(.*\)\s*$/, '')
+      .trim();
+
+  const outputLabel = (device: MediaDeviceInfo, index: number) => {
+    const cleaned = cleanDeviceLabel(device.label || '');
+    if (cleaned) return cleaned;
+    return device.deviceId === 'default' ? 'System default' : `Output ${index + 1}`;
+  };
+
+  const currentOutputLabel = (() => {
+    const device = outputDevices.find(d => d.deviceId === outputId);
+    if (device) return outputLabel(device, outputDevices.indexOf(device));
+    return outputId === 'default' ? 'System default' : 'Output device';
+  })();
 
   const anim = useExitTransition(open && query.trim().length >= 2, 160);
 
@@ -230,18 +272,62 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
           <span>to search</span>
         </span>
         <span className="fq-topbar-div" />
-        {onOpenParty && (
+
+        <div className="fq-topbar-output" ref={outputRef}>
           <button
             type="button"
-            onClick={onOpenParty}
-            className={`fq-topbar-party${isInParty ? ' is-live' : ''}`}
-            title={isInParty ? `Party active — ${partyMembersCount}/5 listeners` : 'Listen together'}
+            onClick={() => {
+              setOutputOpen(prev => !prev);
+              if (!outputOpen) void refreshOutputs();
+            }}
+            className={`fq-topbar-party${outputOpen ? ' is-open' : ''}`}
+            title={`Audio output — ${currentOutputLabel}`}
+            aria-haspopup="menu"
+            aria-expanded={outputOpen}
           >
-            <Radio size={14} />
-            <span>{isInParty ? `Party ${partyMembersCount}/5` : 'Listen together'}</span>
-            {isInParty && <span className="fq-live-dot" />}
+            <Headphones size={14} />
+            <span>{currentOutputLabel}</span>
+            <ChevronDown
+              size={12}
+              style={{
+                opacity: 0.7,
+                transform: outputOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform var(--transition-fast)',
+              }}
+            />
           </button>
-        )}
+
+          {outputOpen && (
+            <div className="fq-output-menu" role="menu">
+              <span className="fq-output-menu-head">Playback device</span>
+              {outputDevices.length === 0 && (
+                <span className="fq-output-empty">No audio outputs found. Connect a device and reopen.</span>
+              )}
+              {outputDevices.map((device, index) => {
+                const active = device.deviceId === outputId;
+                return (
+                  <button
+                    key={device.deviceId || `out-${index}`}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={active}
+                    className={`fq-output-item${active ? ' is-active' : ''}`}
+                    onClick={async () => {
+                      setOutputId(device.deviceId);
+                      await audioEngine.setOutputDevice(device.deviceId);
+                      setOutputOpen(false);
+                    }}
+                  >
+                    <Headphones size={13} style={{ opacity: 0.7 }} />
+                    <span>{outputLabel(device, index)}</span>
+                    {active && <Check size={13} color="var(--accent-cyan)" />}
+                  </button>
+                );
+              })}
+              <span className="fq-output-note">Switches playback instantly between speakers, headphones and virtual devices.</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
