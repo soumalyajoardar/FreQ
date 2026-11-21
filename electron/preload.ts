@@ -24,12 +24,19 @@ export interface ElectronAPI {
   clearDiscordPresence: () => Promise<void>;
   setDiscordEnabled: (enabled: boolean) => Promise<void>;
   setDiscordClientId: (clientId: string) => Promise<void>;
-  getDiscordStatus: () => Promise<{ isConnected: boolean; isEnabled: boolean; clientId: string }>;
+  getDiscordStatus: () => Promise<{
+    isConnected: boolean;
+    isEnabled: boolean;
+    clientId: string;
+    joinableParty: { code: string; privacy: 'public' | 'private' } | null;
+  }>;
   onDiscordJoinParty: (callback: (partyCode: string) => void) => () => void;
   onNavigateToView: (callback: (view: string) => void) => () => void;
   checkForUpdates: () => Promise<void>;
   downloadUpdate: () => Promise<void>;
   installUpdate: () => Promise<void>;
+  getUpdateCacheInfo: () => Promise<{ files: number; bytes: number }>;
+  clearUpdateCache: () => Promise<{ files: number; bytes: number; skipped?: boolean }>;
   onUpdaterEvent: (callback: (data: any) => void) => () => void;
 }
 
@@ -87,6 +94,8 @@ const api: ElectronAPI = {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  getUpdateCacheInfo: () => ipcRenderer.invoke('update-cache-info'),
+  clearUpdateCache: () => ipcRenderer.invoke('update-cache-clear'),
   onUpdaterEvent: (callback: (data: any) => void) => {
     const subscription = (_event: any, data: any) => callback(data);
     ipcRenderer.on('updater-event', subscription);

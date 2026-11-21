@@ -300,6 +300,10 @@ function isNewerVersion(latest: string, current: string): boolean {
 
 let cachedLatestRelease: any = null;
 
+// True while electron-updater is writing into its installer cache, so the
+// cleanup below never deletes a download that is still in progress.
+let updateDownloadInFlight = false;
+
 async function checkGitHubReleasesDirectly(): Promise<boolean> {
   try {
     const res = await fetch(`https://api.github.com/repos/${UPDATER_OWNER}/${UPDATER_REPO}/releases/latest`, {
@@ -441,10 +445,13 @@ ipcMain.handle('download-update', async () => {
   log('download-update triggered');
   try {
     if (app.isPackaged) {
+      updateDownloadInFlight = true;
       await autoUpdater.downloadUpdate();
+      updateDownloadInFlight = false;
       return;
     }
   } catch (err) {
+    updateDownloadInFlight = false;
     log('autoUpdater.downloadUpdate failed, opening release in browser:', err);
   }
 
@@ -463,6 +470,88 @@ ipcMain.handle('install-update', () => {
   }
 });
 
+// --- Update installer hygiene ------------------------------------------------
+// electron-updater keeps the downloaded NSIS installer around so a failed
+// install can be retried. Once the new version is actually running that copy is
+// dead weight — roughly 110 MB per update left behind in
+// %LOCALAPPDATA%\<app>-updater\pending. Clear it on startup and on demand.
+const INSTALLER_CACHE_EXT = /\.(exe|blockmap|7z|zip)$/i;
+
+function updaterCacheRoots(): string[] {
+  const roots = new Set<string>();
+  const bases = [process.env.LOCALAPPDATA, process.env.APPDATA, path.dirname(app.getPath('userData'))];
+  const names = new Set<string>([app.getName(), 'freq-desktop', 'FreQ']);
+  for (const base of bases) {
+    if (!base) continue;
+    for (const name of names) roots.add(path.join(base, `${name}-updater`));
+  }
+  return [...roots];
+}
+
+function walkFiles(dir: string, depth = 0): string[] {
+  if (depth > 4) return [];
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...walkFiles(full, depth + 1));
+    else if (entry.isFile()) found.push(full);
+  }
+  return found;
+}
+
+function measureUpdaterCache(): { files: number; bytes: number } {
+  let files = 0;
+  let bytes = 0;
+  for (const root of updaterCacheRoots()) {
+    for (const file of walkFiles(root)) {
+      if (!INSTALLER_CACHE_EXT.test(file)) continue;
+      try {
+        const stat = fs.statSync(file);
+        files += 1;
+        bytes += stat.size;
+      } catch {}
+    }
+  }
+  return { files, bytes };
+}
+
+function clearUpdaterCache(): { files: number; bytes: number } {
+  let files = 0;
+  let bytes = 0;
+  const runningExe = path.resolve(process.execPath).toLowerCase();
+  for (const root of updaterCacheRoots()) {
+    for (const file of walkFiles(root)) {
+      if (!INSTALLER_CACHE_EXT.test(file)) continue;
+      // Never touch the executable that is currently running.
+      if (path.resolve(file).toLowerCase() === runningExe) continue;
+      try {
+        const stat = fs.statSync(file);
+        fs.unlinkSync(file);
+        files += 1;
+        bytes += stat.size;
+      } catch {}
+    }
+  }
+  return { files, bytes };
+}
+
+ipcMain.handle('update-cache-info', () => measureUpdaterCache());
+
+ipcMain.handle('update-cache-clear', () => {
+  if (updateDownloadInFlight) return { files: 0, bytes: 0, skipped: true };
+  const freed = clearUpdaterCache();
+  if (freed.files > 0) {
+    log(`Cleared ${freed.files} update installer file(s), ${(freed.bytes / 1048576).toFixed(1)} MB freed`);
+  }
+  return { ...freed, skipped: false };
+});
+
 autoUpdater.on('checking-for-update', () => {
   sendUpdaterEvent({ type: 'checking-for-update' });
 });
@@ -474,12 +563,14 @@ autoUpdater.on('update-not-available', (info) => {
   sendUpdaterEvent({ type: 'update-not-available', info });
 });
 autoUpdater.on('error', (err) => {
+  updateDownloadInFlight = false;
   reportUpdaterError(err);
 });
 autoUpdater.on('download-progress', (progressObj) => {
   sendUpdaterEvent({ type: 'download-progress', progress: progressObj.percent });
 });
 autoUpdater.on('update-downloaded', (info) => {
+  updateDownloadInFlight = false;
   sendUpdaterEvent({ type: 'update-downloaded', info });
 });
 
@@ -510,6 +601,20 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
+  // We are running, so any leftover installer in the updater cache has already
+  // been applied (or abandoned). Sweep it a few seconds after launch so a
+  // pending install hand-off can release its file handles first.
+  setTimeout(() => {
+    if (updateDownloadInFlight) return;
+    const freed = clearUpdaterCache();
+    if (freed.files > 0) {
+      log(
+        `Cleared ${freed.files} applied update installer file(s) — ` +
+          `${(freed.bytes / 1048576).toFixed(1)} MB freed`
+      );
+    }
+  }, 8000);
 });
 
 app.on('window-all-closed', () => {

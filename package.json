@@ -11,8 +11,9 @@
     "start": "electron .",
     "electron": "electron .",
     "freq": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win",
-    "dist:dir": "npm run build && electron-builder --win --dir"
+    "dist": "npm run build && electron-builder --win && npm run clean:release",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "clean:release": "node scripts/clean-release.mjs"
   },
   "keywords": [
     "music",

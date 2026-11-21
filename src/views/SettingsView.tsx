@@ -9,6 +9,18 @@ import freqIcon from '../assets/freq-icon.png';
 import { FlatScrubber } from '../components/FlatScrubber';
 import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
 
+const formatCacheBytes = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
+};
+
 const FlavorSlider: React.FC<{
   label: string;
   valueLabel: string;
@@ -111,10 +123,40 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   const [shortcuts, setShortcuts] = React.useState(() => libraryStore.getShortcuts());
   const [recording, setRecording] = React.useState<ShortcutAction | null>(null);
   const [themeId, setThemeId] = React.useState(() => getThemeId());
+  const [cacheInfo, setCacheInfo] = React.useState<{ files: number; bytes: number } | null>(null);
+  const [cacheClearing, setCacheClearing] = React.useState(false);
 
   const pickTheme = (id: string) => {
     applyTheme(id);
     setThemeId(id);
+  };
+
+  // Installer files left behind by the updater. FreQ sweeps them on startup;
+  // this row reports the result and lets the user reclaim space immediately.
+  const refreshCacheInfo = () => {
+    const api = window.electronAPI;
+    if (!api?.getUpdateCacheInfo) {
+      setCacheInfo(null);
+      return;
+    }
+    api.getUpdateCacheInfo().then(setCacheInfo).catch(() => setCacheInfo(null));
+  };
+
+  React.useEffect(() => {
+    refreshCacheInfo();
+  }, []);
+
+  const handleClearCache = async () => {
+    const api = window.electronAPI;
+    if (!api?.clearUpdateCache) return;
+    setCacheClearing(true);
+    try {
+      await api.clearUpdateCache();
+    } catch {
+      // A locked file simply gets retried on the next launch.
+    }
+    setCacheClearing(false);
+    refreshCacheInfo();
   };
 
   // The HD 3D / QHD 4D chip lives in the player bar and rewrites both sliders,
@@ -216,6 +258,39 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
               <div style={{ height: '100%', width: `${updateProgress || 0}%`, background: 'var(--accent-cyan)', transition: 'width 0.25s ease' }} />
             </div>
           )}
+
+          {/* Installer cache — swept automatically once an update is applied. */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              paddingTop: '12px',
+              borderTop: '1px solid var(--line)',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Downloaded installers
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                {cacheInfo === null
+                  ? 'Checking…'
+                  : cacheInfo.files > 0
+                    ? `${formatCacheBytes(cacheInfo.bytes)} left over — removed automatically after an update finishes.`
+                    : 'Nothing left behind. FreQ deletes installers once they are applied.'}
+              </span>
+            </div>
+            <button
+              className="fq-btn"
+              onClick={handleClearCache}
+              disabled={cacheClearing || !cacheInfo || cacheInfo.files === 0}
+              style={{ flexShrink: 0 }}
+            >
+              {cacheClearing ? 'Clearing…' : 'Clear'}
+            </button>
+          </div>
         </section>
 
         {/* Audio flavors */}
@@ -540,7 +615,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 FreQ Desktop
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.3'} (Stable)</span>
+                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.5.0'} (Stable)</span>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
                   Made by GRESSEY &amp; OPENCODE. All rights reserved.
                 </span>

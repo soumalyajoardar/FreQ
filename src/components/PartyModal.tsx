@@ -129,8 +129,8 @@ export const PartyModal: React.FC<PartyModalProps> = ({
 
   const handlePrivacyChange = (next: PartyPrivacy) => {
     if (!isHost) return;
-    partyService.setPrivacy(next);
-    setPrivacy(next);
+    // Only mirror the choice when the room actually accepted it.
+    if (partyService.setPrivacy(next)) setPrivacy(next);
   };
 
   const handleKick = (id: string) => {

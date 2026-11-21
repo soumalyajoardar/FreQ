@@ -203,6 +203,11 @@ class DiscordRpcManager {
       isConnected: this.isConnected,
       isEnabled: this.isEnabled,
       clientId: this.clientId,
+      // Whether a join secret is currently published, and for which room.
+      // Surfaced in the Party view so hosts can confirm Discord sees the invite.
+      joinableParty: this.joinableParty
+        ? { code: this.joinableParty.code, privacy: this.joinableParty.privacy }
+        : null,
     };
   }
 
@@ -385,7 +390,9 @@ class DiscordRpcManager {
           (privacy === 'public' ? ' (joinable from Discord)' : ' (code only)')
       );
     }
-    const seq = this.activitySeq;
+    // Supersede any older queued write, exactly like applyActivity does —
+    // otherwise a stale presence can land after this one.
+    const seq = ++this.activitySeq;
     return this.enqueueWrite(async () => {
       if (seq !== this.activitySeq) return;
       if (!this.client || !this.client.user || !this.isConnected || !this.isEnabled) return;
@@ -393,9 +400,13 @@ class DiscordRpcManager {
         const partySize = party.size || 1;
         const partyMax = party.max || 5;
         await this.client.user.setActivity({
-          type: 2, // 2 = LISTENING ("Listening to FreQ")
+          // Discord renders the Join / "Ask to Join" affordance for Playing
+          // sessions. A Listening (2) activity shows the same text but never
+          // exposes the invite action, so a public party is published as a
+          // joinable Playing session instead.
+          type: privacy === 'public' ? 0 : 2,
           details: `In a party : ${partySize}/${partyMax}`,
-          state: 'Waiting for song to start',
+          state: privacy === 'public' ? 'Waiting for song to start · joinable' : 'Waiting for song to start',
           largeImageKey: 'freq_logo',
           largeImageText: `FreQ Party #${party.code}`,
           smallImageKey: 'freq_logo',
@@ -506,7 +517,9 @@ class DiscordRpcManager {
           const endTimestamp = Math.floor(startTimestamp + duration * 1000);
 
           await this.client.user.setActivity({
-            type: 2, // 2 = LISTENING ("Listening to FreQ")
+            // Public parties are published as Playing sessions so Discord
+            // exposes the Join button; solo listening stays a Listening card.
+            type: inParty && partyPrivacy === 'public' ? 0 : 2,
             details, // Line 1: Heading ("In a party : X/5" or song title)
             state, // Line 2: Song title (or artist if solo)
             startTimestamp, // Timeline start
@@ -519,7 +532,7 @@ class DiscordRpcManager {
           });
         } else {
           await this.client.user.setActivity({
-            type: 2,
+            type: inParty && partyPrivacy === 'public' ? 0 : 2,
             details,
             state,
             largeImageKey: track.artworkUrl || undefined,

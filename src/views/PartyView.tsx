@@ -52,6 +52,34 @@ export const PartyView: React.FC<PartyViewProps> = ({
   const [privacy, setPrivacy] = useState<PartyPrivacy>(() => partyService.getPrivacy());
   const [recentParties, setRecentParties] = useState<RecentParty[]>(() => partyService.getRecentParties());
   const [recentReactions, setRecentReactions] = useState<PartyReaction[]>([]);
+  const [discord, setDiscord] = useState<{
+    isConnected: boolean;
+    joinableParty: { code: string; privacy: PartyPrivacy } | null;
+  } | null>(null);
+
+  // Discord shows the "Join" action only while a join secret is published, so
+  // surface that state instead of letting the host guess.
+  useEffect(() => {
+    let cancelled = false;
+    const api = window.electronAPI;
+    if (!api?.getDiscordStatus) return;
+    const sync = () => {
+      api
+        .getDiscordStatus()
+        .then(status => {
+          if (!cancelled) setDiscord(status);
+        })
+        .catch(() => {
+          if (!cancelled) setDiscord(null);
+        });
+    };
+    sync();
+    const timer = window.setInterval(sync, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [privacy, partyCode, isInParty]);
 
   useEffect(() => {
     const unsubState = partyService.subscribe(() => {
@@ -130,9 +158,16 @@ export const PartyView: React.FC<PartyViewProps> = ({
 
   const handlePrivacyChange = (next: PartyPrivacy) => {
     if (!isHost) return;
-    partyService.setPrivacy(next);
-    setPrivacy(next);
+    // Only mirror the choice when the room actually accepted it.
+    if (partyService.setPrivacy(next)) setPrivacy(next);
+    else setErrorMsg('Connect to the party network before changing party status.');
   };
+
+  const discordInviteLive =
+    !!discord?.joinableParty &&
+    !!partyCode &&
+    discord.joinableParty.code === partyCode &&
+    discord.joinableParty.privacy === 'public';
 
   const handleKick = (memberId: string) => {
     partyService.kickMember(memberId);
@@ -345,6 +380,22 @@ export const PartyView: React.FC<PartyViewProps> = ({
                     ? 'Anyone can join from your Discord presence.'
                     : 'Joinable only with the 4-digit code.'}
                   {!isHost && ' (set by host)'}
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 3,
+                      fontWeight: 600,
+                      color: discordInviteLive ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {discordInviteLive
+                      ? 'Discord: Join button is live'
+                      : !discord?.isConnected
+                        ? 'Discord: not connected'
+                        : privacy === 'public'
+                          ? 'Discord: publishing invite…'
+                          : 'Discord: invite stays private'}
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

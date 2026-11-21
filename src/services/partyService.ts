@@ -122,9 +122,11 @@ export class PartyService {
   }
 
   // Host-only. Guests follow the host through JOIN_ACCEPTED / PRIVACY_UPDATE.
-  public setPrivacy(privacy: PartyPrivacy) {
-    if (!this.isHost || this.status !== 'connected' || !this.partyCode) return;
-    if (this.privacy === privacy) return;
+  // Returns whether the change was actually applied so the UI never shows a
+  // state the room did not accept.
+  public setPrivacy(privacy: PartyPrivacy): boolean {
+    if (!this.isHost || this.status !== 'connected' || !this.partyCode) return false;
+    if (this.privacy === privacy) return true;
     this.privacy = privacy;
     try {
       localStorage.setItem('freq_party_privacy', privacy);
@@ -135,6 +137,7 @@ export class PartyService {
       senderId: this.myMemberId,
     });
     this.notifyState();
+    return true;
   }
 
   public getStatus(): PartyStatus {

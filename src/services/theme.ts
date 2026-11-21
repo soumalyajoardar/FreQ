@@ -10,6 +10,10 @@ export interface ThemePreset {
   ink: string;
 }
 
+const STORAGE_KEY = 'freq_accent_theme';
+
+export const DEFAULT_THEME_ID = 'violet';
+
 export const THEME_PRESETS: ThemePreset[] = [
   { id: 'red', name: 'Red', accent: '#ef4444', rgb: '239, 68, 68', ink: '#1a0505' },
   { id: 'orange', name: 'Orange', accent: '#f97316', rgb: '249, 115, 22', ink: '#1a0b02' },
@@ -19,15 +23,17 @@ export const THEME_PRESETS: ThemePreset[] = [
   { id: 'blue', name: 'Blue', accent: '#3b82f6', rgb: '59, 130, 246', ink: '#061229' },
   { id: 'indigo', name: 'Indigo', accent: '#6366f1', rgb: '99, 102, 241', ink: '#0a0825' },
   { id: 'violet', name: 'Violet', accent: '#a855f7', rgb: '168, 85, 247', ink: '#12041f' },
+  { id: 'white', name: 'White', accent: '#ffffff', rgb: '255, 255, 255', ink: '#0b0b0e' },
 ];
-
-const STORAGE_KEY = 'freq_accent_theme';
-const DEFAULT_THEME_ID = 'violet';
 
 export const THEME_EVENT = 'freq-accent-theme-change';
 
 export function getThemePreset(id: string): ThemePreset {
-  return THEME_PRESETS.find(t => t.id === id) || THEME_PRESETS[THEME_PRESETS.length - 1];
+  return (
+    THEME_PRESETS.find(t => t.id === id) ||
+    THEME_PRESETS.find(t => t.id === DEFAULT_THEME_ID) ||
+    THEME_PRESETS[0]
+  );
 }
 
 export function getThemeId(): string {

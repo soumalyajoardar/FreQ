@@ -32,10 +32,14 @@ import { playbackManager } from './services/playbackManager';
 import { isPlayableSource, sourceUrlOf } from './services/playbackSource';
 import { clampQueueIndex, cycleRepeatMode } from './services/playbackQueueLogic';
 import { ConfirmDialog, CreatePlaylistDialog, ToastItem, ToastStack } from './components/FreqDialogs';
+import { WhatsNewModal } from './components/WhatsNewModal';
 import { HomeLyricsRail } from './components/HomeLyricsRail';
+import { ChangelogEntry, getPendingReleaseNotes, markVersionSeen } from './data/changelog';
 
 import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
+
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.5.0';
 
 export const App: React.FC = () => {
   // Updater State
@@ -104,6 +108,37 @@ export const App: React.FC = () => {
 
     return cleanup;
   }, []);
+
+  // "What's new" — shown once per version, and only after a real update: the
+  // stored last-seen version has to differ from the build that is running.
+  const [whatsNewEntries, setWhatsNewEntries] = useState<ChangelogEntry[]>([]);
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState<boolean>(false);
+  const whatsNewTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const pending = getPendingReleaseNotes(APP_VERSION);
+    if (pending.length === 0) {
+      markVersionSeen(APP_VERSION);
+      return;
+    }
+    // Let the shell settle before interrupting with a dialog.
+    whatsNewTimerRef.current = window.setTimeout(() => {
+      whatsNewTimerRef.current = null;
+      setWhatsNewEntries(pending);
+      setIsWhatsNewOpen(true);
+    }, 1400);
+    return () => {
+      if (whatsNewTimerRef.current !== null) {
+        window.clearTimeout(whatsNewTimerRef.current);
+        whatsNewTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const closeWhatsNew = () => {
+    setIsWhatsNewOpen(false);
+    markVersionSeen(APP_VERSION);
+  };
 
   const updateVisible = updateAvailable && !updateIgnored;
 
@@ -2065,6 +2100,13 @@ export const App: React.FC = () => {
           if (track) libraryStore.addTrackToPlaylist(newPl.id, track);
           pushToast(`Playlist “${title}” created`, 'success');
         }}
+      />
+
+      {/* 6b. What's new after an update */}
+      <WhatsNewModal
+        isOpen={isWhatsNewOpen}
+        entries={whatsNewEntries}
+        onClose={closeWhatsNew}
       />
 
       {/* 7. Glass Create / Rename + Delete confirm + Toasts (replaces prompt/confirm/alert) */}
