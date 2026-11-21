@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, Activity, AlertTriangle, Terminal, Code2, RotateCcw } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, AlertTriangle, Terminal, Code2, RotateCcw, Lock, Unlock, Key } from 'lucide-react';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
 import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '../services/libraryStore';
@@ -8,7 +8,6 @@ import { THEME_PRESETS, applyTheme, getThemeId, getThemePreset } from '../servic
 import freqIcon from '../assets/freq-icon.png';
 import { FlatScrubber } from '../components/FlatScrubber';
 import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
-import { VtslModal } from '../components/VtslModal';
 
 const formatCacheBytes = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -117,21 +116,26 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   onTogglePrivate,
   onOpenWhatsNew,
 }) => {
-  const [isVtslOpen, setIsVtslOpen] = React.useState(false);
-  const [devMode, setDevMode] = React.useState<boolean>(() => {
-    try {
-      return localStorage.getItem('freq_dev_mode') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const DEV_PASSKEY = '2580';
+  const [devUnlocked, setDevUnlocked] = React.useState<boolean>(false);
+  const [passKeyInput, setPassKeyInput] = React.useState('');
+  const [passKeyError, setPassKeyError] = React.useState<string | null>(null);
 
-  const handleToggleDevMode = () => {
-    const next = !devMode;
-    setDevMode(next);
-    try {
-      localStorage.setItem('freq_dev_mode', String(next));
-    } catch {}
+  const handleUnlockDev = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (passKeyInput.trim() === DEV_PASSKEY) {
+      setDevUnlocked(true);
+      setPassKeyError(null);
+      setPassKeyInput('');
+    } else {
+      setPassKeyError('Incorrect pass key. Access denied.');
+    }
+  };
+
+  const handleLockDev = () => {
+    setDevUnlocked(false);
+    setPassKeyInput('');
+    setPassKeyError(null);
   };
 
   const [snrRate, setSnrRate] = React.useState(() => audioEngine.getSnrRate());
@@ -218,54 +222,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
       </header>
 
       <div className="fq-settings">
-        {/* VTSL Simulation Option on Top of Settings */}
-        <section
-          className="fq-set-section"
-          style={{
-            background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(236,72,153,0.06))',
-            borderColor: 'rgba(34,211,238,0.22)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          }}
-        >
-          <div className="fq-set-head">
-            <span
-              className="fq-set-icon"
-              style={{
-                color: 'var(--accent-cyan)',
-                borderColor: 'rgba(34,211,238,0.3)',
-                background: 'rgba(34,211,238,0.1)',
-                animation: 'freqSpin 8s linear infinite',
-              }}
-            >
-              <Activity size={16} />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h2 className="fq-set-title" style={{ color: '#fff', letterSpacing: '0.04em' }}>VTSL</h2>
-                <span className="fq-chip fq-chip-accent" style={{ fontSize: '10px', padding: '1px 6px' }}>
-                  High-Fi Simulation
-                </span>
-              </div>
-              <p className="fq-set-desc">
-                Virtual Temporal Spectral Lattice • Quantum dither, analog tube static &amp; harmonic light arrays.
-              </p>
-            </div>
-            <button
-              className="fq-btn fq-btn-primary"
-              onClick={() => setIsVtslOpen(true)}
-              style={{
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 650,
-                letterSpacing: '0.05em',
-                boxShadow: '0 0 12px rgba(34,211,238,0.35)',
-              }}
-            >
-              Launch VTSL
-            </button>
-          </div>
-        </section>
-
         {/* Update */}
         <section className={`fq-set-section${hasUpdate ? ' is-alert' : ''}`}>
           <div className="fq-set-head">
@@ -670,68 +626,141 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
         </section>
 
         {/* Developer Mode */}
-        <section
-          className="fq-set-section"
-          style={devMode ? { borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.03)' } : undefined}
-        >
-          <div className="fq-set-head">
-            <span
-              className="fq-set-icon"
-              style={devMode ? { color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.12)' } : undefined}
-            >
-              <Code2 size={16} />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 className="fq-set-title">Developer mode</h2>
-                {devMode && (
-                  <span className="fq-chip" style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)' }}>
-                    Active
-                  </span>
-                )}
-              </div>
-              <p className="fq-set-desc">Internal inspection tools, DevTools debugger, and runtime diagnostics.</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={devMode}
-              className="fq-switch-wrap"
-              onClick={handleToggleDevMode}
-              title="Toggle developer mode"
-            >
-              <span className="fq-switch" style={{ background: devMode ? '#ef4444' : 'rgba(255,255,255,0.14)' }}>
-                <i style={{ left: devMode ? '19px' : '2px', background: '#fff' }} />
+        {!devUnlocked ? (
+          <section className="fq-set-section">
+            <div className="fq-set-head">
+              <span className="fq-set-icon" style={{ color: 'var(--text-muted)' }}>
+                <Lock size={16} />
               </span>
-            </button>
-          </div>
-
-          {/* Explicit Developer Warning Banner */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '11px',
-              padding: '11px 14px',
-              borderRadius: '9px',
-              background: 'rgba(239, 68, 68, 0.09)',
-              border: '1px solid rgba(239, 68, 68, 0.28)',
-              color: '#fca5a5',
-              fontSize: '12px',
-              lineHeight: 1.55,
-            }}
-          >
-            <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
-            <div>
-              <strong style={{ color: '#fff', display: 'block', marginBottom: '2px' }}>
-                Warning: Use only if you are a developer!
-              </strong>
-              This section is intended solely for developers and debugging. Modifying developer options or inspecting internal states can cause unexpected behavior, break audio playback, or crash the app if used unknowingly.
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h2 className="fq-set-title">Developer mode</h2>
+                  <span className="fq-chip" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                    Locked
+                  </span>
+                </div>
+                <p className="fq-set-desc">Protected panel. Enter pass key to unlock developer tools and diagnostics.</p>
+              </div>
             </div>
-          </div>
 
-          {/* Dev Mode Controls */}
-          {devMode && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '11px',
+                padding: '11px 14px',
+                borderRadius: '9px',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: '#fca5a5',
+                fontSize: '12px',
+                lineHeight: 1.55,
+              }}
+            >
+              <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+              <div>
+                <strong style={{ color: '#fff', display: 'block', marginBottom: '2px' }}>
+                  Warning: Use only if you are a developer!
+                </strong>
+                This section is restricted to developers. Modifying developer options or inspecting internal states can cause unexpected behavior, break audio playback, or crash the application if used unknowingly.
+              </div>
+            </div>
+
+            <form onSubmit={handleUnlockDev} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', maxWidth: '320px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                    <Key size={13} />
+                  </span>
+                  <input
+                    type="password"
+                    value={passKeyInput}
+                    onChange={e => {
+                      setPassKeyInput(e.target.value);
+                      if (passKeyError) setPassKeyError(null);
+                    }}
+                    placeholder="Enter pass key…"
+                    maxLength={12}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px 8px 30px',
+                      borderRadius: '8px',
+                      border: passKeyError ? '1px solid #ef4444' : '1px solid var(--line-strong)',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: '#fff',
+                      fontSize: '12.5px',
+                      outline: 'none',
+                      letterSpacing: '0.1em',
+                    }}
+                  />
+                </div>
+                <button type="submit" className="fq-btn fq-btn-primary" style={{ padding: '8px 14px', fontSize: '12px' }}>
+                  <Unlock size={12} /> Unlock
+                </button>
+              </div>
+              {passKeyError && (
+                <span style={{ fontSize: '11.5px', color: '#ef4444', fontWeight: 550 }}>
+                  {passKeyError}
+                </span>
+              )}
+            </form>
+          </section>
+        ) : (
+          <section
+            className="fq-set-section"
+            style={{ borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.03)' }}
+          >
+            <div className="fq-set-head">
+              <span
+                className="fq-set-icon"
+                style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.12)' }}
+              >
+                <Code2 size={16} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h2 className="fq-set-title">Developer mode</h2>
+                  <span className="fq-chip" style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)' }}>
+                    Unlocked
+                  </span>
+                </div>
+                <p className="fq-set-desc">Authorized session active. Internal inspection tools, DevTools debugger &amp; diagnostics.</p>
+              </div>
+              <button
+                className="fq-btn fq-btn-ghost"
+                onClick={handleLockDev}
+                title="Lock Developer Mode"
+                style={{ fontSize: '11.5px', padding: '5px 10px' }}
+              >
+                <Lock size={12} /> Lock
+              </button>
+            </div>
+
+            {/* Explicit Developer Warning Banner */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '11px',
+                padding: '11px 14px',
+                borderRadius: '9px',
+                background: 'rgba(239, 68, 68, 0.09)',
+                border: '1px solid rgba(239, 68, 68, 0.28)',
+                color: '#fca5a5',
+                fontSize: '12px',
+                lineHeight: 1.55,
+              }}
+            >
+              <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+              <div>
+                <strong style={{ color: '#fff', display: 'block', marginBottom: '2px' }}>
+                  Warning: Use only if you are a developer!
+                </strong>
+                This section is intended solely for developers and debugging. Modifying developer options or inspecting internal states can cause unexpected behavior, break audio playback, or crash the app if used unknowingly.
+              </div>
+            </div>
+
+            {/* Dev Mode Controls */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <span className="fq-chip">Electron {window.electronAPI ? 'Desktop Shell' : 'Browser Web'}</span>
@@ -804,8 +833,8 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* About */}
         <section className="fq-set-section">
@@ -853,8 +882,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           </p>
         </section>
       </div>
-
-      <VtslModal isOpen={isVtslOpen} onClose={() => setIsVtslOpen(false)} />
     </div>
   );
 };
