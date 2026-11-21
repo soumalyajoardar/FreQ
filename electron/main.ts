@@ -658,6 +658,14 @@ ipcMain.handle('window-is-maximized', () => {
   return mainWindow?.isMaximized() || false;
 });
 
+ipcMain.handle('open-dev-tools', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.toggleDevTools();
+    return true;
+  }
+  return false;
+});
+
 // Keep the window above all others (mini-player pin). The pin is only ever
 // honoured for a floating (non-maximized, non-fullscreen) window — a topmost
 // maximized window covers the entire desktop and makes Alt+Tab look broken.

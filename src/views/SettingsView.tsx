@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, Activity, AlertTriangle, Terminal, Code2, RotateCcw } from 'lucide-react';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
 import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '../services/libraryStore';
@@ -8,6 +8,7 @@ import { THEME_PRESETS, applyTheme, getThemeId, getThemePreset } from '../servic
 import freqIcon from '../assets/freq-icon.png';
 import { FlatScrubber } from '../components/FlatScrubber';
 import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
+import { VtslModal } from '../components/VtslModal';
 
 const formatCacheBytes = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -83,6 +84,7 @@ interface SettingsViewProps {
   onRegionChange?: (code: string) => void;
   privateMode?: boolean;
   onTogglePrivate?: () => void;
+  onOpenWhatsNew?: () => void;
 }
 
 const SettingsViewComponent: React.FC<SettingsViewProps> = ({
@@ -113,7 +115,25 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   onRegionChange,
   privateMode = false,
   onTogglePrivate,
+  onOpenWhatsNew,
 }) => {
+  const [isVtslOpen, setIsVtslOpen] = React.useState(false);
+  const [devMode, setDevMode] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem('freq_dev_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleDevMode = () => {
+    const next = !devMode;
+    setDevMode(next);
+    try {
+      localStorage.setItem('freq_dev_mode', String(next));
+    } catch {}
+  };
+
   const [snrRate, setSnrRate] = React.useState(() => audioEngine.getSnrRate());
   const [snrReverb, setSnrReverb] = React.useState(() => audioEngine.getSnrReverb());
   const [nightcoreRate, setNightcoreRate] = React.useState(() => audioEngine.getNightcoreRate());
@@ -198,6 +218,54 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
       </header>
 
       <div className="fq-settings">
+        {/* VTSL Simulation Option on Top of Settings */}
+        <section
+          className="fq-set-section"
+          style={{
+            background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(236,72,153,0.06))',
+            borderColor: 'rgba(34,211,238,0.22)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+          }}
+        >
+          <div className="fq-set-head">
+            <span
+              className="fq-set-icon"
+              style={{
+                color: 'var(--accent-cyan)',
+                borderColor: 'rgba(34,211,238,0.3)',
+                background: 'rgba(34,211,238,0.1)',
+                animation: 'freqSpin 8s linear infinite',
+              }}
+            >
+              <Activity size={16} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h2 className="fq-set-title" style={{ color: '#fff', letterSpacing: '0.04em' }}>VTSL</h2>
+                <span className="fq-chip fq-chip-accent" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                  High-Fi Simulation
+                </span>
+              </div>
+              <p className="fq-set-desc">
+                Virtual Temporal Spectral Lattice • Quantum dither, analog tube static &amp; harmonic light arrays.
+              </p>
+            </div>
+            <button
+              className="fq-btn fq-btn-primary"
+              onClick={() => setIsVtslOpen(true)}
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 650,
+                letterSpacing: '0.05em',
+                boxShadow: '0 0 12px rgba(34,211,238,0.35)',
+              }}
+            >
+              Launch VTSL
+            </button>
+          </div>
+        </section>
+
         {/* Update */}
         <section className={`fq-set-section${hasUpdate ? ' is-alert' : ''}`}>
           <div className="fq-set-head">
@@ -226,10 +294,17 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
             </div>
 
             {!hasUpdate && (
-              <button className="fq-btn" onClick={onCheckUpdate} disabled={updateChecking}>
-                <RefreshCw size={13} style={{ animation: updateChecking ? 'freqSpin 0.9s linear infinite' : 'none' }} />
-                {updateChecking ? 'Checking…' : 'Check'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {onOpenWhatsNew && (
+                  <button className="fq-btn" onClick={onOpenWhatsNew} title="View release notes and what's new">
+                    <Sparkles size={13} color="var(--accent-cyan)" /> What's new
+                  </button>
+                )}
+                <button className="fq-btn" onClick={onCheckUpdate} disabled={updateChecking}>
+                  <RefreshCw size={13} style={{ animation: updateChecking ? 'freqSpin 0.9s linear infinite' : 'none' }} />
+                  {updateChecking ? 'Checking…' : 'Check'}
+                </button>
+              </div>
             )}
 
             {hasUpdate && !updateDownloading && !updateReady && (
@@ -594,6 +669,144 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           </div>
         </section>
 
+        {/* Developer Mode */}
+        <section
+          className="fq-set-section"
+          style={devMode ? { borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.03)' } : undefined}
+        >
+          <div className="fq-set-head">
+            <span
+              className="fq-set-icon"
+              style={devMode ? { color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.12)' } : undefined}
+            >
+              <Code2 size={16} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 className="fq-set-title">Developer mode</h2>
+                {devMode && (
+                  <span className="fq-chip" style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)' }}>
+                    Active
+                  </span>
+                )}
+              </div>
+              <p className="fq-set-desc">Internal inspection tools, DevTools debugger, and runtime diagnostics.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={devMode}
+              className="fq-switch-wrap"
+              onClick={handleToggleDevMode}
+              title="Toggle developer mode"
+            >
+              <span className="fq-switch" style={{ background: devMode ? '#ef4444' : 'rgba(255,255,255,0.14)' }}>
+                <i style={{ left: devMode ? '19px' : '2px', background: '#fff' }} />
+              </span>
+            </button>
+          </div>
+
+          {/* Explicit Developer Warning Banner */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '11px',
+              padding: '11px 14px',
+              borderRadius: '9px',
+              background: 'rgba(239, 68, 68, 0.09)',
+              border: '1px solid rgba(239, 68, 68, 0.28)',
+              color: '#fca5a5',
+              fontSize: '12px',
+              lineHeight: 1.55,
+            }}
+          >
+            <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+            <div>
+              <strong style={{ color: '#fff', display: 'block', marginBottom: '2px' }}>
+                Warning: Use only if you are a developer!
+              </strong>
+              This section is intended solely for developers and debugging. Modifying developer options or inspecting internal states can cause unexpected behavior, break audio playback, or crash the app if used unknowingly.
+            </div>
+          </div>
+
+          {/* Dev Mode Controls */}
+          {devMode && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <span className="fq-chip">Electron {window.electronAPI ? 'Desktop Shell' : 'Browser Web'}</span>
+                <span className="fq-chip">Output Sink: {audioEngine.getOutputDeviceId() || 'default'}</span>
+                <span className="fq-chip">Stereo Multiplier: {(1.0 + Math.pow(audioEngine.getStereoWidth(), 0.85) * 1.85).toFixed(2)}x</span>
+                <span className="fq-chip">Storage Keys: {localStorage.length}</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  className="fq-btn"
+                  onClick={() => {
+                    if (window.electronAPI?.openDevTools) {
+                      window.electronAPI.openDevTools();
+                    } else {
+                      alert('DevTools not supported in this shell context');
+                    }
+                  }}
+                  title="Open Chrome DevTools inspector"
+                >
+                  <Terminal size={13} /> Open DevTools
+                </button>
+
+                <button
+                  className="fq-btn"
+                  onClick={() => {
+                    const dump = {
+                      localStorageKeys: Object.keys(localStorage),
+                      audioOutput: audioEngine.getOutputDeviceId(),
+                      stereoWidth: audioEngine.getStereoWidth(),
+                      hdClarity: audioEngine.getHdClarity(),
+                      bassBoost: audioEngine.getBassBoost(),
+                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.5.0',
+                      timestamp: new Date().toISOString(),
+                    };
+                    console.log('[FreQ Dev Diagnostic Dump]', dump);
+                    try {
+                      navigator.clipboard?.writeText?.(JSON.stringify(dump, null, 2));
+                      alert('Diagnostic dump logged to DevTools console and copied to clipboard.');
+                    } catch {
+                      alert('Diagnostic dump logged to DevTools console.');
+                    }
+                  }}
+                  title="Copy diagnostics to clipboard and log to console"
+                >
+                  <Copy size={13} /> Dump Diagnostics
+                </button>
+
+                {onOpenWhatsNew && (
+                  <button
+                    className="fq-btn"
+                    onClick={onOpenWhatsNew}
+                    title="Force show the What's New changelog dialog"
+                  >
+                    <Sparkles size={13} /> Test What's New Dialog
+                  </button>
+                )}
+
+                <button
+                  className="fq-btn"
+                  onClick={() => {
+                    if (confirm('Reload the application window?')) {
+                      window.location.reload();
+                    }
+                  }}
+                  title="Reload application window"
+                  style={{ color: '#f87171' }}
+                >
+                  <RotateCcw size={13} /> Reload Window
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* About */}
         <section className="fq-set-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -616,6 +829,17 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.5.0'} (Stable)</span>
+                {onOpenWhatsNew && (
+                  <button
+                    className="fq-btn fq-btn-ghost"
+                    onClick={onOpenWhatsNew}
+                    style={{ fontSize: '11px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    title="View changelog catalog"
+                  >
+                    <Sparkles size={11} color="var(--accent-cyan)" />
+                    <span>Changelog</span>
+                  </button>
+                )}
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
                   Made by GRESSEY &amp; OPENCODE. All rights reserved.
                 </span>
@@ -629,6 +853,8 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           </p>
         </section>
       </div>
+
+      <VtslModal isOpen={isVtslOpen} onClose={() => setIsVtslOpen(false)} />
     </div>
   );
 };

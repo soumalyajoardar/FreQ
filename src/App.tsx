@@ -34,7 +34,7 @@ import { clampQueueIndex, cycleRepeatMode } from './services/playbackQueueLogic'
 import { ConfirmDialog, CreatePlaylistDialog, ToastItem, ToastStack } from './components/FreqDialogs';
 import { WhatsNewModal } from './components/WhatsNewModal';
 import { HomeLyricsRail } from './components/HomeLyricsRail';
-import { ChangelogEntry, getPendingReleaseNotes, markVersionSeen } from './data/changelog';
+import { ChangelogEntry, CHANGELOG, getPendingReleaseNotes, markVersionSeen, setJustUpdatedFlag } from './data/changelog';
 
 import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
@@ -117,10 +117,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const pending = getPendingReleaseNotes(APP_VERSION);
-    if (pending.length === 0) {
-      markVersionSeen(APP_VERSION);
-      return;
-    }
+    if (pending.length === 0) return;
     // Let the shell settle before interrupting with a dialog.
     whatsNewTimerRef.current = window.setTimeout(() => {
       whatsNewTimerRef.current = null;
@@ -138,6 +135,11 @@ export const App: React.FC = () => {
   const closeWhatsNew = () => {
     setIsWhatsNewOpen(false);
     markVersionSeen(APP_VERSION);
+  };
+
+  const handleOpenWhatsNew = () => {
+    setWhatsNewEntries(CHANGELOG);
+    setIsWhatsNewOpen(true);
   };
 
   const updateVisible = updateAvailable && !updateIgnored;
@@ -164,6 +166,7 @@ export const App: React.FC = () => {
 
   const handleInstallUpdate = () => {
     if (!window.electronAPI?.installUpdate) return;
+    setJustUpdatedFlag();
     window.electronAPI.installUpdate().catch(err => {
       setUpdateError(String(err));
     });
@@ -1937,6 +1940,7 @@ export const App: React.FC = () => {
               onDownloadUpdate={handleDownloadUpdate}
               onInstallUpdate={handleInstallUpdate}
               onIgnoreUpdate={() => setUpdateIgnored(true)}
+              onOpenWhatsNew={handleOpenWhatsNew}
             />
           )}
 

@@ -557,7 +557,12 @@ class AudioEngine {
     if (!navigator.mediaDevices?.enumerateDevices) return [];
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.filter(d => d.kind === 'audiooutput');
+      return devices.filter(
+        d =>
+          d.kind === 'audiooutput' &&
+          d.deviceId !== 'communications' &&
+          !d.label.toLowerCase().startsWith('communications')
+      );
     } catch {
       return [];
     }
@@ -741,25 +746,31 @@ class AudioEngine {
       this.hdAirNode.gain.setTargetAtTime(airGain, t, 0.05);
     }
     if (this.widthMultiplierNode) {
-      // 1.0 (standard stereo) to 1.85 (expansive 3D holographic soundstage)
-      const widthVal = 1.0 + this.stereoWidth * 0.85;
+      // 1.0 (standard stereo) to 2.85 (ultra-wide expansive 3D holographic soundstage)
+      const widthVal = 1.0 + Math.pow(this.stereoWidth, 0.85) * 1.85;
       this.widthMultiplierNode.gain.setTargetAtTime(widthVal, t, 0.05);
+    }
+    if (this.midGainNode) {
+      // Gently scale mid gain as width increases so center mono doesn't mask wide side cues
+      const midVal = 0.5 * (1.0 - this.stereoWidth * 0.18);
+      this.midGainNode.gain.setTargetAtTime(midVal, t, 0.05);
     }
     this.applyHeadroom();
   }
 
   // Dynamic Headroom Scaling:
-  // Balances high boost levels (up to +24 dB bass and HD air) before the soft saturator and limiter.
+  // Balances high boost levels (up to +24 dB bass, HD air, and wide stereo) before the soft saturator and limiter.
   // Prevents digital clipping, intermodulation distortion, and pumping, keeping audio clean, punchy, and loud.
   private applyHeadroom() {
     if (!this.audioCtx || !this.headroomNode) return;
     const bassDb = this.bassBoost * 18;
     const hdDb = this.hdClarity * 5.0;
+    const widthDb = this.stereoWidth * 3.5;
     const eqDb = this.audioMode === 'NORMAL' ? 0 : Math.max(0, ...this.eqGains);
     const trimDb = this.audioMode === 'NORMAL'
       ? 0
       : Math.max(0, this.trackTrims[this.currentTrack?.id || ''] || 0);
-    const totalBoost = bassDb + hdDb + eqDb + trimDb;
+    const totalBoost = bassDb + hdDb + widthDb + eqDb + trimDb;
     // Discreet attenuation that tracks the boost: keeps the limiter in its
     // linear region, so transients stay punchy instead of clipping.
     const reductionDb = -Math.min(12, totalBoost * 0.55);

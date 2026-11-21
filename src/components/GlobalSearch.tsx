@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ArrowRight, Play, User, Sparkles, Headphones, ChevronDown, Check } from 'lucide-react';
+import { Search, ArrowRight, Play, User, Sparkles, Headphones, Volume2, Tv, ChevronDown, Check } from 'lucide-react';
 import { MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
 import { audioEngine } from '../services/audioEngine';
@@ -30,7 +30,15 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const outputRef = useRef<HTMLDivElement>(null);
 
   const refreshOutputs = async () => {
-    setOutputDevices(await audioEngine.listOutputDevices());
+    const raw = await audioEngine.listOutputDevices();
+    const seen = new Set<string>();
+    const unique: MediaDeviceInfo[] = [];
+    for (const d of raw) {
+      if (d.deviceId && seen.has(d.deviceId)) continue;
+      if (d.deviceId) seen.add(d.deviceId);
+      unique.push(d);
+    }
+    setOutputDevices(unique);
   };
 
   useEffect(() => {
@@ -53,17 +61,34 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     return () => document.removeEventListener('mousedown', onDocDown);
   }, [outputOpen]);
 
-  // "Default - Headphones (Realtek(R) Audio)" → "Headphones".
-  const cleanDeviceLabel = (label: string) =>
-    label
-      .replace(/^(Default|Communications)\s*-\s*/i, '')
-      .replace(/\s*\(.*\)\s*$/, '')
-      .trim();
+  // Clean Windows driver artifacts while preserving distinct device identity
+  const cleanDeviceLabel = (label: string, isDefault = false) => {
+    if (!label) return '';
+    let clean = label.replace(/^(Default|Communications)\s*-\s*/i, '').trim();
+    clean = clean.replace(/\(R\)/gi, '').replace(/\(TM\)/gi, '').replace(/\s+/g, ' ').trim();
+    if (isDefault) {
+      const baseName = clean.replace(/\s*\(.*\)\s*$/, '').trim();
+      return baseName ? `System default (${baseName})` : 'System default';
+    }
+    return clean;
+  };
+
+  const renderDeviceIcon = (label: string, size = 13) => {
+    const l = (label || '').toLowerCase();
+    if (l.includes('speaker')) {
+      return <Volume2 size={size} style={{ opacity: 0.8 }} />;
+    }
+    if (l.includes('tv') || l.includes('hdmi') || l.includes('display') || l.includes('monitor')) {
+      return <Tv size={size} style={{ opacity: 0.8 }} />;
+    }
+    return <Headphones size={size} style={{ opacity: 0.8 }} />;
+  };
 
   const outputLabel = (device: MediaDeviceInfo, index: number) => {
-    const cleaned = cleanDeviceLabel(device.label || '');
+    const isDefault = device.deviceId === 'default';
+    const cleaned = cleanDeviceLabel(device.label || '', isDefault);
     if (cleaned) return cleaned;
-    return device.deviceId === 'default' ? 'System default' : `Output ${index + 1}`;
+    return isDefault ? 'System default' : `Output ${index + 1}`;
   };
 
   const currentOutputLabel = (() => {
@@ -285,7 +310,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             aria-haspopup="menu"
             aria-expanded={outputOpen}
           >
-            <Headphones size={14} />
+            {renderDeviceIcon(currentOutputLabel, 14)}
             <span>{currentOutputLabel}</span>
             <ChevronDown
               size={12}
@@ -304,6 +329,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                 <span className="fq-output-empty">No audio outputs found. Connect a device and reopen.</span>
               )}
               {outputDevices.map((device, index) => {
+                const label = outputLabel(device, index);
                 const active = device.deviceId === outputId;
                 return (
                   <button
@@ -318,8 +344,8 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                       setOutputOpen(false);
                     }}
                   >
-                    <Headphones size={13} style={{ opacity: 0.7 }} />
-                    <span>{outputLabel(device, index)}</span>
+                    {renderDeviceIcon(label, 13)}
+                    <span>{label}</span>
                     {active && <Check size={13} color="var(--accent-cyan)" />}
                   </button>
                 );

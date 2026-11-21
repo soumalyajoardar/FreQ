@@ -15,3 +15,9 @@
 - Completed Phases: 0
 - Active Phase: Phase 1
 - Blockers: None
+
+## Quick Tasks Completed
+| Slug | Date | Status | Description |
+|------|------|--------|-------------|
+| 261114-pne-listen-together-party | 2026-11-14 | complete | Listen Together (Party System) |
+| 261121-win-fixes-vtsl-devmode | 2026-11-21 | complete | Audio device dedup, post-update changelog fix, enhanced stereo widener, Developer Mode, VTSL simulation |

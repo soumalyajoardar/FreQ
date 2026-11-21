@@ -30,6 +30,8 @@ export const CHANGELOG: ChangelogEntry[] = [
 ];
 
 const SEEN_KEY = 'freq_last_seen_version';
+const DISMISSED_KEY = 'freq_changelog_dismissed_version';
+const JUST_UPDATED_KEY = 'freq_just_updated';
 
 const parseVersion = (value: string): number[] =>
   value
@@ -59,9 +61,38 @@ export function getLastSeenVersion(): string | null {
   }
 }
 
+export function isChangelogDismissed(version: string): boolean {
+  try {
+    return localStorage.getItem(DISMISSED_KEY) === version;
+  } catch {
+    return false;
+  }
+}
+
+export function setJustUpdatedFlag() {
+  try {
+    localStorage.setItem(JUST_UPDATED_KEY, 'true');
+  } catch {}
+}
+
+export function checkJustUpdatedFlag(): boolean {
+  try {
+    const val = localStorage.getItem(JUST_UPDATED_KEY);
+    if (val === 'true') {
+      localStorage.removeItem(JUST_UPDATED_KEY);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function markVersionSeen(version: string) {
   try {
     localStorage.setItem(SEEN_KEY, version);
+    localStorage.setItem(DISMISSED_KEY, version);
+    localStorage.removeItem(JUST_UPDATED_KEY);
   } catch {
     // Storage is unavailable — the window simply shows again next launch.
   }
@@ -69,22 +100,51 @@ export function markVersionSeen(version: string) {
 
 /**
  * Entries the user has not seen yet: newer than `lastSeen`, but not newer than
- * the version actually running. Returns nothing on a first run so new users are
- * not greeted by a changelog for a release they never upgraded from.
+ * the version actually running. Also shows when an update was just installed or
+ * when an existing user upgrades.
  */
 export function getPendingReleaseNotes(
   currentVersion: string,
   lastSeen: string | null = getLastSeenVersion(),
   limit = 3
 ): ChangelogEntry[] {
-  if (!lastSeen) return [];
-  if (compareVersions(lastSeen, currentVersion) >= 0) return [];
+  const justUpdated = checkJustUpdatedFlag();
+  const dismissed = isChangelogDismissed(currentVersion);
 
-  return CHANGELOG.filter(
-    entry =>
-      compareVersions(entry.version, lastSeen) > 0 &&
-      compareVersions(entry.version, currentVersion) <= 0
-  )
-    .sort((a, b) => compareVersions(b.version, a.version))
-    .slice(0, limit);
+  if (dismissed && !justUpdated) return [];
+
+  let isExistingInstall = false;
+  try {
+    isExistingInstall =
+      Boolean(localStorage.getItem('freq_library')) ||
+      Boolean(localStorage.getItem('freq_theme')) ||
+      Boolean(localStorage.getItem('freq_player_state')) ||
+      Boolean(localStorage.getItem('freq_accent')) ||
+      localStorage.length > 2;
+  } catch {}
+
+  // Pristine first run on a clean system: don't interrupt initial setup
+  if (!lastSeen && !isExistingInstall && !justUpdated) {
+    markVersionSeen(currentVersion);
+    return [];
+  }
+
+  // Update was just installed or user upgraded without having dismissed this version's notes
+  if (justUpdated || (isExistingInstall && !dismissed)) {
+    return CHANGELOG.filter(e => compareVersions(e.version, currentVersion) <= 0)
+      .sort((a, b) => compareVersions(b.version, a.version))
+      .slice(0, limit);
+  }
+
+  if (lastSeen && compareVersions(lastSeen, currentVersion) < 0) {
+    return CHANGELOG.filter(
+      entry =>
+        compareVersions(entry.version, lastSeen) > 0 &&
+        compareVersions(entry.version, currentVersion) <= 0
+    )
+      .sort((a, b) => compareVersions(b.version, a.version))
+      .slice(0, limit);
+  }
+
+  return [];
 }

@@ -38,6 +38,7 @@ export interface ElectronAPI {
   getUpdateCacheInfo: () => Promise<{ files: number; bytes: number }>;
   clearUpdateCache: () => Promise<{ files: number; bytes: number; skipped?: boolean }>;
   onUpdaterEvent: (callback: (data: any) => void) => () => void;
+  openDevTools: () => Promise<boolean>;
 }
 
 const api: ElectronAPI = {
@@ -103,6 +104,7 @@ const api: ElectronAPI = {
       ipcRenderer.removeListener('updater-event', subscription);
     };
   },
+  openDevTools: () => ipcRenderer.invoke('open-dev-tools'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);
