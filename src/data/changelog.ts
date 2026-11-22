@@ -1,8 +1,9 @@
 // Release notes shown by the "What's new" window after an update.
 //
-// Add an entry for every shipped version: the window looks up the entries newer
-// than the last version the user actually ran, so a missing entry means that
-// release ships without a change list.
+// Add an entry for every shipped version. The window is keyed on the *build*
+// (version + commit), not just the version: re-uploading a release under the
+// same number, or reinstalling a build the user already dismissed, must still
+// surface the notes.
 export interface ChangelogEntry {
   version: string;
   date: string;
@@ -11,6 +12,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.6.0',
+    date: '2026-11-22',
+    title: 'One entry per device, wider stereo and release notes that always show',
+    items: [
+      'The audio output picker now lists each speaker or headset once instead of three times.',
+      '"What\'s new" appears after every update — including reinstalls and re-uploads of the same version.',
+      'The 3D stereo spatializer is noticeably wider across the whole slider.',
+      'Developer mode in Settings, locked behind a pass key and a clear warning.',
+      'Party invite state and the installer cleanup from 2.5.0 are unchanged.',
+    ],
+  },
   {
     version: '2.5.0',
     date: '2026-11-21',
@@ -29,9 +42,31 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
 ];
 
-const SEEN_KEY = 'freq_last_seen_version';
-const DISMISSED_KEY = 'freq_changelog_dismissed_version';
+const SEEN_VERSION_KEY = 'freq_last_seen_version';
+const SEEN_BUILD_KEY = 'freq_last_seen_build';
 const JUST_UPDATED_KEY = 'freq_just_updated';
+
+/** Identifies this exact build, e.g. "2.6.0+1a2b3c4". */
+export const BUILD_ID: string =
+  typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'dev';
+
+const read = (key: string): string | null => {
+  try {
+    const value = localStorage.getItem(key);
+    return value && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
+  }
+};
+
+const write = (key: string, value: string | null) => {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Storage unavailable — the window simply shows again next launch.
+  }
+};
 
 const parseVersion = (value: string): number[] =>
   value
@@ -53,98 +88,60 @@ export function compareVersions(a: string, b: string): number {
 }
 
 export function getLastSeenVersion(): string | null {
-  try {
-    const raw = localStorage.getItem(SEEN_KEY);
-    return raw && raw.trim() ? raw.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-export function isChangelogDismissed(version: string): boolean {
-  try {
-    return localStorage.getItem(DISMISSED_KEY) === version;
-  } catch {
-    return false;
-  }
-}
-
-export function setJustUpdatedFlag() {
-  try {
-    localStorage.setItem(JUST_UPDATED_KEY, 'true');
-  } catch {}
-}
-
-export function checkJustUpdatedFlag(): boolean {
-  try {
-    const val = localStorage.getItem(JUST_UPDATED_KEY);
-    if (val === 'true') {
-      localStorage.removeItem(JUST_UPDATED_KEY);
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-export function markVersionSeen(version: string) {
-  try {
-    localStorage.setItem(SEEN_KEY, version);
-    localStorage.setItem(DISMISSED_KEY, version);
-    localStorage.removeItem(JUST_UPDATED_KEY);
-  } catch {
-    // Storage is unavailable — the window simply shows again next launch.
-  }
+  return read(SEEN_VERSION_KEY);
 }
 
 /**
- * Entries the user has not seen yet: newer than `lastSeen`, but not newer than
- * the version actually running. Also shows when an update was just installed or
- * when an existing user upgrades.
+ * Called right before the app quits to install an update, so the *next* launch
+ * shows the notes even if the version number did not change.
  */
-export function getPendingReleaseNotes(
-  currentVersion: string,
-  lastSeen: string | null = getLastSeenVersion(),
-  limit = 3
-): ChangelogEntry[] {
-  const justUpdated = checkJustUpdatedFlag();
-  const dismissed = isChangelogDismissed(currentVersion);
+export function setJustUpdatedFlag() {
+  write(JUST_UPDATED_KEY, 'true');
+}
 
-  if (dismissed && !justUpdated) return [];
+function consumeJustUpdatedFlag(): boolean {
+  const forced = read(JUST_UPDATED_KEY) === 'true';
+  if (forced) write(JUST_UPDATED_KEY, null);
+  return forced;
+}
 
-  let isExistingInstall = false;
-  try {
-    isExistingInstall =
-      Boolean(localStorage.getItem('freq_library')) ||
-      Boolean(localStorage.getItem('freq_theme')) ||
-      Boolean(localStorage.getItem('freq_player_state')) ||
-      Boolean(localStorage.getItem('freq_accent')) ||
-      localStorage.length > 2;
-  } catch {}
+export function markVersionSeen(version: string) {
+  write(SEEN_VERSION_KEY, version);
+  write(SEEN_BUILD_KEY, BUILD_ID);
+  write(JUST_UPDATED_KEY, null);
+}
 
-  // Pristine first run on a clean system: don't interrupt initial setup
-  if (!lastSeen && !isExistingInstall && !justUpdated) {
+/**
+ * Entries to show after an update. Returns nothing on a first ever launch, and
+ * nothing when this exact build has already been acknowledged. Otherwise the
+ * newest notes up to the running version are returned — including when the
+ * version is unchanged but the build differs.
+ */
+export function getPendingReleaseNotes(currentVersion: string, limit = 3): ChangelogEntry[] {
+  const lastBuild = read(SEEN_BUILD_KEY);
+  const lastVersion = read(SEEN_VERSION_KEY);
+  const forced = consumeJustUpdatedFlag();
+
+  // Genuine first run: remember the build silently instead of greeting a brand
+  // new user with notes for a release they never upgraded from.
+  if (!lastBuild && !lastVersion && !forced) {
     markVersionSeen(currentVersion);
     return [];
   }
 
-  // Update was just installed or user upgraded without having dismissed this version's notes
-  if (justUpdated || (isExistingInstall && !dismissed)) {
-    return CHANGELOG.filter(e => compareVersions(e.version, currentVersion) <= 0)
-      .sort((a, b) => compareVersions(b.version, a.version))
-      .slice(0, limit);
-  }
+  if (!forced && lastBuild === BUILD_ID) return [];
 
-  if (lastSeen && compareVersions(lastSeen, currentVersion) < 0) {
-    return CHANGELOG.filter(
-      entry =>
-        compareVersions(entry.version, lastSeen) > 0 &&
-        compareVersions(entry.version, currentVersion) <= 0
-    )
-      .sort((a, b) => compareVersions(b.version, a.version))
-      .slice(0, limit);
-  }
+  const available = CHANGELOG.filter(
+    entry => compareVersions(entry.version, currentVersion) <= 0
+  ).sort((a, b) => compareVersions(b.version, a.version));
 
-  return [];
+  // Prefer whatever is newer than the version the user last ran. If nothing is
+  // (a reinstall or a rebuild of the same version), fall back to the current
+  // release notes so the window is never empty.
+  const newer = lastVersion
+    ? available.filter(entry => compareVersions(entry.version, lastVersion) > 0)
+    : available;
+  const selected = newer.length > 0 ? newer : available.slice(0, 1);
+
+  return selected.slice(0, Math.max(1, limit));
 }

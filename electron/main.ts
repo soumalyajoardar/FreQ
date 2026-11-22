@@ -658,12 +658,12 @@ ipcMain.handle('window-is-maximized', () => {
   return mainWindow?.isMaximized() || false;
 });
 
-ipcMain.handle('open-dev-tools', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.toggleDevTools();
-    return true;
-  }
-  return false;
+ipcMain.handle('open-dev-tools', (event) => {
+  // Only our own renderer may pop the inspector.
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (event.sender !== mainWindow.webContents) return false;
+  mainWindow.webContents.toggleDevTools();
+  return true;
 });
 
 // Keep the window above all others (mini-player pin). The pin is only ever

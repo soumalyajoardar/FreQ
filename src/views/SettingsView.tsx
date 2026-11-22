@@ -9,6 +9,10 @@ import freqIcon from '../assets/freq-icon.png';
 import { FlatScrubber } from '../components/FlatScrubber';
 import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
 
+// Unlocking is scoped to the running session, not persisted in localStorage.
+const DEV_PASSKEY = '2580';
+const DEV_SESSION_KEY = 'freq_dev_unlocked';
+
 const formatCacheBytes = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const units = ['KB', 'MB', 'GB'];
@@ -116,10 +120,16 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   onTogglePrivate,
   onOpenWhatsNew,
 }) => {
-  const DEV_PASSKEY = '2580';
-  const [devUnlocked, setDevUnlocked] = React.useState<boolean>(false);
+  const [devUnlocked, setDevUnlocked] = React.useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(DEV_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [passKeyInput, setPassKeyInput] = React.useState('');
   const [passKeyError, setPassKeyError] = React.useState<string | null>(null);
+  const [devNotice, setDevNotice] = React.useState<string | null>(null);
 
   const handleUnlockDev = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -127,6 +137,10 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
       setDevUnlocked(true);
       setPassKeyError(null);
       setPassKeyInput('');
+      setDevNotice(null);
+      try {
+        sessionStorage.setItem(DEV_SESSION_KEY, '1');
+      } catch {}
     } else {
       setPassKeyError('Incorrect pass key. Access denied.');
     }
@@ -136,6 +150,10 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
     setDevUnlocked(false);
     setPassKeyInput('');
     setPassKeyError(null);
+    setDevNotice(null);
+    try {
+      sessionStorage.removeItem(DEV_SESSION_KEY);
+    } catch {}
   };
 
   const [snrRate, setSnrRate] = React.useState(() => audioEngine.getSnrRate());
@@ -765,19 +783,20 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <span className="fq-chip">Electron {window.electronAPI ? 'Desktop Shell' : 'Browser Web'}</span>
                 <span className="fq-chip">Output Sink: {audioEngine.getOutputDeviceId() || 'default'}</span>
-                <span className="fq-chip">Stereo Multiplier: {(1.0 + Math.pow(audioEngine.getStereoWidth(), 0.85) * 1.85).toFixed(2)}x</span>
+                <span className="fq-chip">Stereo Multiplier: {(1.0 + Math.pow(audioEngine.getStereoWidth(), 0.8) * 1.6).toFixed(2)}x</span>
                 <span className="fq-chip">Storage Keys: {localStorage.length}</span>
               </div>
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   className="fq-btn"
-                  onClick={() => {
-                    if (window.electronAPI?.openDevTools) {
-                      window.electronAPI.openDevTools();
-                    } else {
-                      alert('DevTools not supported in this shell context');
+                  onClick={async () => {
+                    if (!window.electronAPI?.openDevTools) {
+                      setDevNotice('DevTools are only available in the desktop shell.');
+                      return;
                     }
+                    const opened = await window.electronAPI.openDevTools().catch(() => false);
+                    setDevNotice(opened ? 'DevTools opened.' : 'Could not open DevTools.');
                   }}
                   title="Open Chrome DevTools inspector"
                 >
@@ -786,22 +805,23 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
 
                 <button
                   className="fq-btn"
-                  onClick={() => {
+                  onClick={async () => {
                     const dump = {
+                      build: typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev',
                       localStorageKeys: Object.keys(localStorage),
                       audioOutput: audioEngine.getOutputDeviceId(),
                       stereoWidth: audioEngine.getStereoWidth(),
                       hdClarity: audioEngine.getHdClarity(),
                       bassBoost: audioEngine.getBassBoost(),
-                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.5.0',
+                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.0',
                       timestamp: new Date().toISOString(),
                     };
                     console.log('[FreQ Dev Diagnostic Dump]', dump);
                     try {
-                      navigator.clipboard?.writeText?.(JSON.stringify(dump, null, 2));
-                      alert('Diagnostic dump logged to DevTools console and copied to clipboard.');
+                      await navigator.clipboard?.writeText?.(JSON.stringify(dump, null, 2));
+                      setDevNotice('Diagnostics logged to the console and copied to the clipboard.');
                     } catch {
-                      alert('Diagnostic dump logged to DevTools console.');
+                      setDevNotice('Diagnostics logged to the console.');
                     }
                   }}
                   title="Copy diagnostics to clipboard and log to console"
@@ -821,17 +841,17 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
 
                 <button
                   className="fq-btn"
-                  onClick={() => {
-                    if (confirm('Reload the application window?')) {
-                      window.location.reload();
-                    }
-                  }}
-                  title="Reload application window"
+                  onClick={() => window.location.reload()}
+                  title="Reload application window (unsaved view state is lost)"
                   style={{ color: '#f87171' }}
                 >
                   <RotateCcw size={13} /> Reload Window
                 </button>
               </div>
+
+              {devNotice && (
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{devNotice}</span>
+              )}
             </div>
           </section>
         )}
@@ -857,7 +877,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 FreQ Desktop
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.5.0'} (Stable)</span>
+                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.0'} (Stable)</span>
                 {onOpenWhatsNew && (
                   <button
                     className="fq-btn fq-btn-ghost"

@@ -30,15 +30,22 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const outputRef = useRef<HTMLDivElement>(null);
 
   const refreshOutputs = async () => {
-    const raw = await audioEngine.listOutputDevices();
-    const seen = new Set<string>();
-    const unique: MediaDeviceInfo[] = [];
-    for (const d of raw) {
-      if (d.deviceId && seen.has(d.deviceId)) continue;
-      if (d.deviceId) seen.add(d.deviceId);
-      unique.push(d);
+    const devices = await audioEngine.listOutputDevices();
+    setOutputDevices(devices);
+
+    // A device saved by an older build may have been folded into the merged
+    // "System default" entry. Fall back to default instead of leaving the
+    // picker with nothing selected.
+    const current = audioEngine.getOutputDeviceId();
+    if (
+      current !== 'default' &&
+      devices.length > 0 &&
+      devices.every(d => d.deviceId) &&
+      !devices.some(d => d.deviceId === current)
+    ) {
+      await audioEngine.setOutputDevice('default');
+      setOutputId('default');
     }
-    setOutputDevices(unique);
   };
 
   useEffect(() => {
@@ -68,7 +75,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     clean = clean.replace(/\(R\)/gi, '').replace(/\(TM\)/gi, '').replace(/\s+/g, ' ').trim();
     if (isDefault) {
       const baseName = clean.replace(/\s*\(.*\)\s*$/, '').trim();
-      return baseName ? `System default (${baseName})` : 'System default';
+      return baseName ? `System default — ${baseName}` : 'System default';
     }
     return clean;
   };

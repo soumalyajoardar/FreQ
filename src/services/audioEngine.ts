@@ -552,16 +552,49 @@ class AudioEngine {
 
   // --- Audio output routing ---
 
-  /** Enumerate physical/virtual audio outputs (labels depend on permission). */
+  /**
+   * Enumerate physical/virtual audio outputs (labels depend on permission).
+   *
+   * Windows exposes the same endpoint three times: a "default" pseudo-device, a
+   * "communications" twin and the real endpoint. Showing all three made the
+   * picker list "Headphones" thrice even with one headset connected, so entries
+   * are collapsed to one per physical device. The "default" pseudo entry wins
+   * the merge (it keeps follow-the-system behaviour), the communications twin is
+   * dropped, and the picker code renders the winner as "System default".
+   */
   public async listOutputDevices(): Promise<MediaDeviceInfo[]> {
     if (!navigator.mediaDevices?.enumerateDevices) return [];
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.filter(
-        d =>
-          d.kind === 'audiooutput' &&
-          d.deviceId !== 'communications' &&
-          !d.label.toLowerCase().startsWith('communications')
+      const normalise = (device: MediaDeviceInfo) =>
+        (device.label || '')
+          .replace(/^(Default|Communications)\s*-\s*/i, '')
+          .replace(/\((r|tm)\)/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+
+      const byDevice = new Map<string, MediaDeviceInfo>();
+      for (const device of devices) {
+        if (device.kind !== 'audiooutput') continue;
+        if (device.deviceId === 'communications') continue;
+        if (/^communications\b/i.test(device.label || '')) continue;
+
+        // The Windows pseudo-entries (default / communications / real) share a
+        // group id, so keying on group + name merges exactly those and keeps
+        // two genuinely separate devices with the same name apart.
+        const name = normalise(device);
+        const key = name ? `${device.groupId || 'nogroup'}|${name}` : `id:${device.deviceId}`;
+        const existing = byDevice.get(key);
+        // Prefer the system-default entry over the raw endpoint so selecting it
+        // keeps routing to whatever Windows currently uses.
+        if (!existing || (existing.deviceId !== 'default' && device.deviceId === 'default')) {
+          byDevice.set(key, device);
+        }
+      }
+
+      return [...byDevice.values()].sort(
+        (a, b) => Number(b.deviceId === 'default') - Number(a.deviceId === 'default')
       );
     } catch {
       return [];
@@ -746,14 +779,16 @@ class AudioEngine {
       this.hdAirNode.gain.setTargetAtTime(airGain, t, 0.05);
     }
     if (this.widthMultiplierNode) {
-      // 1.0 (standard stereo) to 2.85 (ultra-wide expansive 3D holographic soundstage)
-      const widthVal = 1.0 + Math.pow(this.stereoWidth, 0.85) * 1.85;
+      // Side-channel multiplier: 1.0 (untouched stereo) to 2.6 (very wide).
+      // The curve is front-loaded so the first third of the slider already
+      // opens the image instead of doing nothing until it is nearly maxed.
+      const widthVal = 1.0 + Math.pow(this.stereoWidth, 0.8) * 1.6;
       this.widthMultiplierNode.gain.setTargetAtTime(widthVal, t, 0.05);
     }
     if (this.midGainNode) {
-      // Gently scale mid gain as width increases so center mono doesn't mask wide side cues
-      const midVal = 0.5 * (1.0 - this.stereoWidth * 0.18);
-      this.midGainNode.gain.setTargetAtTime(midVal, t, 0.05);
+      // Keep the mid path at unity: dipping it made centre-panned vocals and
+      // drums quieter as the slider rose, which read as "muffled", not "wide".
+      this.midGainNode.gain.setTargetAtTime(0.5, t, 0.05);
     }
     this.applyHeadroom();
   }
