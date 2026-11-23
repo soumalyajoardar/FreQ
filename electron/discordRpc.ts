@@ -405,7 +405,7 @@ class DiscordRpcManager {
           // exposes the invite action, so a public party is published as a
           // joinable Playing session instead.
           type: privacy === 'public' ? 0 : 2,
-          details: `In a party : ${partySize}/${partyMax}`,
+          details: `${partySize}/${partyMax} (${privacy === 'public' ? 'Public' : 'Private'})`,
           state: privacy === 'public' ? 'Waiting for song to start · joinable' : 'Waiting for song to start',
           largeImageKey: 'freq_logo',
           largeImageText: `FreQ Party #${party.code}`,
@@ -456,13 +456,13 @@ class DiscordRpcManager {
     }
 
     // Audio flavor labels
-    let flavorLabel = 'FreQ • Studio';
+    let flavorLabel = 'FreQ • Normal';
     if (audioMode === 'SNR') flavorLabel = 'FreQ • SnR (Slowed + Reverb)';
     else if (audioMode === 'NIGHTCORE') flavorLabel = 'FreQ • Nightcore (1.2x Pitch)';
 
     // Layout:
     // When in a party:
-    // Line 1 (heading): "In a party : X/5"
+    // Line 1 (heading): "X/5 (Public|Private)"
     // Line 2: Song title
     // Line 3: Artist name
     // When not in a party:
@@ -474,7 +474,7 @@ class DiscordRpcManager {
     const artistName = (track.artist || 'Unknown Artist').trim();
 
     const details = inParty
-      ? `In a party : ${partySize}/${partyMax}`.slice(0, 128)
+      ? `${partySize}/${partyMax} (${partyPrivacy === 'public' ? 'Public' : 'Private'})`.slice(0, 128)
       : songTitle.slice(0, 128);
 
     const state = inParty
@@ -520,7 +520,7 @@ class DiscordRpcManager {
             // Public parties are published as Playing sessions so Discord
             // exposes the Join button; solo listening stays a Listening card.
             type: inParty && partyPrivacy === 'public' ? 0 : 2,
-            details, // Line 1: Heading ("In a party : X/5" or song title)
+            details, // Line 1: Heading ("X/5 (Public|Private)" or song title)
             state, // Line 2: Song title (or artist if solo)
             startTimestamp, // Timeline start
             endTimestamp, // Timeline end (renders live countdown timeline at the bottom)

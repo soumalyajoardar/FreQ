@@ -1203,9 +1203,9 @@ input:focus-visible { box-shadow: none; }
   50% { transform: translateY(-10px); }
 }
 @keyframes floatUp {
-  0% { transform: translateY(0) scale(0.9); opacity: 0; }
-  15% { opacity: 1; }
-  100% { transform: translateY(-190px) scale(1.1); opacity: 0; }
+  0% { transform: translate3d(0, 0, 0) scale(0.82); opacity: 0; }
+  14% { transform: translate3d(var(--rx-drift-mid, 0px), -18px, 0) scale(1.05); opacity: 1; }
+  100% { transform: translate3d(var(--rx-drift, 0px), -190px, 0) scale(1); opacity: 0; }
 }
 
 /* --------------------------------------------------------------------------

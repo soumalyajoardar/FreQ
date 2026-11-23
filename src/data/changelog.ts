@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.6.2',
+    date: '2026-11-23',
+    title: 'Reactions behave, Normal is Normal, and party status leads the presence',
+    items: [
+      'Live party reactions keep their position instead of jumping sideways mid-flight.',
+      'Floating reactions start above the reaction bar, so they no longer land on the buttons.',
+      'The "Studio" flavour is now simply "Normal", matching the rail and Discord.',
+      'Discord presence leads with the room size and privacy, e.g. 2/5 (Public).',
+    ],
+  },
+  {
     version: '2.6.1',
     date: '2026-11-23',
     title: 'Party rooms connect again',

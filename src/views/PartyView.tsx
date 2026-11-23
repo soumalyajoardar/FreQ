@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Radio,
   Users,
@@ -32,6 +32,16 @@ interface PartyViewProps {
 
 const QUICK_EMOJIS = ['🔥', '❤️', '🎵', '👏', '⚡', '🎉'];
 
+// A reaction keeps the lane, tilt and drift it was born with. Recomputing those
+// during render made every emoji teleport sideways whenever the view
+// re-rendered — which it does continuously while a track plays.
+type FloatingReaction = PartyReaction & {
+  /** Horizontal start position, in percent of the room card. */
+  x: number;
+  /** Total horizontal drift over the animation, in pixels. */
+  drift: number;
+};
+
 export const PartyView: React.FC<PartyViewProps> = ({
   currentTrack,
   isPlaying,
@@ -51,7 +61,8 @@ export const PartyView: React.FC<PartyViewProps> = ({
   const [isInParty, setIsInParty] = useState<boolean>(() => partyService.isInParty());
   const [privacy, setPrivacy] = useState<PartyPrivacy>(() => partyService.getPrivacy());
   const [recentParties, setRecentParties] = useState<RecentParty[]>(() => partyService.getRecentParties());
-  const [recentReactions, setRecentReactions] = useState<PartyReaction[]>([]);
+  const [recentReactions, setRecentReactions] = useState<FloatingReaction[]>([]);
+  const reactionTimersRef = useRef<number[]>([]);
   const [discord, setDiscord] = useState<{
     isConnected: boolean;
     joinableParty: { code: string; privacy: PartyPrivacy } | null;
@@ -95,16 +106,28 @@ export const PartyView: React.FC<PartyViewProps> = ({
     const unsubSync = partyService.onSyncEvent(ev => {
       if (ev.type === 'reaction' && ev.reaction) {
         const rx = ev.reaction;
-        setRecentReactions(prev => [...prev.slice(-5), rx]);
-        setTimeout(() => {
+        setRecentReactions(prev => [
+          ...prev.slice(-5),
+          {
+            ...rx,
+            // Position is decided once, at arrival, and then frozen.
+            x: 6 + Math.random() * 72,
+            drift: (Math.random() - 0.5) * 52,
+          },
+        ]);
+        const timer = window.setTimeout(() => {
           setRecentReactions(prev => prev.filter(r => r.id !== rx.id));
+          reactionTimersRef.current = reactionTimersRef.current.filter(t => t !== timer);
         }, 3200);
+        reactionTimersRef.current.push(timer);
       }
     });
 
     return () => {
       unsubState();
       unsubSync();
+      reactionTimersRef.current.forEach(t => window.clearTimeout(t));
+      reactionTimersRef.current = [];
     };
   }, []);
 
@@ -272,18 +295,24 @@ export const PartyView: React.FC<PartyViewProps> = ({
                   key={rx.id}
                   style={{
                     position: 'absolute',
-                    bottom: '20px',
-                    left: `${20 + Math.random() * 60}%`,
+                    // Start above the reaction bar: spawning at 20px put the
+                    // sender chip on top of the buttons for the first frames.
+                    bottom: '92px',
+                    left: `${rx.x}%`,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
                     fontSize: '26px',
                     animation: 'floatUp 3s ease-out forwards',
                     filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+                    willChange: 'transform, opacity',
+                    maxWidth: '180px',
+                    ['--rx-drift' as string]: `${rx.drift}px`,
+                    ['--rx-drift-mid' as string]: `${rx.drift * 0.2}px`,
                   }}
                 >
                   <span>{rx.emoji}</span>
-                  <span style={{ fontSize: '10px', color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {rx.senderName}
                   </span>
                 </div>

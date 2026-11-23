@@ -348,7 +348,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
             <span className="fq-set-icon"><Volume2 size={16} /></span>
             <div style={{ flex: 1 }}>
               <h2 className="fq-set-title">Audio engine</h2>
-              <p className="fq-set-desc">Tune each flavour. Switch between SnR, Studio and Nightcore from the rail or player.</p>
+              <p className="fq-set-desc">Tune each flavour. Switch between SnR, Normal and Nightcore from the rail or player.</p>
             </div>
             <span className="fq-chip fq-chip-accent">{audioMode}</span>
           </div>
@@ -813,7 +813,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                       stereoWidth: audioEngine.getStereoWidth(),
                       hdClarity: audioEngine.getHdClarity(),
                       bassBoost: audioEngine.getBassBoost(),
-                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.1',
+                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.2',
                       timestamp: new Date().toISOString(),
                     };
                     console.log('[FreQ Dev Diagnostic Dump]', dump);
@@ -877,7 +877,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 FreQ Desktop
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.1'} (Stable)</span>
+                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.2'} (Stable)</span>
                 {onOpenWhatsNew && (
                   <button
                     className="fq-btn fq-btn-ghost"

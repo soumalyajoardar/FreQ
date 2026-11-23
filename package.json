@@ -1,6 +1,6 @@
 {
   "name": "freq-desktop",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "description": "FreQ - Windows Desktop Music Player with Liquid Glass UI and Audio Flavors",
   "main": "dist-electron/main.js",
   "scripts": {

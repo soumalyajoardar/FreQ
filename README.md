@@ -35,7 +35,7 @@
 
 ### 🎧 Signature Audio Flavors (Real-Time DSP)
 Transform any track instantly with zero latency using our Web Audio DSP pipeline:
-- **Studio (Normal)**: Pure, uncompressed dry studio playback.
+- **Normal**: Pure, dry playback at 1.0x — the untouched signal.
 - **SNR (Slowed + Reverb)**: 0.8x tempo reduction paired with authentic procedural stereo `ConvolverNode` impulse response reverb.
 - **Nightcore**: 1.2x upbeat tempo + high-frequency pitch boost for high-energy sessions.
 
