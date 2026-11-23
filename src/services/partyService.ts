@@ -44,9 +44,16 @@ export interface PartySyncEvent {
 export type PartyListener = () => void;
 export type SyncEventListener = (event: PartySyncEvent) => void;
 
-// Globally available public secure WebSocket MQTT brokers with SSL/TLS
-const PRIMARY_BROKER = 'wss://broker.emqx.io:8084/mqtt';
-const FALLBACK_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+// Public MQTT-over-WebSocket brokers, tried in order until one answers.
+// All entries must be TLS (wss) because the renderer only permits secure
+// sockets. HiveMQ's public wss endpoint (8884) stopped completing handshakes,
+// which is why a room could sit on "connecting" until the timeout fired.
+const BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://test.mosquitto.org:8081/mqtt',
+];
+
+const PRIMARY_BROKER = BROKERS[0];
 
 const AVATAR_COLORS = [
   'var(--accent-cyan)', // Active accent theme
@@ -550,71 +557,109 @@ export class PartyService {
       const topic = this.getTopic(code);
       const clientId = `freq_${this.myMemberId}_${Math.floor(Math.random() * 10000)}`;
 
-      // Connect with fallback broker support
-      const connectBroker = (brokerUrl: string) => {
+      let settled = false;
+      let attempt = 0;
+      let client: MqttClient | null = null;
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+      const clearTimer = () => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+      };
+
+      const finish = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimer();
+        if (err) {
+          try {
+            client?.end(true);
+          } catch {}
+          this.client = null;
+          reject(err);
+        } else {
+          resolve();
+        }
+      };
+
+      const tryBroker = () => {
+        if (settled) return;
+        const brokerUrl = BROKERS[attempt];
+        if (!brokerUrl) {
+          finish(new Error('Could not reach any party server. Check your connection and try again.'));
+          return;
+        }
+        attempt += 1;
+        this.activeBroker = brokerUrl;
+
+        // One broker attempt may only move on once: an error and the timeout
+        // can both fire, and moving on twice would start duplicate clients.
+        let answered = false;
+        const nextBroker = (reason: string) => {
+          if (settled || answered) return;
+          answered = true;
+          clearTimer();
+          try {
+            client?.end(true);
+          } catch {}
+          console.warn(`[PartyService] Broker ${brokerUrl} unavailable: ${reason}`);
+          tryBroker();
+        };
+
         try {
-          this.activeBroker = brokerUrl;
-          const client = mqtt.connect(brokerUrl, {
+          client = mqtt.connect(brokerUrl, {
             clientId,
             clean: true,
             connectTimeout: 8000,
             reconnectPeriod: 3000,
             keepalive: 30,
           });
-
-          const timeoutHandle = setTimeout(() => {
-            if (this.status === 'connecting') {
-              client.end(true);
-              if (brokerUrl === PRIMARY_BROKER) {
-                // Try fallback broker
-                connectBroker(FALLBACK_BROKER);
-              } else {
-                reject(new Error('Connection timed out to party servers.'));
-              }
-            }
-          }, 8500);
-
-          client.on('connect', () => {
-            clearTimeout(timeoutHandle);
-            this.client = client;
-            client.subscribe(topic, { qos: 0 }, err => {
-              if (err) {
-                reject(err);
-              } else {
-                resolve();
-              }
-            });
-          });
-
-          client.on('message', (_topic, message) => {
-            try {
-              const payload = JSON.parse(message.toString());
-              this.handleIncomingMessage(payload);
-            } catch (e) {
-              console.warn('[PartyService] Failed to parse message:', e);
-            }
-          });
-
-          client.on('error', err => {
-            console.warn('[PartyService] MQTT error on broker:', brokerUrl, err);
-            if (this.status === 'connecting' && brokerUrl === PRIMARY_BROKER) {
-              clearTimeout(timeoutHandle);
-              client.end(true);
-              connectBroker(FALLBACK_BROKER);
-            }
-          });
-
-          client.on('close', () => {
-            if (this.status === 'connected') {
-              console.log('[PartyService] Connection closed, reconnecting...');
-            }
-          });
-        } catch (e) {
-          reject(e);
+        } catch (err: any) {
+          nextBroker(err?.message || 'connect threw');
+          return;
         }
+
+        timeoutHandle = setTimeout(() => nextBroker('timed out'), 8500);
+
+        client.on('connect', () => {
+          if (settled) return;
+          // The browser build of mqtt.js keeps its keepalive clock in a blob
+          // worker, so a CSP without worker-src blob: breaks the handshake
+          // here. Guard so a failed subscribe rejects instead of hanging.
+          clearTimer();
+          this.client = client;
+          const active = client;
+          if (!active) return;
+          active.subscribe(topic, { qos: 0 }, err => {
+            if (err) finish(err);
+            else finish();
+          });
+        });
+
+        client.on('message', (_topic, message) => {
+          try {
+            const payload = JSON.parse(message.toString());
+            this.handleIncomingMessage(payload);
+          } catch (e) {
+            console.warn('[PartyService] Failed to parse message:', e);
+          }
+        });
+
+        client.on('error', err => {
+          console.warn('[PartyService] MQTT error on broker:', brokerUrl, err);
+          nextBroker(err?.message || 'socket error');
+        });
+
+        client.on('close', () => {
+          if (this.status === 'connected') {
+            console.log('[PartyService] Connection closed, reconnecting...');
+          }
+        });
       };
 
-      connectBroker(PRIMARY_BROKER);
+      tryBroker();
     });
   }
 

@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.6.1',
+    date: '2026-11-23',
+    title: 'Party rooms connect again',
+    items: [
+      'Fixed party creation and joining, which could sit on "connecting" until they timed out.',
+      'Party rooms now fall back to a working backup server when the main one is unreachable.',
+      'A failed connection says so immediately instead of waiting for the timeout.',
+    ],
+  },
+  {
     version: '2.6.0',
     date: '2026-11-22',
     title: 'One entry per device, wider stereo and release notes that always show',

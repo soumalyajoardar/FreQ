@@ -39,7 +39,7 @@ import { ChangelogEntry, CHANGELOG, getPendingReleaseNotes, markVersionSeen, set
 import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
 
-const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.0';
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.1';
 
 export const App: React.FC = () => {
   // Updater State

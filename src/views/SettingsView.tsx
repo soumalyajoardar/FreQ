@@ -813,7 +813,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                       stereoWidth: audioEngine.getStereoWidth(),
                       hdClarity: audioEngine.getHdClarity(),
                       bassBoost: audioEngine.getBassBoost(),
-                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.0',
+                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.1',
                       timestamp: new Date().toISOString(),
                     };
                     console.log('[FreQ Dev Diagnostic Dump]', dump);
@@ -877,7 +877,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 FreQ Desktop
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.0'} (Stable)</span>
+                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.1'} (Stable)</span>
                 {onOpenWhatsNew && (
                   <button
                     className="fq-btn fq-btn-ghost"
