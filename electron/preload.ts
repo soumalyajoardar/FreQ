@@ -1,5 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+export type DesktopHotkeyAction = 'playPause' | 'next' | 'prev' | 'miniPlayer';
+
+export interface DesktopPrefs {
+  closeToTray: boolean;
+  minimizeToTray: boolean;
+  trackNotifications: boolean;
+  hotkeysEnabled: boolean;
+  hotkeys: Record<DesktopHotkeyAction, string>;
+}
+
+export type DesktopPrefsPatch =
+  Partial<Omit<DesktopPrefs, 'hotkeys'>> & { hotkeys?: Partial<Record<DesktopHotkeyAction, string>> };
+
+export interface DesktopPlaybackState {
+  hasTrack: boolean;
+  title: string;
+  artist: string;
+  isPlaying: boolean;
+}
+
+export interface JumpListTrack {
+  id: string;
+  title: string;
+  artist: string;
+}
+
+export interface DesktopLaunchAction {
+  type: 'mini' | 'palette' | 'view' | 'play';
+  view?: string;
+  id?: string;
+  title?: string;
+  artist?: string;
+}
+
 export interface ElectronAPI {
   minimizeWindow: () => Promise<void>;
   maximizeWindow: () => Promise<boolean>;
@@ -7,6 +41,17 @@ export interface ElectronAPI {
   isWindowMaximized: () => Promise<boolean>;
   setAlwaysOnTop: (on: boolean) => Promise<{ success: boolean }>;
   onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
+  getDesktopPrefs: () => Promise<DesktopPrefs>;
+  setDesktopPrefs: (patch: DesktopPrefsPatch) => Promise<{ prefs: DesktopPrefs; conflicts: DesktopHotkeyAction[] }>;
+  setMiniMode: (on: boolean) => Promise<{ mini: boolean }>;
+  showMainWindow: () => Promise<boolean>;
+  updateDesktopPlayback: (state: DesktopPlaybackState) => Promise<void>;
+  showTrackNotification: (payload: { title: string; artist: string }) => Promise<{ shown: boolean }>;
+  updateJumpList: (tracks: JumpListTrack[]) => Promise<{ ok: boolean }>;
+  onMiniModeChange: (callback: (isMini: boolean) => void) => () => void;
+  onGlobalMediaCommand: (callback: (action: 'playPause' | 'next' | 'prev') => void) => () => void;
+  onOpenCommandPalette: (callback: () => void) => () => void;
+  onLaunchAction: (callback: (action: DesktopLaunchAction) => void) => () => void;
   getStreamUrl: (videoId: string) => Promise<{ streamUrl: string; fromCache: boolean; expiresAtMs?: number | null }>;
   invalidateStreamUrl: (videoId: string) => Promise<void>;
   downloadTrack: (videoId: string) => Promise<{ path: string; sizeBytes: number; fromCache: boolean }>;
@@ -52,6 +97,42 @@ const api: ElectronAPI = {
     ipcRenderer.on('window-maximized-state', subscription);
     return () => {
       ipcRenderer.removeListener('window-maximized-state', subscription);
+    };
+  },
+  getDesktopPrefs: () => ipcRenderer.invoke('desktop-get-prefs'),
+  setDesktopPrefs: (patch: DesktopPrefsPatch) => ipcRenderer.invoke('desktop-set-prefs', patch),
+  setMiniMode: (on: boolean) => ipcRenderer.invoke('desktop-set-mini-mode', on),
+  showMainWindow: () => ipcRenderer.invoke('desktop-show-window'),
+  updateDesktopPlayback: (state: DesktopPlaybackState) => ipcRenderer.invoke('desktop-playback-state', state),
+  showTrackNotification: (payload: { title: string; artist: string }) =>
+    ipcRenderer.invoke('desktop-show-track-notification', payload),
+  updateJumpList: (tracks: JumpListTrack[]) => ipcRenderer.invoke('desktop-set-jump-list', tracks),
+  onMiniModeChange: (callback: (isMini: boolean) => void) => {
+    const subscription = (_event: any, isMini: boolean) => callback(isMini);
+    ipcRenderer.on('desktop-mini-mode', subscription);
+    return () => {
+      ipcRenderer.removeListener('desktop-mini-mode', subscription);
+    };
+  },
+  onGlobalMediaCommand: (callback: (action: 'playPause' | 'next' | 'prev') => void) => {
+    const subscription = (_event: any, action: 'playPause' | 'next' | 'prev') => callback(action);
+    ipcRenderer.on('desktop-media-command', subscription);
+    return () => {
+      ipcRenderer.removeListener('desktop-media-command', subscription);
+    };
+  },
+  onOpenCommandPalette: (callback: () => void) => {
+    const subscription = () => callback();
+    ipcRenderer.on('desktop-open-palette', subscription);
+    return () => {
+      ipcRenderer.removeListener('desktop-open-palette', subscription);
+    };
+  },
+  onLaunchAction: (callback: (action: DesktopLaunchAction) => void) => {
+    const subscription = (_event: any, action: DesktopLaunchAction) => callback(action);
+    ipcRenderer.on('desktop-launch-action', subscription);
+    return () => {
+      ipcRenderer.removeListener('desktop-launch-action', subscription);
     };
   },
   getStreamUrl: (videoId: string) => ipcRenderer.invoke('get-stream-url', videoId),

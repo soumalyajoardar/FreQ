@@ -1,5 +1,6 @@
 import React from 'react';
-import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, AlertTriangle, Terminal, Code2, RotateCcw, Lock, Unlock, Key } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, AlertTriangle, Terminal, Code2, RotateCcw, Lock, Unlock, Key, Monitor, Bell, Maximize2 } from 'lucide-react';
+import type { DesktopHotkeyAction } from '../../electron/preload';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
 import { libraryStore, SHORTCUT_ACTIONS, prettyShortcut, ShortcutAction } from '../services/libraryStore';
@@ -12,6 +13,62 @@ import { QUALITY_PRESET_EVENT } from '../components/PlayerBar';
 // Unlocking is scoped to the running session, not persisted in localStorage.
 const DEV_PASSKEY = '2580';
 const DEV_SESSION_KEY = 'freq_dev_unlocked';
+
+const DESKTOP_HOTKEY_ROWS: { id: DesktopHotkeyAction; label: string; desc: string }[] = [
+  { id: 'playPause', label: 'Play / Pause', desc: 'Works while FreQ is in the tray or another app is focused.' },
+  { id: 'next', label: 'Next track', desc: 'Skip forward from anywhere.' },
+  { id: 'prev', label: 'Previous track', desc: 'Skip back from anywhere.' },
+  { id: 'miniPlayer', label: 'Toggle mini player', desc: 'Shrink FreQ into the floating player.' },
+];
+
+/** KeyboardEvent → Electron accelerator key, or null for unsupported keys. */
+function acceleratorKey(e: KeyboardEvent): string | null {
+  const code = e.code;
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return code;
+  const map: Record<string, string> = {
+    Space: 'Space',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right',
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    MediaPlayPause: 'MediaPlayPause',
+    MediaTrackNext: 'MediaNextTrack',
+    MediaTrackPrevious: 'MediaPreviousTrack',
+    MediaStop: 'MediaStop',
+    Tab: 'Tab',
+    Enter: 'Return',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    Insert: 'Insert',
+    Home: 'Home',
+    End: 'End',
+    PageUp: 'PageUp',
+    PageDown: 'PageDown',
+    Minus: '-',
+    Equal: '=',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Semicolon: ';',
+    Quote: "'",
+    Comma: ',',
+    Period: '.',
+    Slash: '/',
+    Backquote: '`',
+  };
+  return map[code] || null;
+}
+
+function prettyAccelerator(accelerator: string): string {
+  if (!accelerator) return 'Not set';
+  return accelerator
+    .replace(/CommandOrControl|CmdOrCtrl/g, 'Ctrl')
+    .replace(/Control/g, 'Ctrl')
+    .split('+')
+    .join(' + ');
+}
 
 const formatCacheBytes = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -88,6 +145,16 @@ interface SettingsViewProps {
   privateMode?: boolean;
   onTogglePrivate?: () => void;
   onOpenWhatsNew?: () => void;
+  // Desktop integration (tray, notifications, global hotkeys, mini player)
+  closeToTray?: boolean;
+  minimizeToTray?: boolean;
+  trackNotifications?: boolean;
+  hotkeysEnabled?: boolean;
+  desktopHotkeys?: Record<DesktopHotkeyAction, string>;
+  onToggleDesktopPref?: (key: 'closeToTray' | 'minimizeToTray' | 'trackNotifications' | 'hotkeysEnabled') => void;
+  onChangeDesktopHotkey?: (action: DesktopHotkeyAction, accelerator: string) => void;
+  onResetDesktopHotkeys?: () => void;
+  onOpenMiniPlayer?: () => void;
 }
 
 const SettingsViewComponent: React.FC<SettingsViewProps> = ({
@@ -119,6 +186,15 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   privateMode = false,
   onTogglePrivate,
   onOpenWhatsNew,
+  closeToTray = true,
+  minimizeToTray = false,
+  trackNotifications = true,
+  hotkeysEnabled = true,
+  desktopHotkeys,
+  onToggleDesktopPref,
+  onChangeDesktopHotkey,
+  onResetDesktopHotkeys,
+  onOpenMiniPlayer,
 }) => {
   const [devUnlocked, setDevUnlocked] = React.useState<boolean>(() => {
     try {
@@ -164,6 +240,8 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   const [hdClarity, setHdClarity] = React.useState(() => audioEngine.getHdClarity());
   const [shortcuts, setShortcuts] = React.useState(() => libraryStore.getShortcuts());
   const [recording, setRecording] = React.useState<ShortcutAction | null>(null);
+  const [recordingHotkey, setRecordingHotkey] = React.useState<DesktopHotkeyAction | null>(null);
+  const [hotkeyNotice, setHotkeyNotice] = React.useState<string | null>(null);
   const [themeId, setThemeId] = React.useState(() => getThemeId());
   const [cacheInfo, setCacheInfo] = React.useState<{ files: number; bytes: number } | null>(null);
   const [cacheClearing, setCacheClearing] = React.useState(false);
@@ -229,6 +307,59 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [recording]);
+
+  // Capture a system-wide hotkey. Global accelerators need a real modifier,
+  // otherwise Windows would swallow ordinary typing everywhere.
+  React.useEffect(() => {
+    if (!recordingHotkey) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === 'Escape') {
+        setRecordingHotkey(null);
+        setHotkeyNotice(null);
+        return;
+      }
+      const key = acceleratorKey(e);
+      if (!key) return;
+      const mods: string[] = [];
+      if (e.ctrlKey || e.metaKey) mods.push('CommandOrControl');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+      if (mods.length === 0) {
+        setHotkeyNotice('Hold Ctrl, Alt or Shift as well.');
+        return;
+      }
+      onChangeDesktopHotkey?.(recordingHotkey, [...mods, key].join('+'));
+      setHotkeyNotice(null);
+      setRecordingHotkey(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [recordingHotkey, onChangeDesktopHotkey]);
+
+  const renderDesktopToggle = (
+    title: string,
+    desc: string,
+    value: boolean,
+    onClick?: () => void,
+  ) => (
+    <button
+      type="button"
+      className="fq-set-row"
+      onClick={onClick}
+      title={desc}
+      style={{ textAlign: 'left', cursor: onClick ? 'pointer' : 'default' }}
+    >
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+        <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{title}</span>
+        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{desc}</span>
+      </span>
+      <span className="fq-switch" style={{ background: value ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.14)' }}>
+        <i style={{ left: value ? '19px' : '2px', background: value ? 'var(--accent-ink)' : '#fff' }} />
+      </span>
+    </button>
+  );
 
   return (
     <div className="fq-view view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '26px', paddingTop: '18px' }}>
@@ -607,6 +738,89 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
         </section>
 
         {/* Shortcuts */}
+        <section className="fq-set-section">
+          <div className="fq-set-head">
+            <span className="fq-set-icon"><Monitor size={16} /></span>
+            <div style={{ flex: 1 }}>
+              <h2 className="fq-set-title">Desktop integration</h2>
+              <p className="fq-set-desc">Live in the tray, control playback from the taskbar, and keep FreQ close while you work.</p>
+            </div>
+            <button
+              className="fq-btn fq-btn-ghost"
+              onClick={onResetDesktopHotkeys}
+              title="Restore the default global hotkeys"
+            >
+              Reset hotkeys
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '8px' }}>
+            {renderDesktopToggle(
+              'Keep playing in the tray',
+              'Closing the window hides it instead of quitting.',
+              closeToTray,
+              () => onToggleDesktopPref?.('closeToTray'),
+            )}
+            {renderDesktopToggle(
+              'Minimize to tray',
+              'Minimizing removes it from the taskbar; the tray icon brings it back.',
+              minimizeToTray,
+              () => onToggleDesktopPref?.('minimizeToTray'),
+            )}
+            {renderDesktopToggle(
+              'Track-change notifications',
+              'Show a Windows toast when the next song starts while FreQ is in the background.',
+              trackNotifications,
+              () => onToggleDesktopPref?.('trackNotifications'),
+            )}
+            {renderDesktopToggle(
+              'Global hotkeys',
+              'Control playback and the mini player from any app.',
+              hotkeysEnabled,
+              () => onToggleDesktopPref?.('hotkeysEnabled'),
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="fq-btn" onClick={onOpenMiniPlayer} title="Shrink to the always-on-top mini player">
+              <Maximize2 size={13} style={{ transform: 'rotate(180deg)' }} /> Enter mini player
+            </button>
+            <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Bell size={12} />
+              Ctrl+K opens the command palette.
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '8px' }}>
+            {DESKTOP_HOTKEY_ROWS.map(row => {
+              const active = recordingHotkey === row.id;
+              return (
+                <div key={row.id} className="fq-set-row" style={{ padding: '9px 12px', gap: '12px' }}>
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', minWidth: 0 }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{row.label}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{row.desc}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className={`fq-btn fq-btn-ghost fq-hotkey-btn${active ? ' is-recording' : ''}`}
+                    onClick={() => {
+                      setHotkeyNotice(null);
+                      setRecordingHotkey(active ? null : row.id);
+                    }}
+                    disabled={!hotkeysEnabled}
+                    title={hotkeysEnabled ? 'Click, then press a modifier + key' : 'Enable global hotkeys first'}
+                  >
+                    {active ? 'Press keys…' : prettyAccelerator(desktopHotkeys?.[row.id] || '')}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: '11px', color: hotkeyNotice ? 'var(--accent-cyan)' : 'var(--text-muted)', margin: 0 }}>
+            {hotkeyNotice || 'Click a binding, then hold Ctrl, Alt or Shift and press a key. Esc cancels.'}
+          </p>
+        </section>
+
         <section className="fq-set-section">
           <div className="fq-set-head">
             <span className="fq-set-icon"><Keyboard size={16} /></span>

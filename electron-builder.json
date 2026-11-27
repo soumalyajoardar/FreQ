@@ -16,12 +16,17 @@
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
+    "electron/assets/**/*",
     "package.json"
   ],
   "extraResources": [
     {
       "from": "build/yt-dlp.exe",
       "to": "bin/yt-dlp.exe"
+    },
+    {
+      "from": "electron/assets",
+      "to": "assets"
     }
   ],
   "win": {

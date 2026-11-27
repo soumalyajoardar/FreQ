@@ -7,6 +7,26 @@ import { NowPlayingModal } from './components/NowPlayingModal';
 import { QueueDrawer } from './components/QueueDrawer';
 import { AddToPlaylistModal } from './components/AddToPlaylistModal';
 import { TrackContextMenu } from './components/TrackContextMenu';
+import { MiniPlayer } from './components/MiniPlayer';
+import { CommandPalette, PaletteCommand } from './components/CommandPalette';
+import type { DesktopPrefs, DesktopPrefsPatch, DesktopHotkeyAction } from '../electron/preload';
+import {
+  BarChart3,
+  Heart,
+  Home,
+  Library,
+  Maximize2,
+  Pause,
+  Play,
+  Radio,
+  Repeat,
+  Search,
+  Settings,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Sparkles,
+} from 'lucide-react';
 
 import { HomeView } from './views/HomeView';
 import { SearchView } from './views/SearchView';
@@ -40,6 +60,21 @@ import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.2';
+
+// Renderer-side mirror of the main-process defaults. The authoritative copy is
+// persisted by the main process in freq_desktop_prefs.json.
+const DEFAULT_DESKTOP_PREFS: DesktopPrefs = {
+  closeToTray: true,
+  minimizeToTray: false,
+  trackNotifications: true,
+  hotkeysEnabled: true,
+  hotkeys: {
+    playPause: 'CommandOrControl+Alt+Space',
+    next: 'CommandOrControl+Alt+Right',
+    prev: 'CommandOrControl+Alt+Left',
+    miniPlayer: 'CommandOrControl+Alt+Shift+M',
+  },
+};
 
 export const App: React.FC = () => {
   // Updater State
@@ -270,6 +305,10 @@ export const App: React.FC = () => {
   const [partyMembersCount, setPartyMembersCount] = useState<number>(() => partyService.getMembers().length);
   const [partyPrivacy, setPartyPrivacy] = useState<PartyPrivacy>(() => partyService.getPrivacy());
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
+  // Desktop integration (tray / taskbar / mini player / command palette)
+  const [isMiniMode, setIsMiniMode] = useState<boolean>(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
+  const [desktopPrefs, setDesktopPrefs] = useState<DesktopPrefs>(DEFAULT_DESKTOP_PREFS);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, track: MediaTrack } | null>(null);
   const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState<boolean>(false);
   const [trackForPlaylist, setTrackForPlaylist] = useState<MediaTrack | null>(null);
@@ -286,6 +325,45 @@ export const App: React.FC = () => {
     // Update notices stay up longer so they can be read and clicked.
     const ttl = kind === 'update' ? 8000 : 3200;
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ttl);
+  };
+
+  // --- Desktop integration state ---
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.getDesktopPrefs) return;
+    api.getDesktopPrefs()
+      .then(prefs => setDesktopPrefs(prefs))
+      .catch(() => {});
+  }, []);
+
+  const patchDesktopPrefs = (patch: DesktopPrefsPatch) => {
+    const api = window.electronAPI;
+    if (!api?.setDesktopPrefs) {
+      setDesktopPrefs(prev => ({ ...prev, ...patch, hotkeys: { ...prev.hotkeys, ...(patch.hotkeys || {}) } }));
+      return;
+    }
+    api.setDesktopPrefs(patch)
+      .then(res => {
+        setDesktopPrefs(res.prefs);
+        if (res.conflicts.length > 0) {
+          pushToast(`Hotkey already used by another app: ${res.conflicts.join(', ')}`, 'info');
+        }
+      })
+      .catch(() => pushToast('Could not update desktop settings', 'info'));
+  };
+
+  const enterMiniPlayer = () => {
+    setIsMiniMode(true);
+    window.electronAPI?.setMiniMode?.(true)
+      .then(r => setIsMiniMode(r.mini))
+      .catch(() => setIsMiniMode(false));
+  };
+
+  const exitMiniPlayer = () => {
+    setIsMiniMode(false);
+    window.electronAPI?.setMiniMode?.(false)
+      .then(r => setIsMiniMode(r.mini))
+      .catch(() => {});
   };
 
   // Local Library State
@@ -553,6 +631,13 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts (remappable in Settings; Esc closes dialogs)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Command palette wins even while an input has focus.
+      if (!e.repeat && (e.ctrlKey || e.metaKey) && e.code === 'KeyK') {
+        e.preventDefault();
+        setIsPaletteOpen(v => !v);
+        return;
+      }
+
       const activeTag = (document.activeElement?.tagName || '').toLowerCase();
       if (activeTag === 'input' || activeTag === 'textarea') return;
 
@@ -578,7 +663,8 @@ export const App: React.FC = () => {
       } else if (match(bindings.mute.code, bindings.mute.ctrl)) {
         handleToggleMute();
       } else if (e.code === 'Escape') {
-        if (isCreatePlaylistOpen) setIsCreatePlaylistOpen(false);
+        if (isPaletteOpen) setIsPaletteOpen(false);
+        else if (isCreatePlaylistOpen) setIsCreatePlaylistOpen(false);
         else if (renamePlaylistId) setRenamePlaylistId(null);
         else if (pendingDeletePlaylistId) setPendingDeletePlaylistId(null);
         else if (isNowPlayingOpen) setIsNowPlayingOpen(false);
@@ -589,7 +675,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume]);
+  }, [isPlaying, isNowPlayingOpen, isQueueOpen, isAddToPlaylistOpen, isMuted, volume, isPaletteOpen, isCreatePlaylistOpen, renamePlaylistId, pendingDeletePlaylistId]);
 
   // Synchronize Discord Rich Presence with current playback state.
   // No track → browsing presence (handled main-side). Any real
@@ -1501,6 +1587,87 @@ export const App: React.FC = () => {
     handleSeekRef.current = handleSeek;
   });
 
+  // --- Desktop integration: tray / thumbar / hotkeys / mini player ---
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    const offMini = api.onMiniModeChange?.(mini => setIsMiniMode(mini));
+    const offMedia = api.onGlobalMediaCommand?.(action => {
+      if (action === 'playPause') handlePlayPauseRef.current();
+      else if (action === 'next') handleNextRef.current();
+      else if (action === 'prev') handlePrevRef.current();
+    });
+    const offPalette = api.onOpenCommandPalette?.(() => setIsPaletteOpen(true));
+    const offLaunch = api.onLaunchAction?.(action => {
+      if (action.type === 'view' && action.view) {
+        setCurrentView(action.view);
+        setActiveParam(undefined);
+      } else if (action.type === 'palette') {
+        setIsPaletteOpen(true);
+      } else if (action.type === 'mini') {
+        setIsMiniMode(true);
+      } else if (action.type === 'play' && action.id) {
+        void handlePlayTrackRef.current({
+          id: action.id,
+          title: action.title || 'Loading…',
+          artist: action.artist || 'FreQ',
+          album: '',
+          durationSeconds: 0,
+          artworkUrl: null,
+        });
+      }
+    });
+
+    return () => {
+      offMini?.();
+      offMedia?.();
+      offPalette?.();
+      offLaunch?.();
+    };
+  }, []);
+
+  // Mini mode hides every full-window overlay.
+  useEffect(() => {
+    if (!isMiniMode) return;
+    setIsNowPlayingOpen(false);
+    setIsQueueOpen(false);
+    setIsPaletteOpen(false);
+    setContextMenu(null);
+  }, [isMiniMode]);
+
+  // Mirror playback into the tray tooltip and taskbar thumbnail buttons.
+  useEffect(() => {
+    window.electronAPI?.updateDesktopPlayback?.({
+      hasTrack: !!currentTrack,
+      title: currentTrack?.title || '',
+      artist: currentTrack?.artist || '',
+      isPlaying,
+    });
+  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist, isPlaying]);
+
+  // Jump list: last tracks, newest first.
+  useEffect(() => {
+    window.electronAPI?.updateJumpList?.(
+      recentlyPlayed.slice(0, 8).map(t => ({ id: t.id, title: t.title, artist: t.artist })),
+    );
+  }, [recentlyPlayed]);
+
+  // Track-change toast, only when the app is in the background.
+  const lastNotifiedTrackRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentTrack?.id) return;
+    if (lastNotifiedTrackRef.current === currentTrack.id) return;
+    lastNotifiedTrackRef.current = currentTrack.id;
+    if (!desktopPrefs.trackNotifications) return;
+    if (document.hasFocus()) return;
+    window.electronAPI?.showTrackNotification?.({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id, desktopPrefs.trackNotifications]);
+
   // Listen Together Party Sync Listener (Guests mirror Host playback & timeline in real-time)
   useEffect(() => {
     const unsubSync = partyService.onSyncEvent(ev => {
@@ -1735,6 +1902,76 @@ export const App: React.FC = () => {
     });
   };
 
+  // --- Command palette: actions + searchable local library ---
+  const paletteTracks = useMemo<MediaTrack[]>(() => {
+    const seen = new Set<string>();
+    const out: MediaTrack[] = [];
+    const sources: MediaTrack[] = [
+      ...(currentTrack ? [currentTrack] : []),
+      ...recentlyPlayed,
+      ...likedTracks,
+      ...userPlaylists.flatMap(p => p.tracks),
+    ];
+    for (const track of sources) {
+      if (!track?.id || seen.has(track.id)) continue;
+      seen.add(track.id);
+      out.push(track);
+    }
+    return out;
+  }, [currentTrack, recentlyPlayed, likedTracks, userPlaylists]);
+
+  const paletteCommands: PaletteCommand[] = [
+    { id: 'nav-home', label: 'Go to Home', hint: 'Navigation', keywords: 'start dashboard', icon: <Home size={15} />, run: () => handleNavigate('home') },
+    { id: 'nav-search', label: 'Search music', hint: 'Navigation', keywords: 'find songs youtube', icon: <Search size={15} />, run: () => handleNavigate('search') },
+    { id: 'nav-library', label: 'Open Your Library', hint: 'Navigation', keywords: 'playlists liked downloads', icon: <Library size={15} />, run: () => handleNavigate('library') },
+    { id: 'nav-stats', label: 'Open Insights', hint: 'Navigation', keywords: 'stats history minutes', icon: <BarChart3 size={15} />, run: () => handleNavigate('stats') },
+    { id: 'nav-party', label: 'Open Listen Together', hint: 'Party', keywords: 'party room sync friends', icon: <Radio size={15} />, run: () => handleNavigate('party') },
+    { id: 'nav-settings', label: 'Open Settings', hint: 'Navigation', keywords: 'preferences desktop hotkeys tray', icon: <Settings size={15} />, run: () => handleNavigate('settings') },
+    { id: 'transport-toggle', label: isPlaying ? 'Pause playback' : 'Play', hint: 'Playback', keywords: 'play pause space', icon: isPlaying ? <Pause size={15} /> : <Play size={15} />, run: handlePlayPause },
+    { id: 'transport-next', label: 'Next track', hint: 'Playback', keywords: 'skip forward', icon: <SkipForward size={15} />, run: handleNext },
+    { id: 'transport-prev', label: 'Previous track', hint: 'Playback', keywords: 'skip back', icon: <SkipBack size={15} />, run: handlePrev },
+    { id: 'toggle-shuffle', label: isShuffle ? 'Turn shuffle off' : 'Turn shuffle on', hint: 'Playback', keywords: 'random', icon: <Shuffle size={15} />, run: handleToggleShuffle },
+    { id: 'toggle-repeat', label: `Repeat: ${repeatMode.toLowerCase()}`, hint: 'Playback', keywords: 'loop cycle', icon: <Repeat size={15} />, run: handleToggleRepeat },
+    ...(currentTrack
+      ? [{
+          id: 'like-current',
+          label: libraryStore.isLiked(currentTrack.id) ? 'Remove current track from Liked Songs' : 'Like current track',
+          hint: 'Library',
+          keywords: 'heart favourite favorite',
+          icon: <Heart size={15} />,
+          run: () => handleToggleLike(),
+        }]
+      : []),
+    { id: 'flavor-normal', label: 'Audio flavour: Normal', hint: audioMode === 'NORMAL' ? 'Current' : 'Switch', keywords: 'studio dry original', icon: <Sparkles size={15} />, run: () => handleAudioModeChange('NORMAL') },
+    { id: 'flavor-snr', label: 'Audio flavour: SnR', hint: audioMode === 'SNR' ? 'Current' : 'Switch', keywords: 'slowed reverb', icon: <Sparkles size={15} />, run: () => handleAudioModeChange('SNR') },
+    { id: 'flavor-nightcore', label: 'Audio flavour: Nightcore', hint: audioMode === 'NIGHTCORE' ? 'Current' : 'Switch', keywords: 'fast pitch', icon: <Sparkles size={15} />, run: () => handleAudioModeChange('NIGHTCORE') },
+    { id: 'mini-player', label: isMiniMode ? 'Exit mini player' : 'Enter mini player', hint: 'Window', keywords: 'compact float always on top', icon: <Maximize2 size={15} />, run: isMiniMode ? exitMiniPlayer : enterMiniPlayer },
+  ];
+
+  // Mini mode is a full-window replacement: no titlebar, rail, player bar or
+  // overlays. The same React tree keeps audio and queue state untouched.
+  if (isMiniMode) {
+    return (
+      <MiniPlayer
+        currentTrack={currentTrack}
+        isPlaying={isPlaying}
+        isLoading={isTrackLoading}
+        position={position}
+        duration={duration}
+        onPlayPause={handlePlayPause}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onSeek={handleSeek}
+        onExpand={exitMiniPlayer}
+        onClose={() => window.electronAPI?.closeWindow()}
+        onOpenNowPlaying={() => {
+          exitMiniPlayer();
+          setIsNowPlayingOpen(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="fq-app">
       <div className="fq-ambient" aria-hidden="true" />
@@ -1928,6 +2165,15 @@ export const App: React.FC = () => {
                 libraryStore.setPrivateMode(next);
                 pushToast(next ? 'Private listening on' : 'Private listening off', 'info');
               }}
+              closeToTray={desktopPrefs.closeToTray}
+              minimizeToTray={desktopPrefs.minimizeToTray}
+              trackNotifications={desktopPrefs.trackNotifications}
+              hotkeysEnabled={desktopPrefs.hotkeysEnabled}
+              desktopHotkeys={desktopPrefs.hotkeys}
+              onToggleDesktopPref={key => patchDesktopPrefs({ [key]: !desktopPrefs[key] } as DesktopPrefsPatch)}
+              onChangeDesktopHotkey={(action, accelerator) => patchDesktopPrefs({ hotkeys: { [action]: accelerator } })}
+              onResetDesktopHotkeys={() => patchDesktopPrefs({ hotkeys: DEFAULT_DESKTOP_PREFS.hotkeys, hotkeysEnabled: true })}
+              onOpenMiniPlayer={enterMiniPlayer}
               hasUpdate={updateVisible}
               updateInfo={updateInfo}
               updateChecking={updateChecking}
@@ -2203,6 +2449,14 @@ export const App: React.FC = () => {
             onToggleLike={() => handleToggleLike(contextMenu.track)}
           />
         )}
+      <CommandPalette
+        isOpen={isPaletteOpen}
+        onClose={() => setIsPaletteOpen(false)}
+        commands={paletteCommands}
+        tracks={paletteTracks}
+        currentTrackId={currentTrack?.id ?? null}
+        onPlayTrack={track => handlePlayTrack(track)}
+      />
       <ToastStack toasts={toasts} />
     </div>
   );

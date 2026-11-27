@@ -1,4 +1,16 @@
-import { app, BrowserWindow, ipcMain, shell, Notification, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  Notification,
+  session,
+  Tray,
+  Menu,
+  globalShortcut,
+  screen,
+  nativeImage,
+} from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -72,6 +84,419 @@ function applyPin() {
 // Required for Windows toast notifications to attribute correctly.
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.freq.music');
+}
+
+// ---------------------------------------------------------------------------
+// Desktop integration: tray, thumbar, jump list, global hotkeys, mini mode.
+// All of it is local-only; nothing here talks to a server.
+// ---------------------------------------------------------------------------
+
+type DesktopHotkeyAction = 'playPause' | 'next' | 'prev' | 'miniPlayer';
+
+interface DesktopPrefs {
+  closeToTray: boolean;
+  minimizeToTray: boolean;
+  trackNotifications: boolean;
+  hotkeysEnabled: boolean;
+  hotkeys: Record<DesktopHotkeyAction, string>;
+}
+
+const DEFAULT_DESKTOP_PREFS: DesktopPrefs = {
+  closeToTray: true,
+  minimizeToTray: false,
+  trackNotifications: true,
+  hotkeysEnabled: true,
+  hotkeys: {
+    playPause: 'CommandOrControl+Alt+Space',
+    next: 'CommandOrControl+Alt+Right',
+    prev: 'CommandOrControl+Alt+Left',
+    miniPlayer: 'CommandOrControl+Alt+Shift+M',
+  },
+};
+
+let desktopPrefs: DesktopPrefs = { ...DEFAULT_DESKTOP_PREFS, hotkeys: { ...DEFAULT_DESKTOP_PREFS.hotkeys } };
+
+let tray: Tray | null = null;
+let trayHintShown = false;
+let isQuitting = false;
+let miniMode = false;
+let miniRestore: { bounds: { x: number; y: number; width: number; height: number }; wasMaximized: boolean; pinWanted: boolean } | null = null;
+let lastPlayback = { hasTrack: false, title: '', artist: '', isPlaying: false };
+let jumpListRecent: { id: string; title: string; artist: string }[] = [];
+
+interface LaunchAction {
+  type: 'mini' | 'palette' | 'view' | 'play';
+  view?: string;
+  id?: string;
+  title?: string;
+  artist?: string;
+}
+const pendingLaunchActions: LaunchAction[] = [];
+
+// Separate user-data-dir profiles keep separate locks, so two-instance party
+// testing (--user-data-dir=...) still works.
+const isPrimaryInstance = app.requestSingleInstanceLock();
+if (!isPrimaryInstance) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    log('second-instance launch:', argv.join(' '));
+    showMainWindow();
+    handleLaunchArgs(argv);
+  });
+}
+
+function desktopPrefsPath(): string {
+  return path.join(app.getPath('userData'), 'freq_desktop_prefs.json');
+}
+
+function normalizeDesktopPrefs(raw: any): DesktopPrefs {
+  const base = DEFAULT_DESKTOP_PREFS;
+  const hotkeys = { ...base.hotkeys, ...(raw?.hotkeys || {}) };
+  for (const key of Object.keys(hotkeys) as DesktopHotkeyAction[]) {
+    hotkeys[key] = typeof hotkeys[key] === 'string' ? hotkeys[key].trim() : base.hotkeys[key];
+  }
+  return {
+    closeToTray: raw?.closeToTray !== false,
+    minimizeToTray: raw?.minimizeToTray === true,
+    trackNotifications: raw?.trackNotifications !== false,
+    hotkeysEnabled: raw?.hotkeysEnabled !== false,
+    hotkeys,
+  };
+}
+
+function loadDesktopPrefs(): DesktopPrefs {
+  try {
+    const raw = fs.readFileSync(desktopPrefsPath(), 'utf8');
+    return normalizeDesktopPrefs(JSON.parse(raw));
+  } catch {
+    return { ...DEFAULT_DESKTOP_PREFS, hotkeys: { ...DEFAULT_DESKTOP_PREFS.hotkeys } };
+  }
+}
+
+function saveDesktopPrefs() {
+  try {
+    fs.writeFileSync(desktopPrefsPath(), JSON.stringify(desktopPrefs, null, 2));
+  } catch (err) {
+    log('Failed to save desktop prefs:', err);
+  }
+}
+
+/** Asset path that works in dev (app root) and packaged (extraResources). */
+function desktopAssetPath(name: string): string {
+  try {
+    const packaged = path.join(process.resourcesPath, 'assets', name);
+    if (app.isPackaged && fs.existsSync(packaged)) return packaged;
+  } catch {}
+  return path.join(app.getAppPath(), 'electron', 'assets', name);
+}
+
+function loadDesktopIcon(name: string) {
+  try {
+    const icon = nativeImage.createFromPath(desktopAssetPath(name));
+    if (!icon.isEmpty()) return icon;
+  } catch {}
+  try {
+    return nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png'));
+  } catch {
+    return nativeImage.createEmpty();
+  }
+}
+
+function sendToRenderer(channel: string, payload?: any) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(channel, payload);
+}
+
+function sendMediaCommand(action: 'playPause' | 'next' | 'prev') {
+  sendToRenderer('desktop-media-command', action);
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function toggleMiniMode() {
+  setMiniMode(!miniMode);
+}
+
+function setMiniMode(on: boolean): boolean {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const next = !!on;
+
+  if (next === miniMode) {
+    sendToRenderer('desktop-mini-mode', miniMode);
+    return miniMode;
+  }
+
+  if (next) {
+    miniRestore = {
+      bounds: mainWindow.getBounds(),
+      wasMaximized: mainWindow.isMaximized(),
+      pinWanted,
+    };
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    // The normal window has a 700x460 floor; relax it before shrinking.
+    mainWindow.setMinimumSize(400, 150);
+    mainWindow.setResizable(false);
+    mainWindow.setMaximizable(false);
+
+    const display = screen.getDisplayMatching(miniRestore.bounds);
+    const width = 440;
+    const height = 178;
+    const margin = 22;
+    mainWindow.setBounds(
+      {
+        x: display.workArea.x + display.workArea.width - width - margin,
+        y: display.workArea.y + display.workArea.height - height - margin,
+        width,
+        height,
+      },
+      true,
+    );
+
+    miniMode = true;
+    // Mini player floats above other windows, reusing the existing pin path.
+    pinWanted = true;
+    applyPin();
+    mainWindow.show();
+    mainWindow.focus();
+    log('mini mode entered');
+  } else {
+    miniMode = false;
+    mainWindow.setResizable(true);
+    mainWindow.setMaximizable(true);
+    mainWindow.setMinimumSize(700, 460);
+
+    if (miniRestore) {
+      pinWanted = miniRestore.pinWanted;
+      mainWindow.setBounds(miniRestore.bounds, true);
+      if (miniRestore.wasMaximized) mainWindow.maximize();
+      miniRestore = null;
+    }
+    applyPin();
+    log('mini mode exited');
+  }
+
+  sendToRenderer('desktop-mini-mode', miniMode);
+  refreshTray();
+  return miniMode;
+}
+
+function buildTrayMenu(): Menu {
+  const label = lastPlayback.hasTrack
+    ? `${lastPlayback.title}${lastPlayback.artist ? ` — ${lastPlayback.artist}` : ''}`
+    : 'Nothing playing';
+  return Menu.buildFromTemplate([
+    { label: label.slice(0, 80), enabled: false },
+    { type: 'separator' },
+    {
+      label: lastPlayback.isPlaying ? 'Pause' : 'Play',
+      enabled: lastPlayback.hasTrack,
+      click: () => sendMediaCommand('playPause'),
+    },
+    { label: 'Next track', enabled: lastPlayback.hasTrack, click: () => sendMediaCommand('next') },
+    { label: 'Previous track', enabled: lastPlayback.hasTrack, click: () => sendMediaCommand('prev') },
+    { type: 'separator' },
+    { label: miniMode ? 'Exit mini player' : 'Mini player', click: toggleMiniMode },
+    {
+      label: 'Search…',
+      accelerator: 'CommandOrControl+K',
+      click: () => {
+        showMainWindow();
+        sendToRenderer('desktop-open-palette');
+      },
+    },
+    { label: 'Open FreQ', click: showMainWindow },
+    { type: 'separator' },
+    {
+      label: 'Quit FreQ',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+}
+
+function refreshTray() {
+  if (!tray) return;
+  const tip = lastPlayback.hasTrack
+    ? `FreQ — ${lastPlayback.title}${lastPlayback.artist ? ` · ${lastPlayback.artist}` : ''}`
+    : 'FreQ — ready';
+  try {
+    tray.setToolTip(tip.slice(0, 120));
+    tray.setContextMenu(buildTrayMenu());
+  } catch {}
+}
+
+function createTray() {
+  if (tray) return;
+  try {
+    tray = new Tray(loadDesktopIcon('tray.png'));
+    tray.setToolTip('FreQ');
+    tray.setContextMenu(buildTrayMenu());
+    tray.on('click', showMainWindow);
+    tray.on('double-click', showMainWindow);
+    log('tray created');
+  } catch (err) {
+    log('tray create failed:', err);
+    tray = null;
+  }
+}
+
+function updateThumbar() {
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    if (!lastPlayback.hasTrack) {
+      mainWindow.setThumbarButtons([]);
+      return;
+    }
+    mainWindow.setThumbarButtons([
+      { icon: loadDesktopIcon('thumb-prev.png'), tooltip: 'Previous', click: () => sendMediaCommand('prev') },
+      {
+        icon: loadDesktopIcon(lastPlayback.isPlaying ? 'thumb-pause.png' : 'thumb-play.png'),
+        tooltip: lastPlayback.isPlaying ? 'Pause' : 'Play',
+        click: () => sendMediaCommand('playPause'),
+      },
+      { icon: loadDesktopIcon('thumb-next.png'), tooltip: 'Next', click: () => sendMediaCommand('next') },
+    ]);
+    mainWindow.setThumbnailToolTip(
+      lastPlayback.title ? `FreQ — ${lastPlayback.title}` : 'FreQ',
+    );
+  } catch (err) {
+    log('thumbar update failed:', err);
+  }
+}
+
+function jumpListArgs(args: string[]): string {
+  // In dev the executable is Electron itself, so the app directory must lead.
+  const all = app.isPackaged ? args : [app.getAppPath(), ...args];
+  return all.map(a => (/\s/.test(a) ? `"${a}"` : a)).join(' ');
+}
+
+function refreshJumpList() {
+  if (process.platform !== 'win32') return;
+  const program = process.execPath;
+  const tasks = [
+    { title: 'Open FreQ', args: '--freq-view=home' },
+    { title: 'Search…', args: '--freq-palette' },
+    { title: 'Start a party', args: '--freq-view=party' },
+    { title: 'Mini player', args: '--freq-mini' },
+  ].map(t => ({
+    type: 'task' as const,
+    title: t.title,
+    program,
+    args: jumpListArgs([t.args]),
+    iconPath: desktopAssetPath('tray.png'),
+    iconIndex: 0,
+  }));
+
+  const categories: any[] = [{ type: 'tasks', items: tasks }];
+  if (jumpListRecent.length > 0) {
+    categories.unshift({
+      type: 'custom',
+      name: 'Recent tracks',
+      items: jumpListRecent.slice(0, 7).map(t => ({
+        type: 'task' as const,
+        title: `${t.title}${t.artist ? ` — ${t.artist}` : ''}`.slice(0, 90),
+        description: t.title,
+        program,
+        args: jumpListArgs([`--freq-play=${t.id}`, `--freq-title=${encodeURIComponent(t.title || '')}`, `--freq-artist=${encodeURIComponent(t.artist || '')}`]),
+        iconPath: desktopAssetPath('tray.png'),
+        iconIndex: 0,
+      })),
+    });
+  }
+
+  try {
+    const err = app.setJumpList(categories as any);
+    // Electron returns the string "ok" on success.
+    if (err && err !== 'ok') log('setJumpList warning:', err);
+  } catch (err) {
+    log('setJumpList failed:', err);
+  }
+}
+
+function registerGlobalHotkeys(): string[] {
+  globalShortcut.unregisterAll();
+  const conflicts: string[] = [];
+  if (!desktopPrefs.hotkeysEnabled) return conflicts;
+
+  const actions = Object.keys(desktopPrefs.hotkeys) as DesktopHotkeyAction[];
+  for (const action of actions) {
+    const accelerator = desktopPrefs.hotkeys[action];
+    if (!accelerator) continue;
+    try {
+      const ok = globalShortcut.register(accelerator, () => {
+        if (action === 'miniPlayer') {
+          toggleMiniMode();
+        } else {
+          sendMediaCommand(action);
+        }
+      });
+      if (!ok) conflicts.push(action);
+    } catch (err) {
+      log(`globalShortcut register failed for ${action}:`, err);
+      conflicts.push(action);
+    }
+  }
+  if (conflicts.length) log('global hotkey conflicts:', conflicts.join(', '));
+  return conflicts;
+}
+
+function parseLaunchArgs(argv: string[]): LaunchAction[] {
+  const actions: LaunchAction[] = [];
+  for (const raw of argv) {
+    if (typeof raw !== 'string') continue;
+    if (raw === '--freq-mini') actions.push({ type: 'mini' });
+    else if (raw === '--freq-palette') actions.push({ type: 'palette' });
+    else if (raw.startsWith('--freq-view=')) actions.push({ type: 'view', view: raw.slice('--freq-view='.length) });
+    else if (raw.startsWith('--freq-play=')) {
+      const id = raw.slice('--freq-play='.length);
+      if (/^[A-Za-z0-9_-]{11}$/.test(id)) actions.push({ type: 'play', id });
+    } else if (raw.startsWith('--freq-title=')) {
+      try {
+        const title = decodeURIComponent(raw.slice('--freq-title='.length));
+        const target = actions[actions.length - 1];
+        if (target?.type === 'play') target.title = title;
+      } catch {}
+    } else if (raw.startsWith('--freq-artist=')) {
+      try {
+        const artist = decodeURIComponent(raw.slice('--freq-artist='.length));
+        const target = actions[actions.length - 1];
+        if (target?.type === 'play') target.artist = artist;
+      } catch {}
+    }
+  }
+  return actions;
+}
+
+function flushLaunchActions() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const actions = pendingLaunchActions.splice(0);
+  for (const action of actions) {
+    // Mini mode is a window operation, not a renderer one.
+    if (action.type === 'mini') setMiniMode(true);
+    sendToRenderer('desktop-launch-action', action);
+  }
+}
+
+function handleLaunchArgs(argv: string[]) {
+  const actions = parseLaunchArgs(argv);
+  if (actions.length === 0) return;
+  log('launch actions:', JSON.stringify(actions));
+  pendingLaunchActions.push(...actions);
+  showMainWindow();
+  if (mainWindow && !mainWindow.webContents.isLoadingMainFrame()) {
+    flushLaunchActions();
+  }
 }
 
 // Audio stream cache: videoId -> { url, expiresAt }. Expiry comes from the
@@ -183,9 +608,30 @@ function createWindow() {
   mainWindow.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
     log(`[Renderer] ${message} (${sourceId}:${line})`);
   });
+  mainWindow.webContents.on('did-finish-load', () => {
+    updateThumbar();
+    flushLaunchActions();
+  });
 
-  mainWindow.on('close', () => {
+  mainWindow.on('close', (event) => {
     log('mainWindow close event');
+    // Closing to the tray keeps playback alive. A real quit (tray menu /
+    // installer / OS shutdown) sets isQuitting first.
+    if (!isQuitting && desktopPrefs.closeToTray) {
+      event.preventDefault();
+      mainWindow?.hide();
+      if (!trayHintShown && tray) {
+        trayHintShown = true;
+        try {
+          tray.displayBalloon({
+            icon: loadDesktopIcon('tray.png'),
+            title: 'FreQ is still playing',
+            content: 'Playback continues in the tray. Click the tray icon to reopen, or quit from its menu.',
+          });
+        } catch {}
+      }
+      return;
+    }
   });
   mainWindow.on('closed', () => {
     log('mainWindow closed event');
@@ -228,8 +674,17 @@ function createWindow() {
 
   // Track window bounds on minimize/restore for frameless custom chrome
   mainWindow.on('minimize', () => {
-    const bounds = mainWindow.getBounds();
-    mainWindow.webContents.send('window-minimized', { bounds });
+    const bounds = mainWindow?.getBounds();
+    if (bounds) mainWindow?.webContents.send('window-minimized', { bounds });
+    // Minimize-to-tray: let the minimize animation finish, then hide the
+    // window entirely so it leaves the taskbar but keeps playing.
+    if (desktopPrefs.minimizeToTray && !isQuitting) {
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized()) {
+          mainWindow.hide();
+        }
+      }, 80);
+    }
   });
   mainWindow.on('restore', () => {
     applyPin();
@@ -576,26 +1031,37 @@ autoUpdater.on('update-downloaded', (info) => {
 
 app.whenReady().then(() => {
   log('app.whenReady fired');
+  // A second launch quits immediately at module load; make sure it never
+  // creates a window or claims the tray/hotkeys while shutting down.
+  if (!isPrimaryInstance) return;
+
+  desktopPrefs = loadDesktopPrefs();
+  log('desktop prefs loaded:', JSON.stringify(desktopPrefs));
 
   // The renderer only needs microphone-class permission to expose audio-output
   // device names (and speaker selection for setSinkId). Camera/video and every
   // other permission stay denied.
   const ses = session.defaultSession;
-  ses.setPermissionRequestHandler((_wc, permission, callback, details: any) => {
+  ses.setPermissionRequestHandler((_wc, permission: any, callback: any, details: any) => {
     if (permission === 'media') {
-      const types: string[] = Array.isArray(details?.mediaTypes) ? details.mediaTypes : [];
-      const wantsVideo = types.some(t => t === 'video' || t === 'camera');
+      const types: any = Array.isArray(details?.mediaTypes) ? details.mediaTypes : [];
+      const wantsVideo = types.some((t: any) => t === 'video' || t === 'camera');
       callback(!wantsVideo);
       return;
     }
-    callback(permission === 'speaker-selection');
+    callback(true);
   });
-  ses.setPermissionCheckHandler((_wc, permission, _origin, details: any) => {
+  ses.setPermissionCheckHandler((_wc, permission: any, _origin: any, details: any) => {
     if (permission === 'media') return details?.mediaType !== 'video';
     return permission === 'speaker-selection';
   });
 
   createWindow();
+  createTray();
+  registerGlobalHotkeys();
+  refreshJumpList();
+  handleLaunchArgs(process.argv);
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -619,13 +1085,28 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   log('app window-all-closed fired');
+  // With close-to-tray on, the window is normally hidden rather than closed.
+  // If it really did close, keep the tray alive only when the user asked for it.
+  if (isQuitting) return;
+  if (tray && desktopPrefs.closeToTray) return;
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('will-quit', () => {
   log('app will-quit fired');
+  try {
+    globalShortcut.unregisterAll();
+  } catch {}
+  try {
+    tray?.destroy();
+  } catch {}
+  tray = null;
   discordRpcManager.destroy();
 });
 app.on('quit', () => {
@@ -674,6 +1155,81 @@ ipcMain.handle('set-always-on-top', (_event, on: boolean) => {
   applyPin();
   const pinned = !!mainWindow && !mainWindow.isDestroyed() && mainWindow.isAlwaysOnTop();
   return { success: true, pinned };
+});
+
+// --- Desktop integration IPC ---
+
+ipcMain.handle('desktop-get-prefs', () => desktopPrefs);
+
+ipcMain.handle('desktop-set-prefs', (_event, patch: any) => {
+  const merged = {
+    ...desktopPrefs,
+    ...(patch || {}),
+    hotkeys: { ...desktopPrefs.hotkeys, ...(patch?.hotkeys || {}) },
+  };
+  desktopPrefs = normalizeDesktopPrefs(merged);
+  saveDesktopPrefs();
+  const conflicts = registerGlobalHotkeys();
+  refreshTray();
+  return { prefs: desktopPrefs, conflicts };
+});
+
+ipcMain.handle('desktop-set-mini-mode', (_event, on: boolean) => ({ mini: setMiniMode(!!on) }));
+
+ipcMain.handle('desktop-show-window', () => {
+  showMainWindow();
+  return true;
+});
+
+ipcMain.handle('desktop-playback-state', (_event, payload: any) => {
+  lastPlayback = {
+    hasTrack: !!payload?.hasTrack,
+    title: typeof payload?.title === 'string' ? payload.title.slice(0, 120) : '',
+    artist: typeof payload?.artist === 'string' ? payload.artist.slice(0, 120) : '',
+    isPlaying: !!payload?.isPlaying,
+  };
+  if (tray) tray.setToolTip(
+    lastPlayback.hasTrack
+      ? `FreQ — ${lastPlayback.title}${lastPlayback.artist ? ` · ${lastPlayback.artist}` : ''}`.slice(0, 120)
+      : 'FreQ — ready',
+  );
+  refreshTray();
+  updateThumbar();
+});
+
+ipcMain.handle('desktop-show-track-notification', (_event, payload: any) => {
+  if (!desktopPrefs.trackNotifications) return { shown: false };
+  if (!Notification.isSupported()) return { shown: false };
+  const title = typeof payload?.title === 'string' && payload.title.trim() ? payload.title.trim() : 'Now playing';
+  const artist = typeof payload?.artist === 'string' ? payload.artist.trim() : '';
+  try {
+    const notification = new Notification({
+      title: title.slice(0, 120),
+      body: artist ? artist.slice(0, 120) : 'FreQ',
+      silent: false,
+    });
+    notification.on('click', showMainWindow);
+    notification.show();
+    return { shown: true };
+  } catch (err) {
+    log('track notification failed:', err);
+    return { shown: false };
+  }
+});
+
+ipcMain.handle('desktop-set-jump-list', (_event, tracks: any) => {
+  jumpListRecent = Array.isArray(tracks)
+    ? tracks
+        .filter((t: any) => t && typeof t.id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(t.id))
+        .slice(0, 8)
+        .map((t: any) => ({
+          id: t.id,
+          title: typeof t.title === 'string' ? t.title : '',
+          artist: typeof t.artist === 'string' ? t.artist : '',
+        }))
+    : [];
+  refreshJumpList();
+  return { ok: true };
 });
 
 // yt-dlp Audio Stream Resolution IPC
