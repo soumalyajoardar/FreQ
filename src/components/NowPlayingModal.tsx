@@ -27,6 +27,7 @@ import { SquareArt } from './SquareArt';
 import { SafeArtwork } from './SafeArtwork';
 import freqIcon from '../assets/freq-icon.png';
 import { useExitTransition } from './useExitTransition';
+import { LyricalStageView } from '../lyrics/LyricalStageView';
 
 interface NowPlayingModalProps {
   isOpen: boolean;
@@ -234,6 +235,23 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           : 'freqSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
+      {showLyrics ? (
+        <LyricalStageView
+          track={currentTrack}
+          lyrics={lyrics}
+          isLyricsLoading={isLyricsLoading}
+          isPlaying={isPlaying}
+          position={position}
+          duration={duration}
+          onPlayPause={onPlayPause}
+          onPrev={onPrev}
+          onNext={onNext}
+          onSeek={onSeek}
+          onCloseLyrics={() => setShowLyrics(false)}
+          onCollapsePlayer={onClose}
+        />
+      ) : (
+      <>
       {/* 1. Dynamic blurred artwork atmosphere */}
       {currentTrack.artworkUrl && (
         <div
@@ -820,6 +838,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

@@ -21,3 +21,4 @@
 |------|------|--------|-------------|
 | 261114-pne-listen-together-party | 2026-11-14 | complete | Listen Together (Party System) |
 | 261121-win-fixes-vtsl-devmode | 2026-11-21 | complete | Audio device dedup, post-update changelog fix, enhanced stereo widener, Developer Mode, VTSL simulation |
+| 261128-web-publish-freq-site | 2026-11-28 | complete | Publish FreQ website landing page to GitHub Pages |

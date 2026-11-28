@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Search, X, Play, Heart, PlusCircle, Clock, Music, Disc, User, Sparkles } from 'lucide-react';
 import { MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
+import { playbackManager } from '../services/playbackManager';
 import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
 
@@ -156,6 +157,8 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
       key={`${track.id}-${idx}`}
       className="fq-trow"
       onContextMenu={e => onTrackContextMenu?.(e, track)}
+      onMouseEnter={() => playbackManager.scheduleHoverPrefetch(track)}
+      onMouseLeave={() => playbackManager.cancelHoverPrefetch(track.id)}
     >
       <span className="fq-tnum">{String(idx + 1).padStart(2, '0')}</span>
 
@@ -253,11 +256,12 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
         />
 
         <div
-          className="origin-sounds-badge"
+          className="fq-atmos-badge"
           style={{ position: 'absolute', right: query ? '46px' : '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+          title="Origin Sounds spatial audio"
         >
-          <Sparkles size={10} color="var(--text-secondary)" />
-          <span>Powered by ORIGIN SOUNDS</span>
+          <Sparkles size={10} color="#c4b5fd" />
+          <span>Powered by Origin Sounds</span>
         </div>
 
         {query && (
@@ -454,10 +458,12 @@ const SearchViewComponent: React.FC<SearchViewProps> = ({
                 onMouseEnter={e => {
                   e.currentTarget.style.borderColor = 'var(--line-strong)';
                   e.currentTarget.style.transform = 'translateY(-2px)';
+                  playbackManager.scheduleHoverPrefetch(topResult);
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.borderColor = 'var(--line)';
                   e.currentTarget.style.transform = 'translateY(0)';
+                  playbackManager.cancelHoverPrefetch(topResult.id);
                 }}
               >
                 <div style={{ width: '96px', height: '96px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.5)', background: '#14141b' }}>

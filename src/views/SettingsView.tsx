@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, AlertTriangle, Terminal, Code2, RotateCcw, Lock, Unlock, Key, Monitor, Bell, Maximize2 } from 'lucide-react';
+import { Volume2, HardDrive, ShieldCheck, DownloadCloud, RefreshCw, FileUp, FileDown, Copy, Globe2, Keyboard, Check, Palette, Sparkles, AlertTriangle, Terminal, Code2, RotateCcw, Lock, Unlock, Key, Monitor, Bell } from 'lucide-react';
 import type { DesktopHotkeyAction } from '../../electron/preload';
 import { AudioMode, UserPlaylist, DuplicateGroup } from '../types';
 import { REGIONS, regionDef } from '../services/regions';
@@ -154,7 +154,6 @@ interface SettingsViewProps {
   onToggleDesktopPref?: (key: 'closeToTray' | 'minimizeToTray' | 'trackNotifications' | 'hotkeysEnabled') => void;
   onChangeDesktopHotkey?: (action: DesktopHotkeyAction, accelerator: string) => void;
   onResetDesktopHotkeys?: () => void;
-  onOpenMiniPlayer?: () => void;
 }
 
 const SettingsViewComponent: React.FC<SettingsViewProps> = ({
@@ -194,7 +193,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
   onToggleDesktopPref,
   onChangeDesktopHotkey,
   onResetDesktopHotkeys,
-  onOpenMiniPlayer,
 }) => {
   const [devUnlocked, setDevUnlocked] = React.useState<boolean>(() => {
     try {
@@ -782,9 +780,6 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button className="fq-btn" onClick={onOpenMiniPlayer} title="Shrink to the always-on-top mini player">
-              <Maximize2 size={13} style={{ transform: 'rotate(180deg)' }} /> Enter mini player
-            </button>
             <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Bell size={12} />
               Ctrl+K opens the command palette.
@@ -1027,7 +1022,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                       stereoWidth: audioEngine.getStereoWidth(),
                       hdClarity: audioEngine.getHdClarity(),
                       bassBoost: audioEngine.getBassBoost(),
-                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.2',
+                      appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.7.1',
                       timestamp: new Date().toISOString(),
                     };
                     console.log('[FreQ Dev Diagnostic Dump]', dump);
@@ -1091,7 +1086,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 FreQ Desktop
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.2'} (Stable)</span>
+                <span className="fq-chip fq-chip-accent">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.7.1'} (Stable)</span>
                 {onOpenWhatsNew && (
                   <button
                     className="fq-btn fq-btn-ghost"

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Play, Shuffle, Heart, Trash2, Music, ChevronUp, ChevronDown, ListPlus, Camera, X } from 'lucide-react';
 import { MediaTrack } from '../types';
+import { playbackManager } from '../services/playbackManager';
 import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
 
@@ -194,6 +195,8 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
             key={`${track.id}-${idx}`}
             className="fq-trow"
             onContextMenu={e => onTrackContextMenu?.(e, track)}
+            onMouseEnter={() => playbackManager.scheduleHoverPrefetch(track)}
+            onMouseLeave={() => playbackManager.cancelHoverPrefetch(track.id)}
           >
             <span className="fq-tnum">{String(idx + 1).padStart(2, '0')}</span>
 

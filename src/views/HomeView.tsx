@@ -17,6 +17,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { CatalogSection, MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
+import { playbackManager } from '../services/playbackManager';
 import { regionDef } from '../services/regions';
 import { SafeArtwork } from '../components/SafeArtwork';
 import { SquareArt } from '../components/SquareArt';
@@ -82,6 +83,8 @@ const TrackCard: React.FC<{
     className={`fq-card${isCurrent ? ' is-current' : ''}`}
     onClick={onPlay}
     onContextMenu={onContextMenu}
+    onMouseEnter={() => playbackManager.scheduleHoverPrefetch(track)}
+    onMouseLeave={() => playbackManager.cancelHoverPrefetch(track.id)}
     role="button"
     tabIndex={0}
   >
@@ -378,6 +381,8 @@ const HomeViewComponent: React.FC<HomeViewProps> = ({
                 key={alb.title}
                 className="fq-card"
                 onClick={() => alb.tracks.length > 0 && onPlayTrack(alb.tracks[0], alb.tracks)}
+                onMouseEnter={() => alb.tracks.length > 0 && playbackManager.scheduleHoverPrefetch(alb.tracks[0])}
+                onMouseLeave={() => alb.tracks.length > 0 && playbackManager.cancelHoverPrefetch(alb.tracks[0].id)}
               >
                 <div className="fq-card-media">
                   <SquareArt

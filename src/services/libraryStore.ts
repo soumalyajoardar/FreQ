@@ -50,6 +50,9 @@ interface StoredLibrary {
   bassBoost?: number;
   stereoWidth?: number;
   hdClarity?: number;
+  spatialEnabled?: boolean;
+  spatialAngle?: number;
+  spatialIntensity?: number;
   playStats?: PlayStatEntry[];
   eqGains?: number[];
   balance?: number;
@@ -103,6 +106,9 @@ export class LibraryStore {
   private bassBoost: number = 0.4;
   private stereoWidth: number = 0.35;
   private hdClarity: number = 0.45;
+  private spatialEnabled: boolean = false;
+  private spatialAngle: number = 0;
+  private spatialIntensity: number = 0.65;
   private eqGains: number[] = [0, 0, 0, 0, 0];
   private balance: number = 0;
   private autoLevel: boolean = false;
@@ -148,6 +154,9 @@ export class LibraryStore {
           if (typeof (data as any).hdClarity === 'number') {
             this.hdClarity = Math.min(1, Math.max(0, (data as any).hdClarity));
           }
+          if (typeof (data as any).spatialEnabled === 'boolean') this.spatialEnabled = (data as any).spatialEnabled;
+          if (typeof (data as any).spatialAngle === 'number') this.spatialAngle = Math.min(180, Math.max(-180, (data as any).spatialAngle));
+          if (typeof (data as any).spatialIntensity === 'number') this.spatialIntensity = Math.min(1, Math.max(0, (data as any).spatialIntensity));
           if (Array.isArray((data as any).eqGains)) this.eqGains = [0, 1, 2, 3, 4].map(i => Number.isFinite((data as any).eqGains[i]) ? Math.min(12, Math.max(-12, (data as any).eqGains[i])) : 0);
           if (typeof (data as any).balance === 'number') this.balance = Math.min(1, Math.max(-1, (data as any).balance));
           if (typeof (data as any).autoLevel === 'boolean') this.autoLevel = (data as any).autoLevel;
@@ -195,6 +204,9 @@ export class LibraryStore {
           if (typeof (parsed as any).hdClarity === 'number') {
             this.hdClarity = Math.min(1, Math.max(0, (parsed as any).hdClarity));
           }
+          if (typeof (parsed as any).spatialEnabled === 'boolean') this.spatialEnabled = (parsed as any).spatialEnabled;
+          if (typeof (parsed as any).spatialAngle === 'number') this.spatialAngle = Math.min(180, Math.max(-180, (parsed as any).spatialAngle));
+          if (typeof (parsed as any).spatialIntensity === 'number') this.spatialIntensity = Math.min(1, Math.max(0, (parsed as any).spatialIntensity));
           if (Array.isArray(parsed.eqGains)) this.eqGains = [0, 1, 2, 3, 4].map(i => Number.isFinite(parsed.eqGains[i]) ? Math.min(12, Math.max(-12, parsed.eqGains[i])) : 0);
           if (typeof parsed.balance === 'number') this.balance = Math.min(1, Math.max(-1, parsed.balance));
           if (typeof parsed.autoLevel === 'boolean') this.autoLevel = parsed.autoLevel;
@@ -236,6 +248,9 @@ export class LibraryStore {
       bassBoost: this.bassBoost,
       stereoWidth: this.stereoWidth,
       hdClarity: this.hdClarity,
+      spatialEnabled: this.spatialEnabled,
+      spatialAngle: this.spatialAngle,
+      spatialIntensity: this.spatialIntensity,
       playStats: this.playStats,
       eqGains: this.eqGains,
       balance: this.balance,
@@ -574,6 +589,30 @@ export class LibraryStore {
 
   public setHdClarity(amount: number) {
     this.hdClarity = Math.min(1, Math.max(0, amount));
+    this.persist();
+    this.notify();
+  }
+
+  public getSpatialEnabled(): boolean {
+    return this.spatialEnabled;
+  }
+
+  public getSpatialAngle(): number {
+    return this.spatialAngle;
+  }
+
+  public getSpatialIntensity(): number {
+    return this.spatialIntensity;
+  }
+
+  public setSpatial(enabled: boolean, angle?: number, intensity?: number) {
+    this.spatialEnabled = !!enabled;
+    if (typeof angle === 'number' && Number.isFinite(angle)) {
+      this.spatialAngle = Math.min(180, Math.max(-180, angle));
+    }
+    if (typeof intensity === 'number' && Number.isFinite(intensity)) {
+      this.spatialIntensity = Math.min(1, Math.max(0, intensity));
+    }
     this.persist();
     this.notify();
   }

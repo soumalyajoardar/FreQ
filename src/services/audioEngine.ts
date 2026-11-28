@@ -65,6 +65,16 @@ class AudioEngine {
   private panNode: StereoPannerNode | null = null;
   private levelBuf: Float32Array<ArrayBuffer> | null = null;
 
+  // Atmos-style directional stage: a dry stereo anchor blended with an
+  // HRTF-panned copy so the mix appears to arrive from a chosen direction.
+  private spatialEnabled: boolean = false;
+  private spatialAngle: number = 0; // degrees: 0 = front, +90 = right, ±180 = rear
+  private spatialIntensity: number = 0.65; // 0…1
+  private spatialDryGain: GainNode | null = null;
+  private spatialWetGain: GainNode | null = null;
+  private spatialOutGain: GainNode | null = null;
+  private spatialPanner: PannerNode | null = null;
+
   private currentTrack: MediaTrack | null = null;
   private audioMode: AudioMode = 'SNR';
   private volume: number = 0.85;
@@ -301,7 +311,35 @@ class AudioEngine {
       this.analyserNode.fftSize = 2048;
       this.levelGainNode.connect(this.analyserNode);
 
-      let outNode: AudioNode = this.analyserNode;
+      // Atmos-style directional stage. The dry stereo path keeps the mix
+      // intact while the wet path runs through an HRTF panner, so turning the
+      // effect up moves the image around the listener instead of just
+      // collapsing it to mono.
+      this.spatialDryGain = this.audioCtx.createGain();
+      this.spatialDryGain.gain.value = 1.0;
+
+      this.spatialWetGain = this.audioCtx.createGain();
+      this.spatialWetGain.gain.value = 0.0;
+
+      this.spatialOutGain = this.audioCtx.createGain();
+      this.spatialOutGain.gain.value = 1.0;
+
+      this.spatialPanner = this.audioCtx.createPanner();
+      this.spatialPanner.panningModel = 'HRTF';
+      this.spatialPanner.distanceModel = 'inverse';
+      this.spatialPanner.refDistance = 1.4;
+      this.spatialPanner.maxDistance = 24;
+      this.spatialPanner.rolloffFactor = 0.55;
+      this.spatialPanner.coneInnerAngle = 360;
+      this.spatialPanner.coneOuterAngle = 360;
+
+      this.analyserNode.connect(this.spatialDryGain);
+      this.analyserNode.connect(this.spatialPanner);
+      this.spatialPanner.connect(this.spatialWetGain);
+      this.spatialDryGain.connect(this.spatialOutGain);
+      this.spatialWetGain.connect(this.spatialOutGain);
+
+      let outNode: AudioNode = this.spatialOutGain;
       try {
         if (typeof this.audioCtx.createStereoPanner === 'function') {
           this.panNode = this.audioCtx.createStereoPanner();
@@ -349,6 +387,7 @@ class AudioEngine {
       this.audio.volume = 1;
       this.applyVolume();
       this.isAudioGraphReady = true;
+      this.applySpatial();
       void this.applyOutputDevice();
     } catch (e) {
       console.warn('Web Audio DSP graph initialization fallback:', e);
@@ -704,6 +743,64 @@ class AudioEngine {
 
   public getHdClarity(): number {
     return this.hdClarity;
+  }
+
+  // --- Atmos-style directional spatial audio ---
+
+  /**
+   * Aim the spatial stage. Angle is in degrees: 0 = straight ahead,
+   * +90 = right, -90 = left, ±180 = behind. Intensity blends the HRTF copy
+   * against the untouched dry stereo image (0 = bypass, 1 = fully placed).
+   */
+  public setSpatial(enabled: boolean, angle?: number, intensity?: number) {
+    this.spatialEnabled = !!enabled;
+    if (typeof angle === 'number' && Number.isFinite(angle)) {
+      this.spatialAngle = Math.max(-180, Math.min(180, angle));
+    }
+    if (typeof intensity === 'number' && Number.isFinite(intensity)) {
+      this.spatialIntensity = Math.max(0, Math.min(1, intensity));
+    }
+    this.applySpatial();
+  }
+
+  public getSpatial(): { enabled: boolean; angle: number; intensity: number } {
+    return {
+      enabled: this.spatialEnabled,
+      angle: this.spatialAngle,
+      intensity: this.spatialIntensity,
+    };
+  }
+
+  private applySpatial() {
+    if (!this.audioCtx || !this.spatialPanner) return;
+    const t = this.audioCtx.currentTime;
+    const panner = this.spatialPanner;
+
+    // Web Audio's listener faces -Z with +X to the right and +Y up. A small
+    // amount of elevation gives the mix an "in the room" externalisation.
+    const rad = (this.spatialAngle * Math.PI) / 180;
+    const distance = 2.2;
+    const x = Math.sin(rad) * distance;
+    const y = 0.45;
+    const z = -Math.cos(rad) * distance;
+    if (panner.positionX) {
+      panner.positionX.setTargetAtTime(x, t, 0.045);
+      panner.positionY.setTargetAtTime(y, t, 0.045);
+      panner.positionZ.setTargetAtTime(z, t, 0.045);
+    } else {
+      (panner as any).setPosition?.(x, y, z);
+    }
+
+    const on = this.spatialEnabled;
+    const amount = on ? this.spatialIntensity : 0;
+    // Keep the dry stereo as the anchor and fold in the HRTF copy as intensity
+    // rises. The output trim compensates the panner's distance attenuation so
+    // enabling Atmos never reads as a volume drop.
+    const wet = on ? 0.18 + 0.72 * Math.pow(amount, 0.85) : 0;
+    const dry = 1 - 0.58 * amount;
+    this.spatialWetGain?.gain.setTargetAtTime(wet, t, 0.06);
+    this.spatialDryGain?.gain.setTargetAtTime(dry, t, 0.06);
+    this.spatialOutGain?.gain.setTargetAtTime(1 + 0.18 * amount, t, 0.06);
   }
 
   // 5-band EQ gains in dB. Heard in SnR/Nightcore — Normal stays flat.

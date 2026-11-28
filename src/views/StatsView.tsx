@@ -4,6 +4,7 @@ import { MediaTrack } from '../types';
 import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
 import { PlayStatEntry } from '../services/libraryStore';
+import { playbackManager } from '../services/playbackManager';
 
 interface StatsViewProps {
   stats: PlayStatEntry[];
@@ -115,7 +116,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ stats, totalMs, onPlayTrac
             </span>
           )}
           {topTracks.map((s, i) => (
-            <div key={s.track.id} onClick={() => onPlayTrack(s.track)} className="fq-trow" style={{ height: '54px', cursor: 'pointer' }}>
+            <div
+              key={s.track.id}
+              onClick={() => onPlayTrack(s.track)}
+              onMouseEnter={() => playbackManager.scheduleHoverPrefetch(s.track)}
+              onMouseLeave={() => playbackManager.cancelHoverPrefetch(s.track.id)}
+              className="fq-trow"
+              style={{ height: '54px', cursor: 'pointer' }}
+            >
               <span className="fq-tnum">{String(i + 1).padStart(2, '0')}</span>
               <div className="fq-tmain">
                 <SquareArt src={s.track.artworkUrl} videoId={s.track.id} alt={s.track.title} fit="cover" style={{ width: '36px', height: '36px', borderRadius: '8px' }} />

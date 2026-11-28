@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Play, Shuffle, Heart, Disc } from 'lucide-react';
 import { AlbumDetails, MediaTrack } from '../types';
 import { ytMusicService } from '../services/ytmusic';
+import { playbackManager } from '../services/playbackManager';
 import { formatTime } from '../components/PlayerBar';
 import { SquareArt } from '../components/SquareArt';
 
@@ -115,6 +116,8 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
             key={track.id}
             className="fq-trow"
             onContextMenu={e => onTrackContextMenu?.(e, track)}
+            onMouseEnter={() => playbackManager.scheduleHoverPrefetch(track)}
+            onMouseLeave={() => playbackManager.cancelHoverPrefetch(track.id)}
           >
             <span className="fq-tnum">{String(idx + 1).padStart(2, '0')}</span>
 

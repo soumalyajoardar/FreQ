@@ -243,13 +243,13 @@ function setMiniMode(on: boolean): boolean {
     };
     if (mainWindow.isMaximized()) mainWindow.unmaximize();
     // The normal window has a 700x460 floor; relax it before shrinking.
-    mainWindow.setMinimumSize(400, 150);
+    mainWindow.setMinimumSize(320, 76);
     mainWindow.setResizable(false);
     mainWindow.setMaximizable(false);
 
     const display = screen.getDisplayMatching(miniRestore.bounds);
-    const width = 440;
-    const height = 178;
+    const width = 380;
+    const height = 84;
     const margin = 22;
     mainWindow.setBounds(
       {
@@ -502,10 +502,26 @@ function handleLaunchArgs(argv: string[]) {
 // Audio stream cache: videoId -> { url, expiresAt }. Expiry comes from the
 // googlevideo `?expire=` param when present (true URL lifetime), else a
 // 4h fallback. Reads apply a 60s safety margin (Android parity).
+const MAX_STREAM_CACHE = 120;
+const CLOUD_PLAYBACK_TIMEOUT_MS = 4500;
+const LOCAL_PREFERENCE_TTL_MS = 5 * 60_000;
 const streamCache = new Map<string, { url: string; expiresAt: number }>();
+const streamSourceKind = new Map<string, 'cloud' | 'local'>();
+const preferLocalUntil = new Map<string, number>();
 // In-flight extractions per videoId (Android per-track Mutex parity):
 // concurrent taps share one yt-dlp run instead of spawning duplicates.
 const streamInflight = new Map<string, Promise<{ streamUrl: string; fromCache: boolean; expiresAtMs: number | null }>>();
+
+function cacheStreamUrl(videoId: string, url: string, expiresAt: number) {
+  if (streamCache.has(videoId)) streamCache.delete(videoId);
+  streamCache.set(videoId, { url, expiresAt });
+  while (streamCache.size > MAX_STREAM_CACHE) {
+    const oldest = streamCache.keys().next().value;
+    if (!oldest) break;
+    streamCache.delete(oldest);
+    streamSourceKind.delete(oldest);
+  }
+}
 
 /** True googlevideo expiry from `?expire=<unix-sec>`, else null. */
 function parseStreamExpiryMs(url: string): number | null {
@@ -1232,7 +1248,7 @@ ipcMain.handle('desktop-set-jump-list', (_event, tracks: any) => {
   return { ok: true };
 });
 
-// yt-dlp Audio Stream Resolution IPC
+// Audio stream resolution IPC (parallel Cloud + fast local race, local fallbacks)
 ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
   if (!videoId || typeof videoId !== 'string' || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
     throw new Error('Valid videoId is required');
@@ -1242,6 +1258,9 @@ ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
   // instead of handing the player a link that dies mid-track).
   const cached = streamCache.get(videoId);
   if (cached && Date.now() + 60_000 < cached.expiresAt && isValidStreamUrl(cached.url)) {
+    // Refresh LRU order without allocating a new entry.
+    streamCache.delete(videoId);
+    streamCache.set(videoId, cached);
     return { streamUrl: cached.url, fromCache: true, expiresAtMs: cached.expiresAt };
   }
 
@@ -1255,66 +1274,135 @@ ipcMain.handle('get-stream-url', async (_event, videoId: string) => {
   return job;
 });
 
+type ResolvedStreamCandidate = {
+  streamUrl: string;
+  expiresAt: number;
+  source: 'cloud' | 'local';
+};
+
+async function resolveFromCloud(videoId: string, parentSignal: AbortSignal): Promise<ResolvedStreamCandidate> {
+  const ctrl = new AbortController();
+  const onParentAbort = () => ctrl.abort();
+  if (parentSignal.aborted) ctrl.abort();
+  else parentSignal.addEventListener('abort', onParentAbort, { once: true });
+  const timer = setTimeout(() => ctrl.abort(), CLOUD_PLAYBACK_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`https://freq-api.vercel.app/api/playback/${videoId}`, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`Cloud HTTP ${res.status}`);
+    const data: any = await res.json();
+    if (!data?.available || typeof data.streamUrl !== 'string' || !isValidStreamUrl(data.streamUrl)) {
+      throw new Error('Cloud returned no playable stream');
+    }
+    const expiresFromField =
+      typeof data.expiresIn === 'number' && data.expiresIn > 0
+        ? Date.now() + data.expiresIn * 1000
+        : null;
+    const expiresAt =
+      expiresFromField ?? parseStreamExpiryMs(data.streamUrl) ?? Date.now() + 4 * 60 * 60 * 1000;
+    return { streamUrl: data.streamUrl, expiresAt, source: 'cloud' };
+  } finally {
+    clearTimeout(timer);
+    parentSignal.removeEventListener('abort', onParentAbort);
+  }
+}
+
+async function runYtDlpAttempt(
+  ytdlp: YtDlpCommand,
+  attempt: { url: string; extraArgs: string[] },
+  signal?: AbortSignal,
+  timeoutMs = 15000,
+): Promise<ResolvedStreamCandidate> {
+  const { stdout } = await execFileAsync(
+    ytdlp.cmd,
+    [
+      ...ytdlp.prefixArgs,
+      ...attempt.extraArgs,
+      '--no-playlist',
+      '--socket-timeout',
+      '6',
+      '-f',
+      'ba/ba*',
+      '-g',
+      attempt.url,
+    ],
+    signal ? { timeout: timeoutMs, signal } : { timeout: timeoutMs },
+  );
+
+  const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    if (isValidStreamUrl(line)) {
+      const expiresAt = parseStreamExpiryMs(line) || Date.now() + 4 * 60 * 60 * 1000;
+      return { streamUrl: line, expiresAt, source: 'local' };
+    }
+  }
+  throw new Error('No valid stream URL in yt-dlp output');
+}
+
 async function resolveStreamUrl(videoId: string) {
   const ytdlp = resolveYtDlp();
-
-  // Extraction strategies: base web client on both YouTube Music + YouTube front doors,
-  // then android client which avoids bot-checks and handles music tracks reliably.
-  const attempts: { url: string; extraArgs: string[] }[] = [
+  const fastAttempt = {
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    extraArgs: ['--extractor-args', 'youtube:player_client=android', '--no-warnings'],
+  };
+  const fallbackAttempts: { url: string; extraArgs: string[] }[] = [
     { url: `https://www.youtube.com/watch?v=${videoId}`, extraArgs: ['--no-warnings'] },
     { url: `https://music.youtube.com/watch?v=${videoId}`, extraArgs: ['--no-warnings'] },
-    {
-      url: `https://www.youtube.com/watch?v=${videoId}`,
-      extraArgs: ['--extractor-args', 'youtube:player_client=android', '--no-warnings'],
-    },
     {
       url: `https://music.youtube.com/watch?v=${videoId}`,
       extraArgs: ['--extractor-args', 'youtube:player_client=mweb,android', '--no-warnings'],
     },
   ];
 
-  for (const attempt of attempts) {
-    try {
-      // Execute local yt-dlp with best audio format — direct googlevideo URL
-      const { stdout } = await execFileAsync(
-        ytdlp.cmd,
-        [
-          ...ytdlp.prefixArgs,
-          ...attempt.extraArgs,
-          '-f', 'ba/ba*',
-          '-g',
-          attempt.url,
-        ],
-        { timeout: 15000 }
-      );
+  // If a cloud-resolved URL recently failed in <audio> (e.g. IP-locked 403),
+  // skip cloud on retry so local extraction resolves on the user's IP.
+  const bypassUntil = preferLocalUntil.get(videoId) ?? 0;
+  const skipCloud = bypassUntil > Date.now();
+  if (!skipCloud && bypassUntil > 0) preferLocalUntil.delete(videoId);
 
-      const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      for (const line of lines) {
-        if (isValidStreamUrl(line)) {
-          // True googlevideo expiry when present, else 4h fallback.
-          const expiresAt = parseStreamExpiryMs(line) || Date.now() + 4 * 60 * 60 * 1000;
-          streamCache.set(videoId, { url: line, expiresAt });
-          return { streamUrl: line, fromCache: false, expiresAtMs: expiresAt };
-        }
-      }
+  if (!skipCloud) {
+    const raceController = new AbortController();
+    try {
+      const winner = await Promise.any([
+        resolveFromCloud(videoId, raceController.signal),
+        runYtDlpAttempt(ytdlp, fastAttempt, raceController.signal, 15000),
+      ]);
+      // Immediately terminate the losing extraction child process or request.
+      raceController.abort();
+      cacheStreamUrl(videoId, winner.streamUrl, winner.expiresAt);
+      streamSourceKind.set(videoId, winner.source);
+      if (winner.source === 'local') preferLocalUntil.delete(videoId);
+      return { streamUrl: winner.streamUrl, fromCache: false, expiresAtMs: winner.expiresAt };
+    } catch (raceErr: any) {
+      raceController.abort();
+      console.warn(`Primary stream race failed for ${videoId}:`, raceErr?.errors ?? raceErr?.message ?? raceErr);
+    }
+  } else {
+    try {
+      const primaryLocal = await runYtDlpAttempt(ytdlp, fastAttempt, undefined, 15000);
+      cacheStreamUrl(videoId, primaryLocal.streamUrl, primaryLocal.expiresAt);
+      streamSourceKind.set(videoId, 'local');
+      preferLocalUntil.delete(videoId);
+      return { streamUrl: primaryLocal.streamUrl, fromCache: false, expiresAtMs: primaryLocal.expiresAt };
+    } catch (err: any) {
+      console.warn(`Local fast yt-dlp attempt failed for ${videoId}:`, err?.stderr || err?.message || err);
+    }
+  }
+
+  for (const attempt of fallbackAttempts) {
+    try {
+      const candidate = await runYtDlpAttempt(ytdlp, attempt, undefined, 15000);
+      cacheStreamUrl(videoId, candidate.streamUrl, candidate.expiresAt);
+      streamSourceKind.set(videoId, 'local');
+      preferLocalUntil.delete(videoId);
+      return { streamUrl: candidate.streamUrl, fromCache: false, expiresAtMs: candidate.expiresAt };
     } catch (err: any) {
       const detail = err?.stderr || err?.stdout || err.message || err;
-      console.warn(`Local yt-dlp attempt failed for ${videoId} (${attempt.url}):`, detail);
+      console.warn(`Local yt-dlp fallback failed for ${videoId} (${attempt.url}):`, detail);
     }
   }
-  log(`All yt-dlp attempts failed for ${videoId} via ${ytdlp.cmd}`);
 
-  // 3. Fallback: Query FreQ cloud API
-  try {
-    const res = await fetch(`https://freq-api.vercel.app/api/playback/${videoId}`);
-    const data: any = await res.json();
-    if (data && data.available && typeof data.streamUrl === 'string' && isValidStreamUrl(data.streamUrl)) {
-      return { streamUrl: data.streamUrl, fromCache: false, expiresAtMs: parseStreamExpiryMs(data.streamUrl) };
-    }
-  } catch (cloudErr) {
-    console.error(`Cloud playback fallback failed for ${videoId}:`, cloudErr);
-  }
-
+  log(`All stream resolution attempts failed for ${videoId} via ${ytdlp.cmd}`);
   throw new Error(`Failed to resolve audio stream for track ${videoId}`);
 }
 
@@ -1322,6 +1410,10 @@ async function resolveStreamUrl(videoId: string) {
 ipcMain.handle('invalidate-stream', async (_event, videoId: string) => {
   if (typeof videoId === 'string' && videoId) {
     streamCache.delete(videoId);
+    if (streamSourceKind.get(videoId) === 'cloud') {
+      preferLocalUntil.set(videoId, Date.now() + LOCAL_PREFERENCE_TTL_MS);
+    }
+    streamSourceKind.delete(videoId);
   }
 });
 

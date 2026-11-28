@@ -195,9 +195,9 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         />
 
         <div className="fq-search-tail">
-          <span className="origin-sounds-badge" style={{ height: '22px', pointerEvents: 'none' }}>
-            <Sparkles size={10} color="#a1a1aa" />
-            <span>Powered by ORIGIN SOUNDS</span>
+          <span className="fq-atmos-badge" style={{ height: '22px', pointerEvents: 'none' }} title="Origin Sounds spatial audio">
+            <Sparkles size={10} color="#c4b5fd" />
+            <span>Powered by Origin Sounds</span>
           </span>
           <button type="submit" className="fq-search-go" title="Search">
             <ArrowRight size={16} strokeWidth={2.4} />

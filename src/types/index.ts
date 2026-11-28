@@ -13,14 +13,49 @@ export type AudioMode = 'NORMAL' | 'SNR' | 'NIGHTCORE';
 
 export type RepeatMode = 'OFF' | 'ALL' | 'ONE';
 
+export interface SyncedLyricWord {
+  text: string;
+  startMs: number;
+  endMs: number;
+  backing?: boolean;
+  emphasis?: boolean;
+}
+
 export interface SyncedLyricLine {
   timeMs: number;
+  endMs?: number;
   text: string;
+  words?: SyncedLyricWord[];
 }
 
 export interface TrackLyrics {
   lines: string[];
   synced: SyncedLyricLine[];
+  wordSynced?: boolean;
+  source?: string;
+}
+
+export type LyricsStyleId =
+  | 'glow'
+  | 'ship'
+  | 'fisheye'
+  | 'codestyle'
+  | 'constellation'
+  | 'branches'
+  | 'bubbles'
+  | 'scroll';
+
+export interface LyricsOverlayPayload {
+  track: MediaTrack | null;
+  lyrics: TrackLyrics | null;
+  position: number;
+  sentAt: number;
+  isPlaying: boolean;
+  style: LyricsStyleId;
+  offsetMs: number;
+  clickThrough: boolean;
+  accent: string;
+  accentRgb: string;
 }
 
 export interface UserPlaylist {

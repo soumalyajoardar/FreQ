@@ -13,6 +13,51 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '3.0.0',
+    date: '2026-11-28',
+    title: 'FreQ 3.0 — Instant track startup, kinetic lyrics & desktop integration',
+    items: [
+      'Replaced sequential local extraction with a parallel Cloud + local race so tracks begin playing in under a second while keeping full Web Audio DSP and local fallbacks intact.',
+      'Added debounced single-slot hover prefetch and bounded LRU stream caching across Home, Search, Library, Album, Artist and Stats views.',
+      'Added kinetic word-synced full-screen lyrics in Now Playing via LRCLIB and word-level timing.',
+      'Additional contents: major and minor bugs fixed.',
+    ],
+  },
+  {
+    version: '2.7.1',
+    date: '2026-11-28',
+    title: 'Slimmer mini player',
+    items: [
+      'Redesigned the mini player into a slimmer single-row strip showing only thumbnail, title, artist, album and FreQ.',
+      'Hovering the mini player reveals quick expand and close controls while keeping the resting layout clean.',
+      'Additional contents: major and minor bugs fixed.',
+    ],
+  },
+  {
+    version: '2.7.0',
+    date: '2026-11-28',
+    title: 'Desktop integration, theme polish and cleaner controls',
+    items: [
+      'System tray icon updated to the official FreQ logo with playback menu and current‑track tooltip.',
+      'Minimize‑to‑tray and close‑to‑tray options in Settings.',
+      'Taskbar thumbnail toolbar (prev / pause / next).',
+      'Jump list (right‑click taskbar) with recent tracks, search, party and mini player.',
+      'Configurable global hotkeys in Settings → Desktop integration.',
+      'Compact always‑on‑top mini player — now accessible directly from the bottom player bar.',
+      'Command palette (Ctrl+K) — searchable actions and library tracks.',
+      'Track‑change toast notifications (optional, with artwork).',
+      'Desktop integration section in Settings (toggle + hotkey editor + reset).',
+      'Mini player and bottom player bar Play button now follow the active accent theme.',
+      'Removed Spatial audio from Settings and the Origin toggle from the bottom player bar.',
+      'Fixed "Create party room" and primary buttons turning pink on hover instead of using the active theme.',
+      'Search badge now reads "Powered by Origin Sounds" with a gradient wordmark.',
+      'PNG icons (tray + thumbar glyphs) included in packaged build.',
+      '"Studio" flavour renamed to "Normal" everywhere.',
+      'Discord presence leads with room size and privacy, e.g. 2/5 (Public).',
+      'Additional contents: major and minor bugs fixed.',
+    ],
+  },
+  {
     version: '2.6.2',
     date: '2026-11-23',
     title: 'Reactions behave, Normal is Normal, and party status leads the presence',

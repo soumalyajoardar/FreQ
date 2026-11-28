@@ -11,6 +11,7 @@ import {
   VolumeX,
   Heart,
   Maximize2,
+  PictureInPicture2,
   Pin,
   X,
   Radio,
@@ -72,6 +73,7 @@ interface PlayerBarProps {
   isInParty?: boolean;
   partyMembersCount?: number;
   isPartyGuest?: boolean;
+  onOpenMiniPlayer?: () => void;
 }
 
 export function formatTime(seconds: number): string {
@@ -111,6 +113,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   isInParty = false,
   partyMembersCount = 0,
   isPartyGuest = false,
+  onOpenMiniPlayer,
 }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekVal, setSeekVal] = useState(0);
@@ -258,14 +261,14 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                     height: '17px',
                     borderRadius: '50%',
                     border: '2px solid rgba(8, 8, 12, 0.22)',
-                    borderTopColor: '#08080c',
+                    borderTopColor: 'var(--accent-ink)',
                     animation: 'freqSpin 0.8s linear infinite',
                   }}
                 />
               ) : isPlaying ? (
-                <Pause size={17} fill="#08080c" />
+                <Pause size={17} fill="currentColor" />
               ) : (
-                <Play size={17} fill="#08080c" style={{ marginLeft: '2px' }} />
+                <Play size={17} fill="currentColor" style={{ marginLeft: '2px' }} />
               )}
             </button>
 
@@ -404,6 +407,16 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               />
             </div>
           </div>
+
+          {onOpenMiniPlayer && (
+            <button
+              onClick={onOpenMiniPlayer}
+              title="Mini player"
+              className="fq-ctrl"
+            >
+              <PictureInPicture2 size={15} />
+            </button>
+          )}
 
           <button onClick={onOpenNowPlaying} title="Full screen player" className="fq-ctrl">
             <Maximize2 size={15} />

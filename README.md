@@ -6,6 +6,7 @@
   
   **A futuristic, liquid-glass music streaming experience for Windows.**
 
+  [![Website](https://img.shields.io/badge/Website-freq--desktop.vercel.app-a855f7?style=for-the-badge&logo=vercel)](https://freq-desktop.vercel.app)
   [![Latest Release](https://img.shields.io/github/v/release/soumalyajoardar/FreQ?style=for-the-badge&color=8b5cf6&logo=github)](https://github.com/soumalyajoardar/FreQ/releases/latest)
   [![Downloads](https://img.shields.io/github/downloads/soumalyajoardar/FreQ/total?style=for-the-badge&color=00d2ff)](https://github.com/soumalyajoardar/FreQ/releases)
   [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-0078D6?style=for-the-badge&logo=windows)](https://github.com/soumalyajoardar/FreQ/releases)

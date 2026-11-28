@@ -59,7 +59,7 @@ import { ChangelogEntry, CHANGELOG, getPendingReleaseNotes, markVersionSeen, set
 import { downloadBlob, renderShareCard } from './services/shareCard';
 import { shuffle } from './utils/shuffle';
 
-const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.6.2';
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.7.1';
 
 // Renderer-side mirror of the main-process defaults. The authoritative copy is
 // persisted by the main process in freq_desktop_prefs.json.
@@ -229,6 +229,10 @@ export const App: React.FC = () => {
   const [volume, setVolume] = useState<number>(0.85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [audioMode, setAudioMode] = useState<AudioMode>(() => libraryStore.getAudioMode());
+  // Atmos-style directional staging
+  const [spatialEnabled, setSpatialEnabled] = useState<boolean>(() => libraryStore.getSpatialEnabled());
+  const [spatialAngle, setSpatialAngle] = useState<number>(() => libraryStore.getSpatialAngle());
+  const [spatialIntensity, setSpatialIntensity] = useState<number>(() => libraryStore.getSpatialIntensity());
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('OFF');
   const [queue, setQueue] = useState<MediaTrack[]>([]);
@@ -408,6 +412,11 @@ export const App: React.FC = () => {
       audioEngine.setBassBoost(libraryStore.getBassBoost());
       audioEngine.setStereoWidth(libraryStore.getStereoWidth());
       audioEngine.setHdClarity(libraryStore.getHdClarity());
+      audioEngine.setSpatial(
+        libraryStore.getSpatialEnabled(),
+        libraryStore.getSpatialAngle(),
+        libraryStore.getSpatialIntensity(),
+      );
       audioEngine.setEqGains(libraryStore.getEqGains());
       audioEngine.setBalance(libraryStore.getBalance());
       audioEngine.setAutoLevel(libraryStore.getAutoLevel());
@@ -417,6 +426,19 @@ export const App: React.FC = () => {
       audioEngine.setAudioMode(storedMode);
     });
     return unsub;
+  }, []);
+
+  // The library store loads asynchronously. Mirror persisted spatial settings
+  // into React state once it settles so the Settings UI and the audio engine
+  // never disagree after a restart.
+  useEffect(() => {
+    const syncSpatial = () => {
+      setSpatialEnabled(libraryStore.getSpatialEnabled());
+      setSpatialAngle(libraryStore.getSpatialAngle());
+      setSpatialIntensity(libraryStore.getSpatialIntensity());
+    };
+    syncSpatial();
+    return libraryStore.subscribe(syncSpatial);
   }, []);
 
   // Refs to avoid stale closures in audio callbacks (parity with Android token guards)
@@ -1246,6 +1268,19 @@ export const App: React.FC = () => {
     libraryStore.setAudioMode(next);
   };
 
+  const handleSpatialChange = (patch: { enabled?: boolean; angle?: number; intensity?: number }) => {
+    const next = {
+      enabled: patch.enabled ?? spatialEnabled,
+      angle: patch.angle ?? spatialAngle,
+      intensity: patch.intensity ?? spatialIntensity,
+    };
+    setSpatialEnabled(next.enabled);
+    setSpatialAngle(next.angle);
+    setSpatialIntensity(next.intensity);
+    audioEngine.setSpatial(next.enabled, next.angle, next.intensity);
+    libraryStore.setSpatial(next.enabled, next.angle, next.intensity);
+  };
+
   const handleToggleShuffle = () => {
     setIsShuffle(!isShuffle);
   };
@@ -1945,6 +1980,7 @@ export const App: React.FC = () => {
     { id: 'flavor-normal', label: 'Audio flavour: Normal', hint: audioMode === 'NORMAL' ? 'Current' : 'Switch', keywords: 'studio dry original', icon: <Sparkles size={15} />, run: () => handleAudioModeChange('NORMAL') },
     { id: 'flavor-snr', label: 'Audio flavour: SnR', hint: audioMode === 'SNR' ? 'Current' : 'Switch', keywords: 'slowed reverb', icon: <Sparkles size={15} />, run: () => handleAudioModeChange('SNR') },
     { id: 'flavor-nightcore', label: 'Audio flavour: Nightcore', hint: audioMode === 'NIGHTCORE' ? 'Current' : 'Switch', keywords: 'fast pitch', icon: <Sparkles size={15} />, run: () => handleAudioModeChange('NIGHTCORE') },
+    { id: 'spatial-origin', label: `Spatial audio: ${spatialEnabled ? 'On' : 'Off'}`, hint: spatialEnabled ? 'Bypass spatial stage' : 'Place the mix around you', keywords: 'origin sounds spatial 3d direction immersive', icon: <Sparkles size={15} />, run: () => handleSpatialChange({ enabled: !spatialEnabled }) },
     { id: 'mini-player', label: isMiniMode ? 'Exit mini player' : 'Enter mini player', hint: 'Window', keywords: 'compact float always on top', icon: <Maximize2 size={15} />, run: isMiniMode ? exitMiniPlayer : enterMiniPlayer },
   ];
 
@@ -1954,14 +1990,6 @@ export const App: React.FC = () => {
     return (
       <MiniPlayer
         currentTrack={currentTrack}
-        isPlaying={isPlaying}
-        isLoading={isTrackLoading}
-        position={position}
-        duration={duration}
-        onPlayPause={handlePlayPause}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onSeek={handleSeek}
         onExpand={exitMiniPlayer}
         onClose={() => window.electronAPI?.closeWindow()}
         onOpenNowPlaying={() => {
@@ -2173,7 +2201,6 @@ export const App: React.FC = () => {
               onToggleDesktopPref={key => patchDesktopPrefs({ [key]: !desktopPrefs[key] } as DesktopPrefsPatch)}
               onChangeDesktopHotkey={(action, accelerator) => patchDesktopPrefs({ hotkeys: { [action]: accelerator } })}
               onResetDesktopHotkeys={() => patchDesktopPrefs({ hotkeys: DEFAULT_DESKTOP_PREFS.hotkeys, hotkeysEnabled: true })}
-              onOpenMiniPlayer={enterMiniPlayer}
               hasUpdate={updateVisible}
               updateInfo={updateInfo}
               updateChecking={updateChecking}
@@ -2259,6 +2286,7 @@ export const App: React.FC = () => {
         isInParty={isInParty}
         partyMembersCount={partyMembersCount}
         isPartyGuest={isInParty && !partyService.getIsHost()}
+        onOpenMiniPlayer={enterMiniPlayer}
       />
       )}
 
