@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreQ – Your music. Your machine. No accounts.</title>
+<meta name="description" content="A local-first Windows music player with liquid-glass design, live audio effects, synced lyrics and synced listening parties.">
+<meta name="theme-color" content="#f5f5f8">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f5f8;--a:#a855f7;--on:#fff;--at:color-mix(in srgb,var(--a) 72%,#000);--txt:#14141a;--mut:#62626f;
+--glass:#fff;--edge:rgba(20,20,26,.1);--soft:rgba(20,20,26,.05);
+--sans:"Inter","Segoe UI",system-ui,sans-serif;--serif:"Instrument Serif",Georgia,serif}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font:400 1.02rem/1.65 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+img{max-width:100%;display:block}
+:focus-visible{outline:2px solid var(--a);outline-offset:3px;border-radius:10px}
+.wrap{max-width:1140px;margin:0 auto;padding:0 28px}
+.glass{background:var(--glass);border:1px solid var(--edge);border-radius:22px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 24px 60px -36px rgba(20,20,40,.25)}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:14px;font:600 .98rem var(--sans);text-decoration:none;border:1px solid var(--edge);background:var(--glass);color:var(--txt);cursor:pointer;transition:background .6s,border-color .6s,box-shadow .6s}
+.btn:hover{border-color:rgba(20,20,26,.3);background:var(--soft)}
+.btn.p{background:var(--a);color:var(--on);border-color:rgba(20,20,26,.12);box-shadow:0 12px 34px -16px var(--a)}
+.btn.p:hover{box-shadow:0 16px 44px -12px var(--a);background:var(--a)}
+.btn svg{width:17px;height:17px}
+header{display:flex;justify-content:space-between;align-items:center;padding:22px 0}
+.logo{display:inline-flex;align-items:center;gap:10px;font:600 1.3rem var(--sans);letter-spacing:-.03em;text-decoration:none}
+.logo img{width:34px;height:34px;border-radius:9px}
+nav{display:flex;gap:26px;align-items:center;font-size:.93rem;color:var(--mut)}
+nav a{text-decoration:none}nav a:hover{color:var(--txt)}
+.hero{text-align:center;padding:64px 0 40px;display:flex;flex-direction:column;align-items:center}
+.icon{width:104px;height:104px;border-radius:26px;border:1px solid var(--edge);}
+h1{font:400 clamp(3rem,8.4vw,6.8rem)/.98 var(--serif);letter-spacing:-.025em;margin-top:34px;max-width:13ch}
+h1 em{font-style:italic;color:var(--at);transition:color 1.2s}
+.sub{margin-top:26px;max-width:56ch;color:var(--mut);font-size:1.12rem}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px;justify-content:center}
+.small{margin-top:18px;font-size:.85rem;color:var(--mut)}
+
+section{padding:100px 0 0}
+.tg{font-size:.8rem;color:var(--at);font-weight:600;letter-spacing:.02em;margin-bottom:14px;transition:color 1.2s}
+h2{font:italic 400 clamp(2.2rem,4.6vw,3.6rem)/1.02 var(--serif);letter-spacing:-.02em;max-width:18ch}
+.lead{color:var(--mut);margin-top:14px;max-width:56ch}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:40px}
+.shots figure{padding:10px}
+.shots img{border-radius:14px;width:100%}
+.shots figcaption{font-size:.85rem;color:var(--mut);padding:10px 6px 4px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
+.card{padding:28px}
+.card h3{font:600 1.1rem var(--sans);letter-spacing:-.02em;margin-bottom:8px}
+.card p,.card li{color:var(--mut);font-size:.95rem}
+.card ul{padding-left:18px;display:grid;gap:4px;margin-top:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;margin-top:40px}
+.ticks{list-style:none;padding:0;display:grid;gap:12px;margin-top:22px}
+.ticks li{display:flex;gap:12px;color:var(--mut)}
+.ticks li:before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--at);margin-top:.65em;transition:background 1.2s}
+.ticks b{color:var(--txt);font-weight:600}
+.party{padding:34px;display:grid;gap:24px}
+.code{display:flex;gap:10px}
+.code b{flex:1;max-width:64px;aspect-ratio:1;display:grid;place-items:center;border-radius:16px;background:var(--soft);border:1px solid var(--edge);font:600 1.8rem var(--sans)}
+.lbl{font-size:.78rem;color:var(--mut)}
+.seats{display:flex;gap:12px;flex-wrap:wrap}
+.seat{width:50px;height:50px;border-radius:50%;border:1px dashed rgba(20,20,26,.28);display:grid;place-items:center;font-size:.72rem;color:var(--mut)}
+.seat.on{border:1px solid var(--edge);background:var(--soft);color:var(--txt)}
+.seat.h{background:var(--a);color:var(--on);border-color:rgba(20,20,26,.12);transition:background 1.2s}
+.react{display:flex;gap:8px;font-size:1.3rem}
+.react span{padding:6px 12px;border-radius:99px;background:var(--glass);border:1px solid var(--edge)}
+.flv{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+.flv .card h3 span{display:block;font:400 .8rem var(--sans);color:var(--at);margin-top:2px;transition:color 1.2s}
+.pre{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.sp{margin-top:16px;padding:28px;display:grid;grid-template-columns:1fr 1.2fr;gap:30px;align-items:center}
+.stage{position:relative;height:84px}
+.stage i{position:absolute;top:50%;left:50%;width:66px;height:66px;margin:-33px 0 0 -33px;border-radius:50%;display:grid;place-items:center;font:600 .9rem var(--sans);font-style:normal;transition:transform .5s}
+.stage .l{background:var(--a);color:var(--on);opacity:.9;transform:translateX(calc(var(--g)*-1px))}
+.stage .r{background:#14141a;color:#fff;opacity:.75;mix-blend-mode:multiply;transform:translateX(calc(var(--g)*1px))}
+.rg{display:flex;gap:14px;align-items:center;font-size:.88rem;margin-top:14px}
+.rg input{flex:1;accent-color:var(--a)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{padding:6px 14px;border-radius:99px;border:1px solid var(--edge);background:var(--glass);font-size:.85rem;color:var(--mut)}
+.sw{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.sw button{display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:99px;border:1px solid var(--edge);background:var(--glass);color:var(--txt);font:500 .85rem var(--sans);cursor:pointer}
+.sw button i{width:16px;height:16px;border-radius:50%;background:var(--c);border:1px solid rgba(20,20,26,.2)}
+.sw button[aria-pressed=true]{border-color:var(--txt)}
+.tod{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:30px}
+.tod figure{position:relative;aspect-ratio:3/4;border-radius:18px;overflow:hidden;border:1px solid var(--edge);background:var(--glass)}
+.tod img{width:100%;height:100%;object-fit:cover}
+.tod figcaption{position:absolute;left:12px;bottom:12px;padding:4px 12px;border-radius:99px;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);font-size:.82rem;color:#fff}
+.zeros{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
+.zeros div{padding:28px 24px;font:400 1.9rem/1.1 var(--serif)}
+.zeros i{display:block;font-style:italic;color:var(--at);transition:color 1.2s}
+.dls{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:40px}
+.dl{padding:32px;display:flex;flex-direction:column;gap:10px;min-height:230px}
+.dl h3{font:400 2rem var(--serif)}
+.dl p{color:var(--mut);font-size:.95rem}
+.dl .btn{align-self:flex-start;margin-top:auto}
+.warn{margin-top:22px;color:var(--mut);font-size:.92rem;max-width:70ch}
+.warn b{color:var(--txt)}
+.faq{margin-top:36px;max-width:820px}
+details{border-bottom:1px solid var(--edge);padding:20px 0}
+summary{cursor:pointer;font:600 1.05rem var(--sans);list-style:none;display:flex;justify-content:space-between;gap:20px}
+summary::-webkit-details-marker{display:none}
+summary:after{content:"+";color:var(--mut);font-weight:400}
+details[open] summary:after{content:"–"}
+details p{color:var(--mut);margin-top:10px}
+code{font:.88em ui-monospace,Consolas,monospace;background:var(--soft);padding:2px 7px;border-radius:6px}
+.crew{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px}
+.person{display:flex;align-items:center;gap:22px;padding:24px}
+.person img{width:96px;height:96px;border-radius:50%;object-fit:cover;border:1px solid var(--edge);flex:none}
+.person h3{font:400 1.9rem/1.1 var(--serif)}
+.person p{color:var(--mut);font-size:.92rem;margin-top:2px}
+.person .role{font-size:.78rem;color:var(--at);font-weight:600;margin-top:8px;transition:color 1.2s}
+.person a{text-decoration:none}.person a:hover h3{text-decoration:underline}
+footer{margin-top:110px;border-top:1px solid var(--edge);padding:38px 0 56px;display:grid;grid-template-columns:1.5fr 1fr;gap:28px;color:var(--mut);font-size:.9rem}
+footer img{width:44px;border-radius:11px;margin-bottom:12px}
+footer nav{justify-content:flex-end;flex-wrap:wrap;gap:22px}
+footer a{color:var(--txt)}
+
+@media(max-width:900px){
+ .wrap{padding:0 22px}
+ .grid,.flv,.zeros{grid-template-columns:1fr 1fr}
+ .two,.sp,.pre,.dls,.crew,footer{grid-template-columns:1fr}
+ .two{gap:32px}
+ .tod{grid-template-columns:1fr 1fr}
+ footer nav{justify-content:flex-start}
+ nav a:not(.btn){display:none}
+ section{padding-top:76px}
+ .hero{padding-top:40px}
+}
+@media(max-width:560px){
+ .wrap{padding:0 16px}
+ .crew{grid-template-columns:1fr}
+ .person{padding:18px;gap:16px}.person img{width:76px;height:76px}
+ .grid,.flv,.zeros{grid-template-columns:1fr}
+ .ctas{flex-direction:column;width:100%}.ctas .btn{justify-content:center}
+ .icon{width:88px;height:88px;border-radius:22px}
+ .party,.card,.dl,.sp{padding:22px}
+ .dl .btn{width:100%;justify-content:center}
+ .code b{font-size:1.4rem}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <a class="logo" href="#top" aria-label="FreQ home"><img src="logo.png" alt="" width="34" height="34">FreQ</a>
+ <nav aria-label="Main"><a href="#features">Features</a><a href="#party">Listen Together</a><a href="#sound">Sound</a><a href="#design">Design</a><a href="#faq">FAQ</a>
+ <a class="btn" href="https://github.com/soumalyajoardar/FreQ" rel="noopener" style="padding:9px 18px">Source</a></nav>
+</header>
+
+<main id="top">
+<div class="hero">
+ <img class="icon" src="logo.png" alt="FreQ app icon" width="104" height="104">
+ <h1>Your music. Your machine. <em>No accounts.</em></h1>
+ <p class="sub">FreQ is a Windows music player built for people who care how their music sounds and how their desktop looks. Stream, shape and share it. Everything stays on your PC.</p>
+ <div class="ctas">
+  <a class="btn p" href="https://github.com/soumalyajoardar/FreQ/releases/latest" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>Download for Windows</a>
+  <a class="btn" href="https://github.com/soumalyajoardar/FreQ" rel="noopener">View source</a>
+ </div>
+ <p class="small">Free · Windows 10/11 · ~107 MB</p>
+</div>
+
+<section id="shots" style="padding-top:50px" hidden>
+ <div class="shots">
+  <figure class="glass"><img src="screenshots/now-playing.png" alt="FreQ Now Playing screen" onerror="this.closest('figure').remove()"><figcaption>Now Playing</figcaption></figure>
+  <figure class="glass"><img src="screenshots/party-room.png" alt="FreQ party room" onerror="this.closest('figure').remove()"><figcaption>Party room</figcaption></figure>
+  <figure class="glass"><img src="screenshots/accent-themes.png" alt="FreQ accent themes in Settings" onerror="this.closest('figure').remove()"><figcaption>Accent themes</figcaption></figure>
+ </div>
+</section>
+
+<section id="features">
+ <div class="tg">What’s inside</div>
+ <h2>A desktop player that sounds as good as it looks.</h2>
+ <div class="grid">
+  <div class="card glass"><h3>Library and search</h3><p>Search songs, artists and albums from any screen. Queue, shuffle, repeat, liked songs, and playlists with your own cover art. An Insights view shows your listening stats.</p></div>
+  <div class="card glass"><h3>Audio flavours</h3><p>Studio, SNR and Nightcore, applied live with zero download. Add the HD 3D or QHD 4D preset and a stereo spatializer.</p></div>
+  <div class="card glass"><h3>Synced lyrics</h3><p>Lyrics from LRCLIB. Tap the album art and the card flips in 3D. Lines scroll with the song and you can click one to seek.</p></div>
+  <div class="card glass"><h3>Listen Together</h3><p>Party rooms for up to 5 people, joined with a 4-digit code. Playback stays in sync and the host controls seek and skip.</p></div>
+  <div class="card glass"><h3>Discord presence</h3><p>Artwork, track, artist and progress on your profile. Public parties show a Join button.</p></div>
+  <div class="card glass"><h3>Local-first privacy</h3><p>No account, no cloud sync, no ads, no tracking. Your library lives in <code>freq_library.json</code> on your PC.</p></div>
+ </div>
+ <div class="card glass" style="margin-top:16px"><h3>Keyboard shortcuts</h3><p>Space to play or pause. Ctrl + ← / → for previous and next. ← / → to seek. M or Ctrl + ↑ / ↓ for volume. L to like, S to shuffle, R to repeat, F for fullscreen, Esc to close.</p></div>
+</section>
+
+<section id="party">
+ <div class="tg">Listen Together</div>
+ <h2>One code. Five seats. Everyone in sync.</h2>
+ <div class="two">
+  <div>
+   <ul class="ticks">
+    <li><span><b>4-digit room code.</b> Share it and friends join.</span></li>
+    <li><span><b>Up to 5 people</b> per room.</span></li>
+    <li><span><b>Synchronised playback</b> with host-controlled seek and skip.</span></li>
+    <li><span><b>Live listener presence</b> and emoji reactions.</span></li>
+    <li><span><b>Public rooms</b> expose a Join button through Discord Rich Presence. Private rooms are code-only.</span></li>
+   </ul>
+  </div>
+  <div class="party glass" aria-hidden="true">
+   <div><div class="lbl" style="margin-bottom:8px">Example room code</div><div class="code"><b>4</b><b>8</b><b>2</b><b>9</b></div></div>
+   <div><div class="lbl" style="margin-bottom:8px">Up to 5 seats</div><div class="seats"><div class="seat h">Host</div><div class="seat on">S</div><div class="seat on">A</div><div class="seat">+</div><div class="seat">+</div></div></div>
+   <div class="react"><span>🔥</span><span>❤️</span><span>🎧</span></div>
+  </div>
+ </div>
+</section>
+
+<section id="sound">
+ <div class="tg">Sound</div>
+ <h2>Real-time DSP, one click away.</h2>
+ <p class="lead">Flavours apply live as you listen, with nothing to download.</p>
+ <div class="flv">
+  <div class="card glass"><h3>Studio<span>Normal</span></h3><p>Your track as it is.</p></div>
+  <div class="card glass"><h3>SNR<span>0.8× tempo</span></h3><p>Slower, with procedural convolution reverb.</p></div>
+  <div class="card glass"><h3>Nightcore<span>1.2× tempo</span></h3><p>Faster, with a pitch lift.</p></div>
+ </div>
+ <div class="pre">
+  <div class="card glass"><h3>HD 3D</h3><p>The neutral preset.</p></div>
+  <div class="card glass"><h3>QHD 4D</h3><p>Added clarity plus the stereo spatializer.</p></div>
+ </div>
+ <div class="sp glass">
+  <div><h3 style="font:600 1.1rem var(--sans);margin-bottom:8px">3D stereo spatializer</h3><p style="color:var(--mut);font-size:.95rem">A slider from off up to 2.6× side gain widens the stereo image.</p>
+   <div class="rg"><label for="wd">Width <b id="wv">1.0×</b></label><input id="wd" type="range" min="0" max="2.6" step=".1" value="1"></div></div>
+  <div class="stage" id="stage" style="--g:12" aria-hidden="true"><i class="l">L</i><i class="r">R</i></div>
+ </div>
+ <div class="card glass" style="margin-top:16px"><h3>Audio output picker</h3><p>Choose where sound goes from the top bar. One entry per physical device, and the list follows devices as you plug and unplug them.</p>
+  <div class="chips"><span class="chip">Speakers</span><span class="chip">Headphones</span><span class="chip">Bluetooth</span><span class="chip">Virtual cables</span></div></div>
+</section>
+
+<section id="design">
+ <div class="tg">Design</div>
+ <h2>Liquid glass, tuned to your clock.</h2>
+ <p class="lead">A frameless window with Windows acrylic blur, glass panels with hairline borders, and a custom scrubber. The background changes with the time of day, and you pick the accent. Try one on this page.</p>
+ <div class="sw" id="sw" role="group" aria-label="Accent theme preview"></div>
+ <div class="tod" id="tod">
+  <figure><img src="assets/app_background_morning.jpg" alt="Morning background" onerror="this.remove()"><figcaption>Morning</figcaption></figure>
+  <figure><img src="assets/app_background_afternoon.jpg" alt="Afternoon background" onerror="this.remove()"><figcaption>Afternoon</figcaption></figure>
+  <figure><img src="assets/app_background_evening.jpg" alt="Evening background" onerror="this.remove()"><figcaption>Evening</figcaption></figure>
+  <figure><img src="assets/app_background_night.jpg" alt="Night background" onerror="this.remove()"><figcaption>Night</figcaption></figure>
+ </div>
+</section>
+
+<section id="privacy">
+ <div class="tg">Privacy</div>
+ <h2>Your music, not your data.</h2>
+ <div class="zeros">
+  <div class="glass"><i>Zero</i>ads</div><div class="glass"><i>Zero</i>tracking</div><div class="glass"><i>Zero</i>accounts</div><div class="glass"><i>Zero</i>telemetry</div>
+ </div>
+ <p class="lead">Library, playlists, history and settings are stored locally in <code>freq_library.json</code>. Nothing is uploaded.</p>
+</section>
+
+<section id="download">
+ <div class="tg">Download</div>
+ <h2>Download FreQ</h2>
+ <p class="lead">Free for Windows 10 and 11. The installer adds a desktop shortcut and enables in-app updates. The portable build runs from anywhere.</p>
+ <div class="dls">
+  <div class="dl glass"><h3>Installer</h3><p>About 107 MB. Desktop shortcut and in-app updates.</p><a class="btn p" href="https://github.com/soumalyajoardar/FreQ/releases/latest" rel="noopener">Download installer</a></div>
+  <div class="dl glass"><h3>Portable</h3><p>About 106 MB. No installation needed.</p><a class="btn" href="https://github.com/soumalyajoardar/FreQ/releases/latest" rel="noopener">Download portable</a></div>
+ </div>
+ <p class="warn">The build is not code-signed, so Windows SmartScreen may ask you to confirm the publisher. Click <b>More info → Run anyway</b>.</p>
+</section>
+
+<section id="faq">
+ <div class="tg">FAQ</div>
+ <h2>Questions</h2>
+ <div class="faq">
+  <details><summary>Is FreQ free?</summary><p>Yes. No ads, no subscription, no upsell.</p></details>
+  <details><summary>Do I need an account?</summary><p>No. There is no sign-in and nothing is uploaded.</p></details>
+  <details><summary>Is it Windows only?</summary><p>Yes. FreQ runs on Windows 10 and 11, 64-bit.</p></details>
+  <details><summary>Where is my data stored?</summary><p>In <code>freq_library.json</code> on your PC, next to the app’s local data.</p></details>
+  <details><summary>Can I listen with friends?</summary><p>Yes. Create a party room, share the 4-digit code, and up to five people can join. Public rooms also show a Join button in Discord.</p></details>
+  <details><summary>Why does Windows warn me?</summary><p>The installer is unsigned, so SmartScreen shows an “unknown publisher” prompt. Choose <b>More info → Run anyway</b>.</p></details>
+ </div>
+</section>
+
+<section id="credits">
+ <div class="tg">The people behind FreQ</div>
+ <h2>Made by two people who love music.</h2>
+ <div class="crew">
+  <a class="person glass" href="https://github.com/soumalyajoardar" rel="noopener"><img src="assets/gressey.jpg" alt="Gressey" width="96" height="96"><div><h3>Gressey</h3><p>aka Soumalya JR.</p><div class="role">Creator</div></div></a>
+  <a class="person glass" href="https://github.com/Shrish-lol" rel="noopener"><img src="assets/pandit.jpg" alt="Pandit" width="96" height="96"><div><h3>Pandit</h3><p>aka Shrish PD</p><div class="role">Contributor</div></div></a>
+ </div>
+</section>
+
+<footer>
+ <div><img src="logo.png" alt="FreQ logo" width="44" height="44"><b style="color:var(--txt)">FreQ Desktop</b><br>Made by <a href="https://github.com/soumalyajoardar" rel="noopener">Gressey</a> (aka Soumalya JR.), with contributions from <a href="https://github.com/Shrish-lol" rel="noopener">Pandit</a> (aka Shrish PD). Built with Electron and React.</div>
+ <nav aria-label="Footer"><a href="https://github.com/soumalyajoardar/FreQ" rel="noopener">Repository</a><a href="https://github.com/soumalyajoardar/FreQ/releases" rel="noopener">All releases</a><a href="https://github.com/soumalyajoardar/FreQ/releases/latest" rel="noopener">Latest download</a></nav>
+</footer>
+</div>
+
+<script>
+var $=function(s){return document.querySelector(s)};
+/* hide screenshots section when no image loads */
+function chk(){var s=$("#shots");s.hidden=!s.querySelector("figure")}
+window.addEventListener("load",function(){chk()});
+/* hide time-of-day grid if images are missing */
+window.addEventListener("load",function(){var t=$("#tod");[].forEach.call(t.querySelectorAll("figure"),function(f){if(!f.querySelector("img"))f.remove()});if(!t.children.length)t.remove()});
+/* accent themes: real hex values from the app */
+var T=[["Red","#ef4444"],["Orange","#f97316"],["Yellow","#eab308",1],["Green","#22c55e",1],["Cyan","#06b6d4",1],["Blue","#3b82f6"],["Indigo","#6366f1"],["Violet","#a855f7"],["White","#ffffff",1]],sw=$("#sw");
+T.forEach(function(t){var b=document.createElement("button");b.innerHTML='<i style="--c:'+t[1]+'"></i>'+t[0];b.setAttribute("aria-pressed",t[0]=="Violet");
+ b.onclick=function(){var r=document.documentElement.style;r.setProperty("--a",t[1]);r.setProperty("--on",t[2]?"#0b0b0e":"#fff");if(t[0]=="White")r.setProperty("--at","#14141a");else r.removeProperty("--at");
+  [].forEach.call(sw.children,function(x){x.setAttribute("aria-pressed",x===b)})};sw.appendChild(b)});
+/* spatializer slider */
+$("#wd").oninput=function(){var v=+this.value;$("#wv").textContent=v==0?"Off":v.toFixed(1)+"×";$("#stage").style.setProperty("--g",v*26)};
+</script>
+</body>
+</html>
